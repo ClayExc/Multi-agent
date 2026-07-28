@@ -2,12 +2,13 @@
 
 ## 元数据
 
-- 状态：READY_ON_ACTIVATION_COMMIT
+- 状态：REVIEW（`WP-011-a1` / H1 `CHANGES_REQUESTED`）
 - 责任会话：S5-CORE
 - 评审会话：S1-ARCH、S2-RUNTIME、S4-QUALITY
 - 功能 ID：FP-FLOW-007、FP-FLOW-008、FP-FLOW-009、FP-APR-001
 - 依赖工作包：五角色同摘要 ACCEPT 与 Attestation 已完成；从实现基线激活提交创建独立 Worktree
 - 目标分支：`codex/s5/wp-011-core-bootstrap`
+- S1 评审：[`WP-011-H1-S1-REVIEW.md`](../../review/WP-011-H1-S1-REVIEW.md)
 
 ## 目标
 

@@ -2,7 +2,7 @@
 
 本目录保存跨模块、跨进程和评测使用的版本化契约。当前文件是架构阶段的 v1 候选基线，用来让后续代码和测试从同一 Schema 生成或校验对象。
 
-`contract-set.v1.json` 是 M0 契约集清单。当前候选为 `1.0.0-rc.2`。三条 Review 都对同一 `content_digest` 返回 `ACCEPT` 后，该 `candidate` 可作为实现基线；实现会话必须固定该摘要，变更时重新评审，且不得复制或扩展另一套公共对象。`frozen` 是更晚的发布级状态，还要求 Registry、Dataset、Fixture 与 Traceability 全部冻结；不能让尚未实现的 120/36 数据集反向阻塞代码启动。`status/reviews/frozen_at` 不进入内容摘要，避免写入评审结论后改变被评候选身份。
+`contract-set.v1.json` 是 M0 契约集清单。当前候选为 `1.0.0-rc.2`。S2、S3、S4、S5、S6 五条 Review 都对同一 `content_digest` 返回 `ACCEPT` 后，该 `candidate` 可作为实现基线；实现会话必须固定该摘要，变更时重新评审，且不得复制或扩展另一套公共对象。`frozen` 是更晚的发布级状态，还要求 Registry、Dataset、Fixture 与 Traceability 全部冻结；不能让尚未实现的 120/36 数据集反向阻塞代码启动。`status/reviews/frozen_at` 不进入内容摘要，避免写入评审结论后改变被评候选身份。
 
 ## 当前 Schema
 
@@ -50,7 +50,7 @@
 - `TaskCommand.command_digest` 必须先参与幂等键匹配；同键不同摘要是安全冲突。未命中幂等记录后才做版本检查和同版本槽位保留。
 - `TaskEvent` 按任务维持严格递增 `sequence`，采用至少一次投递；多个事件可共享一个 `task_version`。消费者按 `event_id` 去重，并在序号缺口时重新读取 Task 投影。
 - Task 事件只能由事件类型允许的认证服务端生产者盖章并携带 `producer_principal_ref`；模型 JSON 和 API 写请求都不是权威事件。
-- `SecurityContextRef` 只携带不可伪造引用和哈希，不携带 Bearer Token、Cookie、上游凭据或完整声明。
+- `SecurityContextRef` 只携带不可伪造引用和哈希，不携带 Bearer Token、Cookie、上游凭据或完整声明；`data_classification_ceiling` 必填，任何 Context 层都必须同时受 Context Policy 与 SecurityContext 上限约束。
 - `PolicyDecision` 由确定性 PDP 产生；obligation 强类型且无法执行时 fail-closed。模型只能提出动作，不能构造授权结果。
 - M0 只支持单审批；多方审批不得用多个 `Approval v1` 私自拼装。
 - Gateway 必须对 SecurityContext、PlannedAction、AgentPrincipal、PolicyDecision、Approval、摘要和策略版本执行跨对象语义绑定；SecurityContext 的引用与哈希都必须绑定 PolicyDecision，审批人必须与请求者不同。Schema 合法不能替代相等性、身份差异和摘要校验。

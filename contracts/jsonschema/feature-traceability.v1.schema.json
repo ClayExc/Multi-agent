@@ -215,7 +215,9 @@
         "S1-ARCH",
         "S2-RUNTIME",
         "S3-PLATFORM",
-        "S4-QUALITY"
+        "S4-QUALITY",
+        "S5-CORE",
+        "S6-DATA"
       ]
     },
     "validEvidenceRef": {

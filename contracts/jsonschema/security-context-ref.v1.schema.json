@@ -14,6 +14,7 @@
     "subject_type",
     "purpose",
     "authentication",
+    "data_classification_ceiling",
     "issued_at",
     "expires_at"
   ],
@@ -114,4 +115,3 @@
     }
   }
 }
-

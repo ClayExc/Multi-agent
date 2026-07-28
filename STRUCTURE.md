@@ -17,6 +17,7 @@ flowpilot/
 ├── README.md
 ├── STRUCTURE.md
 ├── AGENTS.md                         # 实现阶段的仓库协作与验证约定
+├── WORKFLOW.md                       # 六会话任务控制面、调度与恢复协议
 ├── Makefile                          # 稳定开发命令入口
 ├── pyproject.toml                    # Python workspace、工具和公共约束
 ├── uv.lock                           # 锁定 Python 依赖
@@ -80,17 +81,27 @@ flowpilot/
 │   └── tests/
 │
 ├── tests/                            # 跨模块测试
-│   ├── runtime/                      # S2：图、Runtime、Context、恢复
+│   ├── runtime/                      # S2：图、Runtime、Context、Worker 恢复
 │   │   ├── unit/
 │   │   ├── contract/
 │   │   ├── integration/
 │   │   ├── e2e/
 │   │   └── recovery/
-│   ├── platform/                     # S3：Gateway、策略、数据、安全
+│   ├── platform/                     # S3：Gateway、工具、策略、安全
 │   │   ├── contract/
 │   │   ├── integration/
 │   │   ├── security/
-│   │   ├── tenant-isolation/
+│   │   └── recovery/
+│   ├── core/                         # S5：Domain、Application、API
+│   │   ├── unit/
+│   │   ├── contract/
+│   │   ├── integration/
+│   │   └── application/
+│   ├── data/                         # S6：Persistence、RLS、Migration、恢复
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   ├── security/
+│   │   ├── e2e/
 │   │   └── recovery/
 │   ├── experience/                   # S4：Web、组件、可访问性
 │   └── acceptance/                   # S4：跨组件 E2E、评测与证据
@@ -238,11 +249,14 @@ flowchart TD
 
 当前仓库已有架构文档和 M0 候选公共契约，但尚无功能实现。迁移顺序如下：
 
-1. 由 S2、S3、S4 针对 `flowpilot-m0-contracts-v1-rc2` 的精确哈希重新审查，三方 `ACCEPT` 后由 S1 冻结 WP-000。
-2. 用户建立 Git 基线和三个独立 Worktree。
-3. 先创建 `domain`、`application`、`graph`、`tool-contracts` 与三项应用入口。
-4. 完成 VPN 垂直切片后再创建通用检索、控制台和第二 Provider。
-5. 完成审批恢复闭环后再引入新员工复合请求。
-6. 核心闭环通过后再创建 `multimodal` 和 `routing-lora` 目录。
+1. 由 S2、S3、S4、S5、S6 针对 `flowpilot-m0-contracts-v1-rc2` 的精确摘要重新审查；五个实现角色全部 `ACCEPT` 后，S1 激活实现基线。发布级冻结仍需候选质量资产完成。
+2. 用户保留主仓作为 S1 集成目录，并为五个实现角色建立独立 Worktree。
+3. 第一波先启动 S5/WP-011 建立 Python Workspace 与 Application/Repository Port；S4/WP-030 可并行建设不依赖运行代码的离线质量骨架。
+4. S1 接受 `WP-011-H1` Workspace/Port 交接后，并行启动 S2/WP-010 与 S6/WP-021；连同仍在运行的 S4，写会话不超过三个。
+5. S6 交付执行账本 Port、S5 Workspace 可用后启动 S3/WP-020；S4 在前置切片可运行后接入跨组件黑盒验收。
+6. 按 WP-011 → WP-010 → WP-021 → WP-020 → WP-030 的依赖顺序集成；依赖交付使用版本化 Port、契约和交接证据，不共享可写目录。
+7. 完成 VPN 垂直切片后再创建通用检索、控制台和第二 Provider。
+8. 完成审批恢复闭环后再引入新员工复合请求。
+9. 核心闭环通过后再创建 `multimodal` 和 `routing-lora` 目录。
 
 禁止一次性生成整棵空目录树并将其视为“企业级改造完成”。

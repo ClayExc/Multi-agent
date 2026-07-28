@@ -11,7 +11,7 @@
 | 产品范围、目标架构、信任边界 | 已设计 | 可使用“设计” |
 | README、目标目录与模块依赖 | 已基线化 | 可使用“规划” |
 | 功能与安全验收标准 | 已定义 | 可使用“定义验收” |
-| M0 公共 JSON Schema | rc1 已拒绝，rc2 待三方复审 | 可使用“rc2 候选契约”，不可使用“已冻结” |
+| M0 公共 JSON Schema | rc1 已拒绝；rc2 五角色同摘要 ACCEPT，本提交激活实现基线 | 可使用“rc2 实现基线已激活”，不可使用“已冻结” |
 | LangGraph、Agents SDK、MCP Gateway | 未实现 | 不可使用“已实现” |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |
 | 800 条路由样本及 LoRA | 未构建 | 不可报告 Macro-F1 |
@@ -99,10 +99,11 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | [Agent Runtime Port](./docs/architecture/AGENT_RUNTIME.md) | OpenAI/Claude Adapter 的统一请求、结果、错误和 Conformance 边界 |
 | [Context Engineering](./docs/architecture/CONTEXT_ENGINEERING.md) | 分层上下文、记忆、裁剪、Handoff 过滤与 Token 评测 |
 | [版本化契约](./contracts/README.md) | Task/Command/Event、动作、审批、策略、工具、Context、审计和评测 JSON Schema |
-| [四 Codex 会话协作](./docs/team/CODEX_SESSIONS.md) | 四个会话的角色、目录所有权、工程约定、Worktree 与交接 |
-| [四会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
-| [rc2 三会话复审指令](./docs/team/RC2_REVIEW_INSTRUCTIONS.md) | 绑定同一 content_digest 的 S2/S3/S4 可复制只读指令 |
-| [M0 工作包](./docs/team/work-packages/README.md) | WP-000/010/020/030 的责任、依赖、测试与集成顺序 |
+| [六 Codex 会话协作](./docs/team/CODEX_SESSIONS.md) | 六个会话的角色、目录所有权、工程约定、Worktree 与交接 |
+| [六会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
+| [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
+| [rc2 五会话复审指令](./docs/team/RC2_REVIEW_INSTRUCTIONS.md) | 绑定同一 content_digest 的 S2/S3/S4/S5/S6 可复制只读指令 |
+| [M0 工作包](./docs/team/work-packages/README.md) | WP-000/010/011/020/021/030 的责任、依赖、测试与集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |

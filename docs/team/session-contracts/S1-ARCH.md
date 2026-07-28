@@ -6,7 +6,7 @@
 SESSION_ROLE=S1-ARCH
 WORK_PACKAGE=WP-000
 FEATURE_IDS=FP-FLOW-001,FP-FLOW-009,FP-DATA-001,FP-DATA-003
-WRITE_SCOPE=README.md,STRUCTURE.md,AGENTS.md,contracts/**,docs/architecture/**,docs/acceptance/**,docs/decisions/**,docs/roadmap/**,docs/review/**,docs/team/**
+WRITE_SCOPE=README.md,STRUCTURE.md,WORKFLOW.md,AGENTS.md,contracts/**,docs/architecture/**,docs/acceptance/**,docs/decisions/**,docs/roadmap/**,docs/review/**,docs/team/**
 ```
 
 - 契约状态：ACTIVE
@@ -30,7 +30,7 @@ S1 不可以：
 
 - 替代 S2/S3 完成主要功能实现，再由自己单方面验收。
 - 在没有代码、测试与证据包时提升功能状态。
-- 修改 S2/S3/S4 独占目录以绕过交接。
+- 修改 S2/S3/S4/S5/S6 独占目录以绕过交接。
 - 用目标数字代替评测结果。
 
 ## 必需输入
@@ -38,7 +38,7 @@ S1 不可以：
 - 用户目标和当前状态。
 - `README.md`、`STRUCTURE.md`、验收定义与追踪矩阵。
 - 对应 ADR、公共 Schema 和当前工作包。
-- S2/S3/S4 的 RFC、交接与测试证据。
+- S2/S3/S4/S5/S6 的 RFC、交接与测试证据。
 
 ## 必需输出
 
@@ -69,14 +69,13 @@ S1 不可以：
 ## 当前交付
 
 - 发布 M0 候选契约集。
-- 取得 S2、S3、S4 可实现性结论。
-- 冻结契约后开放 WP-010、WP-020、WP-030。
-- Git 基线由用户后续建立，本工作包不执行 `git init`。
+- 取得 S2、S3、S4、S5、S6 可实现性结论。
+- 实现基线激活后开放 WP-010、WP-011、WP-020、WP-021、WP-030。
+- Git 仓库与远端已建立；五角色同摘要 ACCEPT 前不创建实现激活提交或写 Worktree。
 
 ## 完成定义
 
 - WP-000 的候选契约通过语法与 Draft 2020-12 校验。
-- 三个消费会话完成审查，阻塞 RFC 均已裁决。
+- 五个实现会话完成同摘要审查，阻塞 RFC 均已裁决。
 - 契约集标记为 `frozen`，工作包标记为 `DONE`。
 - 不把任何尚未实现的功能标记为 `IMPLEMENTED` 或 `VERIFIED`。
-

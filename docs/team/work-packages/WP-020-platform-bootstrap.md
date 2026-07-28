@@ -1,91 +1,83 @@
-# WP-020：Platform、安全与数据基线
+# WP-020：MCP Gateway、安全与策略基线
 
 ## 元数据
 
 - 状态：BLOCKED
 - 责任会话：S3-PLATFORM
-- 评审会话：S1-ARCH、S4-QUALITY
-- 功能 ID：FP-MCP-001、FP-MCP-002、FP-SEC-001、FP-SEC-002、FP-SEC-004、FP-DATA-001、FP-DATA-003、FP-OPS-001
-- 依赖工作包：S2/S3/S4 对同一 WP-000 `content_digest` 全部 ACCEPT、Git 基线提交
-- 目标分支：`codex/s3-platform/wp-020-platform-bootstrap`
+- 评审会话：S1-ARCH、S4-QUALITY、S6-DATA
+- 功能 ID：FP-MCP-001、FP-MCP-002、FP-SEC-001、FP-SEC-004
+- 依赖工作包：S2/S3/S4/S5/S6 对同一 WP-000 `content_digest` 全部 ACCEPT、实现基线激活提交；公共 Python Workspace 依赖 WP-011
+- 目标分支：`codex/s3/wp-020-platform-bootstrap`
 
 ## 目标
 
-- 建立 MCP Gateway、Policy、Security、Persistence 与模拟 MCP 的最小安全骨架。
-- 建立 PostgreSQL 初始迁移、RLS 测试框架、Inbox/Outbox 数据模型边界。
-- 建立 PostgreSQL、Redis、Keycloak、OPA、OpenTelemetry 的开发 Compose 健康基线。
+- 建立 MCP Gateway、Tool Registry、Policy、Security 与模拟 MCP 的最小安全骨架。
+- 建立用户主体与 Agent 工作负载主体的确定性授权、审批和工具执行边界。
+- 建立写动作幂等、回读校验、`UNKNOWN` 对账与凭据代理 Port。
 
 ## 非目标
 
-- 实现全部写工具、审批闭环或生产级身份接入。
-- 修改 LangGraph 状态和业务终态。
-- 把 Redis 作为任务、审批或事件事实源。
-- 在契约未冻结时自行扩展公共对象。
+- PostgreSQL Repository、Migration、RLS、Inbox/Outbox 或 Compose。
+- 修改 LangGraph、领域状态和业务终态。
+- 实现全部写工具、生产身份接入或真实企业凭据。
+- 在公共契约外扩展跨进程对象。
 
 ## 允许修改路径
 
 - `apps/mcp-gateway/**`
 - `packages/tool-contracts/**`
 - `packages/policy/**`
-- `packages/persistence/**`
 - `packages/security/**`
 - `mcp-servers/**`
-- `migrations/**`
-- `infra/**`
 - `tests/platform/**`
-- `.env.example`
-- `.gitignore`
-- 根级 Compose、Docker 与 CI 配置
 
-本工作包是 M0 中环境变量、Compose 和部署依赖的唯一写入者；不得修改 `pyproject.toml`、`uv.lock` 或 `Makefile`。
+不得修改 Persistence、Migration、Infra、公共 Python Workspace 或根级 Compose。
 
 ## 输入契约
 
 | 契约 | 版本 | 提供者 |
 |---|---|---|
-| `contract-set.v1.json` | `1.0.0-rc.2` reviewed implementation baseline | S1-ARCH |
-| SecurityContextRef / PolicyDecision | v1 | S1-ARCH |
-| ToolRequest / ToolResult / PlannedAction / Approval | v1 | S1-ARCH |
-| Task Command/Event 与 ADR-0003 | v1 | S1-ARCH |
-| AuditEvent / SecurityEvent 与 ADR-0002 | v1 | S1-ARCH |
-| Python workspace | WP-010 交付或兼容约束 | S2-RUNTIME |
+| `contract-set.v1.json` | reviewed implementation baseline | S1-ARCH |
+| SecurityContextRef、PolicyDecision、PlannedAction、Approval、ToolRequest/Result | v1 | S1-ARCH |
+| AuditEvent、SecurityEvent 与 ADR-0002/0004 | v1 | S1-ARCH |
+| Python Workspace | M0 | S5-CORE / WP-011 |
+| 执行账本、幂等、审计 Persistence Port | M0 internal | S6-DATA / WP-021 |
 
 ## 输出契约
 
 | 契约 | 版本 | 消费者 |
 |---|---|---|
-| MCP Gateway Inbound Port | M0 skeleton | S2 |
-| Policy/Persistence/Security Adapter Port | M0 internal | S2 |
-| PostgreSQL Migration 与 RLS Fixture | M0 | S4 |
-| 开发 Compose 与健康检查 | M0 | S4、S1 |
-| 模拟 MCP Tool Schema | M0 candidate，变更走 RFC | S2、S4 |
+| MCP Gateway Inbound Port | M0 | S2 |
+| Policy/Security Adapter Port | M0 internal | S2、S5 |
+| 执行账本与回读持久化需求 | M0 internal | S6 |
+| Audit/Security Event 与故障 Fixture | v1/M0 | S4、S6 |
+| 模拟 MCP Tool Schema | M0 candidate | S2、S4 |
 
 ## 架构与安全约束
 
-- Agent、API 和 Worker 不得绕过 MCP Gateway 访问业务工具。
-- 授权默认拒绝；PDP 不可用时写操作 fail-closed。
-- `tenant_id` 来自受信安全上下文，不能由模型或工具参数覆盖。
-- Inbox、Outbox 和任务投影使用 PostgreSQL；Redis 仅用于可重建协调。
-- 表默认启用 RLS，测试至少使用两个租户。
-- 审计不可采样；日志、Trace、事件不含明文 Token、密钥或真实 PII。
+- Agent、API 和 Worker 不得绕过 MCP Gateway。
+- 授权默认拒绝；PDP 或必须持久化的安全依赖不可用时写操作 fail-closed。
+- 同时验证用户与 Agent 身份；Tenant 只能来自受信安全上下文。
+- 审批绑定动作摘要、Tool Schema Hash、策略版本、主体、租户和过期时间。
+- 写超时进入 `UNKNOWN`，先回读/对账，不能盲重试。
+- 长期凭据不进入 Agent、日志、Trace 或持久化对象。
 
 ## 实施内容
 
-1. 建立 Gateway 最小入口、Tool Registry 与拒绝默认值。
-2. 建立 SecurityContextRef 解析端口和确定性 PolicyDecision 端口。
-3. 建立 PostgreSQL 迁移、RLS、Command Inbox、Task Projection 和 Outbox 骨架。
-4. 建立 Redis 可丢失协调适配器边界。
-5. 建立只读模拟 MCP 的健康检查和固定 Schema。
-6. 建立开发 Compose 与服务健康检查。
-7. 添加跨租户、策略不可用、重复 Inbox 和 Outbox 重投测试框架。
+1. 建立 Gateway 入口、Tool Registry、Schema 白名单与拒绝默认值。
+2. 建立 SecurityContextRef 解析、PDP/PEP 和强类型 Obligation。
+3. 建立单审批、动作摘要、策略版本与过期绑定。
+4. 建立执行账本/幂等/回读 Persistence Port，并由 S6 提供实现。
+5. 建立只读模拟 MCP 与固定 Schema。
+6. 添加跨租户、策略不可用、审批重放、参数篡改和 `UNKNOWN` 测试。
 
 ## 必须测试
 
-- 正常路径：两个租户各自写入/读取本租户测试数据；Compose 健康。
-- 边界条件：过期安全上下文、空 Outbox 批次和重复消费。
-- 失败路径：OPA、Redis、MCP 不可用产生稳定错误或降级结果。
-- 安全负向：跨租户访问为 0；错 audience、角色伪造和绕 Gateway 被拒绝。
-- 恢复/幂等：重复 Command 只入 Inbox 一次；Outbox 可重复投递且事件 ID 不变。
+- 正常：授权、Gateway 调用、回读验证和安全事件。
+- 边界：过期上下文、策略 Obligation、Schema Hash 变化。
+- 失败：PDP/MCP/持久化 Port 不可用产生稳定错误。
+- 安全：跨租户、错 Audience、角色伪造、审批重放、参数篡改和工具旁路被拒绝。
+- 恢复：重复 ToolRequest、写超时 `UNKNOWN`、权威未执行证明和回读确认。
 
 ## 验收命令
 
@@ -93,21 +85,13 @@
 make test
 make test-contract
 make test-security
-# Compose 命令由本工作包在交接中给出
 ```
 
-若 WP-010 尚未提供相应命令，必须记录为依赖阻塞，不能用手工检查冒充通过。
-
-## 证据
-
-- Migration/RLS 测试报告
-- Compose 健康检查报告
-- 契约与安全测试结果
-- 按 `docs/team/HANDOFF_TEMPLATE.md` 创建的交接
+若 WP-011/WP-021 尚未提供命令或 Adapter，必须记录真实依赖状态。
 
 ## 完成定义
 
-- 空卷 Compose 可启动并报告全部必需服务健康。
-- 跨租户、默认拒绝、Inbox 去重和 Outbox 重投自动化测试通过。
-- 没有工具旁路、明文凭据或比公共 Schema 更宽的对象。
-- S1/S4 完成跨角色审查。
+- Gateway、策略、审批、安全、回读和恢复测试通过。
+- 跨租户成功数、重复逻辑写入和 Secret 泄漏均为 0。
+- 没有工具旁路、明文长期凭据或私有 Persistence 实现。
+- S1/S4/S6 完成跨角色审查。

@@ -2,9 +2,9 @@
 
 ## 元数据
 
-- 状态：REVIEW
+- 状态：IN_PROGRESS（实现基线已评审，发布冻结待质量资产）
 - 责任会话：S1-ARCH
-- 评审会话：S2-RUNTIME、S3-PLATFORM、S4-QUALITY
+- 评审会话：S2-RUNTIME、S3-PLATFORM、S4-QUALITY、S5-CORE、S6-DATA
 - 功能 ID：FP-FLOW-001、FP-FLOW-009、FP-AGT-001、FP-AGT-002、FP-CTX-001、FP-MCP-002、FP-MCP-005、FP-APR-001、FP-SEC-001、FP-SEC-004、FP-DATA-001、FP-DATA-003、FP-OBS-001、FP-OBS-002、FP-OBS-003、FP-EVAL-001、FP-EVAL-002、FP-EVAL-003
 - 依赖工作包：无
 - 目标分支：`codex/s1-arch/wp-000-m0-contract-freeze`
@@ -13,7 +13,7 @@
 
 - 为 M0 冻结 Task、Command、Event、Tool、Approval、Audit 及其必要依赖的唯一公共 JSON Schema。
 - 明确命令并发、事件投递、授权决策和安全上下文引用语义。
-- 为三个实现会话提供可审查、可生成测试的输入契约。
+- 为五个实现会话提供可审查、可生成测试的输入契约。
 
 ## 非目标
 
@@ -44,14 +44,14 @@
 
 | 契约 | 版本 | 消费者 |
 |---|---|---|
-| `contracts/contract-set.v1.json` | `1.0.0-rc.2` candidate → frozen | S2、S3、S4 |
-| Task / Command / Event JSON Schema | v1 | S2、S3、S4 |
-| Tool / Approval / Policy JSON Schema | v1 | S2、S3、S4 |
+| `contracts/contract-set.v1.json` | `1.0.0-rc.2` candidate → implementation baseline → frozen | S2、S3、S4、S5、S6 |
+| Task / Command / Event JSON Schema | v1 | S2、S4、S5、S6 |
+| Tool / Approval / Policy JSON Schema | v1 | S3、S4、S5、S6 |
 | Agent Runtime / Context JSON Schema | v1 | S2、S4 |
 | Audit / Security Event JSON Schema | v1 | S3、S4 |
 | Evaluation / Dataset / Fixture / Registry / Traceability JSON Schema | v1 | S4 |
-| ContractSet / Review Attestation JSON Schema | v1 | S2、S3、S4 |
-| ADR-0001～0004 | Accepted | S2、S3、S4 |
+| ContractSet / Review Attestation JSON Schema | v1 | S2、S3、S4、S5、S6 |
+| ADR-0001～0004 | Accepted | S2、S3、S4、S5、S6 |
 
 ## 架构与安全约束
 
@@ -68,9 +68,9 @@
 2. 发布带文件哈希的候选契约集。
 3. 记录 Task/Command/Event 一致性 ADR。
 4. 更新功能追踪矩阵。
-5. 创建 S2、S3、S4 M0 工作包。
-6. 收集三会话可实现性结论并处理 RFC。
-7. rc1 被三方拒绝后发布 rc2，并要求三方针对稳定 `content_digest` 重新复审。
+5. 创建 S2、S3、S4、S5、S6 M0 工作包。
+6. 收集五会话可实现性结论并处理 RFC。
+7. rc1 被原三方拒绝后发布 rc2，并要求五个实现角色针对稳定 `content_digest` 重新复审。
 8. 固定 120/36 配额、Dataset/Fixture 哈希、Feature 结构化证据和 Audit 链前像。
 
 ## 必须测试
@@ -101,13 +101,14 @@ python contracts/conformance/validate.py
 - 架构决定：`docs/decisions/ADR-0001-orchestration-boundary.md`、`ADR-0002-safe-side-effects.md`、`ADR-0003-task-command-event-protocol.md`、`ADR-0004-reproducible-acceptance-and-freeze.md`
 - rc1 裁决：`docs/review/WP-000-RC1-DISPOSITION.md`
 - rc2 底层用例：`contracts/conformance/rc2-cases.json`
-- rc2 评审记录：待 S2、S3、S4 对精确候选重新返回结论
+- rc2 实现基线证明：`docs/review/WP-000-RC2-IMPLEMENTATION-BASELINE.md`
+- rc2 Review Evidence：`docs/review/attestations/RC2-0A82-*.md`
 
 ## 完成定义
 
-- 中间里程碑：S2/S3/S4 对同一 `content_digest` 全部 ACCEPT 后，rc2 candidate 成为实现基线，WP-010/020/030 可在 Git Worktree 中启动。
+- 中间里程碑：S2/S3/S4/S5/S6 对同一 `content_digest` 全部 ACCEPT 后，rc2 candidate 成为实现基线，WP-010/011/020/021/030 可在独立 Git Worktree 中启动。
 - 契约清单中的哈希与文件一致。
 - JSON 语法和 Draft 2020-12 编译通过。
-- S2、S3、S4 均确认可实现，或所有阻塞 RFC 已裁决。
+- S2、S3、S4、S5、S6 均确认可实现，或所有阻塞 RFC 已裁决。
 - 契约集状态更新为 `frozen`，本工作包状态更新为 `DONE`。
 - 功能状态仍为 `DESIGNED`，直到实现与自动化证据齐备。

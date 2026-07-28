@@ -19,7 +19,7 @@ try:
 except ImportError as exc:  # pragma: no cover - dependency bootstrap is external
     raise SystemExit(
         "jsonschema>=4.23 is required; the repository dependency is assigned "
-        "to S2-RUNTIME before make test-contract is enabled"
+        "to S5-CORE before make test-contract is enabled"
     ) from exc
 
 
@@ -194,8 +194,11 @@ def main() -> int:
         registry=registry,
         format_checker=FormatChecker(),
     ).validate(manifest)
-    if manifest["content_digest"] != contract_content_digest(manifest):
-        raise AssertionError("contract-set content_digest mismatch")
+    expected_content_digest = contract_content_digest(manifest)
+    if manifest["content_digest"] != expected_content_digest:
+        raise AssertionError(
+            f"contract-set content_digest mismatch: expected {expected_content_digest}"
+        )
     require_portable_hash_source(CONTRACTS / "contract-set.v1.json")
 
     manifest_names = [entry["path"].split("/")[-1] for entry in manifest["schemas"]]
@@ -229,7 +232,9 @@ def main() -> int:
     if manifest["status"] == "frozen" and any(
         review["decision"] != "ACCEPT" for review in manifest["reviews"]
     ):
-        raise AssertionError("frozen contract-set requires three ACCEPT reviews")
+        raise AssertionError(
+            "frozen contract-set requires all required reviewers to ACCEPT"
+        )
 
     format_checker = FormatChecker()
     suite = load_json(CONTRACTS / "conformance" / "rc2-cases.json")
@@ -405,7 +410,7 @@ def main() -> int:
         context_ceiling = instance["policy"]["data_classification_ceiling"]
         context_ceiling_rank = classification_rank[context_ceiling]
         security_ceiling = (
-            security_context.get("data_classification_ceiling")
+            security_context["data_classification_ceiling"]
             if security_context is not None
             else None
         )
@@ -874,13 +879,106 @@ def main() -> int:
     approval_fixture = cases_by_id["approval.sod.valid"]["instance"]
     tool_request_fixture = cases_by_id["tool_request.bound_identities.valid"]["instance"]
 
+    def policy_decision_semantic_errors(instance: dict[str, Any]) -> list[str]:
+        errors: list[str] = []
+        context = tool_request_fixture["security_context"]
+        action = tool_request_fixture["planned_action"]
+        approval = approval_fixture
+        if len({instance["tenant_id"], action["tenant_id"], approval["tenant_id"]}) != 1:
+            errors.append("policy tenant binding mismatch")
+        if len({instance["task_id"], action["task_id"], approval["task_id"]}) != 1:
+            errors.append("policy task binding mismatch")
+        if instance["subject_ref"] != context["context_ref"]:
+            errors.append("policy subject reference mismatch")
+        if instance["subject_context_hash"] != context["context_hash"]:
+            errors.append("policy subject context hash mismatch")
+        if len(
+            {
+                instance["action"]["action_digest"],
+                approval["action_digest"],
+                canonical_digest(action),
+            }
+        ) != 1:
+            errors.append("policy action digest mismatch")
+        if (
+            instance["action"]["tool"],
+            instance["action"]["operation"],
+        ) != (
+            action["tool"]["name"],
+            action["tool"]["operation"],
+        ):
+            errors.append("policy tool operation mismatch")
+        if approval["policy_decision_id"] != instance["decision_id"]:
+            errors.append("approval policy decision id mismatch")
+        if len(
+            {
+                instance["policy_version"],
+                action["policy_version"],
+                approval["policy_version"],
+            }
+        ) != 1:
+            errors.append("policy version binding mismatch")
+        if len(
+            {
+                instance["expires_at"],
+                action["expires_at"],
+                approval["expires_at"],
+            }
+        ) != 1:
+            errors.append("policy expiry binding mismatch")
+        return errors
+
     def approval_semantic_errors(instance: dict[str, Any]) -> list[str]:
         errors: list[str] = []
+        action = tool_request_fixture["planned_action"]
+        policy = policy_fixture
         if (
             instance["status"] == "approved"
             and instance["approver_id"] == instance["requester_id"]
         ):
             errors.append("approver must differ from requester")
+        if len(
+            {
+                instance["tenant_id"],
+                action["tenant_id"],
+                policy["tenant_id"],
+            }
+        ) != 1:
+            errors.append("approval tenant binding mismatch")
+        if instance["requester_id"] != action["requester_id"]:
+            errors.append("approval requester binding mismatch")
+        if len({instance["task_id"], action["task_id"], policy["task_id"]}) != 1:
+            errors.append("approval task binding mismatch")
+        if instance["action_id"] != action["action_id"]:
+            errors.append("approval action id mismatch")
+        if len(
+            {
+                instance["action_digest"],
+                policy["action"]["action_digest"],
+                canonical_digest(action),
+            }
+        ) != 1:
+            errors.append("approval action digest mismatch")
+        if instance["tool_schema_hash"] != action["tool"]["schema_hash"]:
+            errors.append("approval tool schema hash mismatch")
+        if instance["policy_decision_id"] != policy["decision_id"]:
+            errors.append("approval policy decision id mismatch")
+        if len(
+            {
+                instance["policy_version"],
+                action["policy_version"],
+                policy["policy_version"],
+            }
+        ) != 1:
+            errors.append("approval policy version mismatch")
+        if len(
+            {
+                instance["expires_at"],
+                action["expires_at"],
+                policy["expires_at"],
+            }
+        ) != 1:
+            errors.append("approval expiry binding mismatch")
         return errors
 
     def tool_request_semantic_errors(instance: dict[str, Any]) -> list[str]:
@@ -927,8 +1025,24 @@ def main() -> int:
             policy["action"]["operation"],
         ):
             errors.append("tool operation policy mismatch")
-        if action["policy_version"] != policy["policy_version"]:
+        if len(
+            {
+                action["policy_version"],
+                policy["policy_version"],
+                approval["policy_version"],
+            }
+        ) != 1:
             errors.append("action policy version mismatch")
+        if action["tool"]["schema_hash"] != approval["tool_schema_hash"]:
+            errors.append("approval tool schema hash mismatch")
+        if len(
+            {
+                action["expires_at"],
+                policy["expires_at"],
+                approval["expires_at"],
+            }
+        ) != 1:
+            errors.append("action approval policy expiry mismatch")
         if policy["decision"] == "require_approval":
             if (
                 instance.get("approval_id") != approval["approval_id"]
@@ -1049,6 +1163,8 @@ def main() -> int:
             return agent_request_semantic_errors(instance)
         if schema_name == "task-command.v1.schema.json":
             return task_command_semantic_errors(instance)
+        if schema_name == "policy-decision.v1.schema.json":
+            return policy_decision_semantic_errors(instance)
         if schema_name == "approval.v1.schema.json":
             return approval_semantic_errors(instance)
         if schema_name == "tool-request.v1.schema.json":
@@ -1069,6 +1185,7 @@ def main() -> int:
         "context-envelope.v1.schema.json",
         "agent-run-request.v1.schema.json",
         "task-command.v1.schema.json",
+        "policy-decision.v1.schema.json",
         "approval.v1.schema.json",
         "tool-request.v1.schema.json",
         "tool-result.v1.schema.json",

@@ -73,13 +73,15 @@
       "const": [
         "S2-RUNTIME",
         "S3-PLATFORM",
-        "S4-QUALITY"
+        "S4-QUALITY",
+        "S5-CORE",
+        "S6-DATA"
       ]
     },
     "reviews": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 5,
+      "maxItems": 5,
       "prefixItems": [
         {
           "$ref": "#/$defs/s2Review"
@@ -89,6 +91,12 @@
         },
         {
           "$ref": "#/$defs/s4Review"
+        },
+        {
+          "$ref": "#/$defs/s5Review"
+        },
+        {
+          "$ref": "#/$defs/s6Review"
         }
       ],
       "items": false
@@ -169,6 +177,12 @@
               },
               {
                 "$ref": "#/$defs/s4AcceptedReview"
+              },
+              {
+                "$ref": "#/$defs/s5AcceptedReview"
+              },
+              {
+                "$ref": "#/$defs/s6AcceptedReview"
               }
             ]
           },
@@ -236,7 +250,9 @@
           "enum": [
             "S2-RUNTIME",
             "S3-PLATFORM",
-            "S4-QUALITY"
+            "S4-QUALITY",
+            "S5-CORE",
+            "S6-DATA"
           ]
         },
         "decision": {
@@ -372,6 +388,34 @@
         }
       ]
     },
+    "s5Review": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewBase"
+        },
+        {
+          "properties": {
+            "role": {
+              "const": "S5-CORE"
+            }
+          }
+        }
+      ]
+    },
+    "s6Review": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewBase"
+        },
+        {
+          "properties": {
+            "role": {
+              "const": "S6-DATA"
+            }
+          }
+        }
+      ]
+    },
     "s2AcceptedReview": {
       "allOf": [
         {
@@ -404,6 +448,34 @@
       "allOf": [
         {
           "$ref": "#/$defs/s4Review"
+        },
+        {
+          "properties": {
+            "decision": {
+              "const": "ACCEPT"
+            }
+          }
+        }
+      ]
+    },
+    "s5AcceptedReview": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/s5Review"
+        },
+        {
+          "properties": {
+            "decision": {
+              "const": "ACCEPT"
+            }
+          }
+        }
+      ]
+    },
+    "s6AcceptedReview": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/s6Review"
         },
         {
           "properties": {

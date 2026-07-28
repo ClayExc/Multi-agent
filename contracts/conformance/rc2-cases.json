@@ -951,7 +951,7 @@
         "requester_id": "user-123",
         "action_id": "act_12345678",
         "action_digest": "sha256:25d521416733830fb9190d1e57b51ff406967dd3e1a2499822e15994d1c7f711",
-        "tool_schema_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tool_schema_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "policy_decision_id": "pd_12345678",
         "policy_version": "policy-v1",
         "status": "approved",
@@ -974,7 +974,7 @@
         "requester_id": "user-123",
         "action_id": "act_12345678",
         "action_digest": "sha256:25d521416733830fb9190d1e57b51ff406967dd3e1a2499822e15994d1c7f711",
-        "tool_schema_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "tool_schema_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "policy_decision_id": "pd_12345678",
         "policy_version": "policy-v1",
         "status": "approved",
@@ -1747,6 +1747,17 @@
   ],
   "schema_mutation_cases": [
     {
+      "case_id": "security_context.classification_ceiling_missing.invalid",
+      "base_case_id": "security_context.reference.valid",
+      "mutations": [
+        {
+          "operation": "remove",
+          "json_pointer": "/data_classification_ceiling"
+        }
+      ],
+      "expect_valid": false
+    },
+    {
       "case_id": "agent_result.status_code_mismatch.invalid",
       "base_case_id": "agent_result.completed.valid",
       "mutations": [
@@ -2312,6 +2323,69 @@
       "expect_valid": false
     },
     {
+      "case_id": "approval.tool_schema_hash_mismatch.semantic_invalid",
+      "base_case_id": "approval.sod.valid",
+      "mutation": {
+        "json_pointer": "/tool_schema_hash",
+        "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expect_valid": false
+    },
+    {
+      "case_id": "approval.policy_version_mismatch.semantic_invalid",
+      "base_case_id": "approval.sod.valid",
+      "mutation": {
+        "json_pointer": "/policy_version",
+        "value": "policy-v2"
+      },
+      "expect_valid": false
+    },
+    {
+      "case_id": "approval.expires_at_mismatch.semantic_invalid",
+      "base_case_id": "approval.sod.valid",
+      "mutation": {
+        "json_pointer": "/expires_at",
+        "value": "2026-07-28T10:00:00Z"
+      },
+      "expect_valid": false
+    },
+    {
+      "case_id": "policy.policy_version_mismatch.semantic_invalid",
+      "base_case_id": "policy.single_approval.valid",
+      "mutation": {
+        "json_pointer": "/policy_version",
+        "value": "policy-v2"
+      },
+      "expect_valid": false
+    },
+    {
+      "case_id": "policy.expires_at_mismatch.semantic_invalid",
+      "base_case_id": "policy.single_approval.valid",
+      "mutation": {
+        "json_pointer": "/expires_at",
+        "value": "2026-07-28T10:00:00Z"
+      },
+      "expect_valid": false
+    },
+    {
+      "case_id": "tool_request.action_policy_version_mismatch.semantic_invalid",
+      "base_case_id": "tool_request.bound_identities.valid",
+      "mutation": {
+        "json_pointer": "/planned_action/policy_version",
+        "value": "policy-v2"
+      },
+      "expect_valid": false
+    },
+    {
+      "case_id": "tool_request.action_expires_at_mismatch.semantic_invalid",
+      "base_case_id": "tool_request.bound_identities.valid",
+      "mutation": {
+        "json_pointer": "/planned_action/expires_at",
+        "value": "2026-07-28T10:00:00Z"
+      },
+      "expect_valid": false
+    },
+    {
       "case_id": "tool_result.operation_mismatch.semantic_invalid",
       "base_case_id": "tool_result.verified_write.valid",
       "mutation": {
@@ -2756,6 +2830,16 @@
           "value": "2026-07-28T10:00:00Z"
         }
       ],
+      "expect_schema_valid": false,
+      "expect_valid": false
+    },
+    {
+      "case_id": "contract_set.s6_review_missing.schema_invalid",
+      "target": "contract_set",
+      "mutation": {
+        "operation": "remove",
+        "json_pointer": "/reviews/4"
+      },
       "expect_schema_valid": false,
       "expect_valid": false
     }

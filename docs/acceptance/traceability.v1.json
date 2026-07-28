@@ -170,7 +170,7 @@
     {
       "feature_id": "FP-FLOW-007",
       "priority": "P0",
-      "implementation_owner": "S2-RUNTIME",
+      "implementation_owner": "S5-CORE",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "可恢复失败重试、业务失败不盲重试",
       "target_paths": [
@@ -180,7 +180,7 @@
         {
           "test_id": "test.fp-flow-007.primary.v1",
           "kind": "recovery",
-          "path": "tests/runtime/recovery/test_retry_matrix.py"
+          "path": "tests/core/application/test_retry_matrix.py"
         }
       ],
       "evidence": [
@@ -197,7 +197,7 @@
     {
       "feature_id": "FP-FLOW-008",
       "priority": "P1",
-      "implementation_owner": "S2-RUNTIME",
+      "implementation_owner": "S5-CORE",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "显式补偿动作",
       "target_paths": [
@@ -207,7 +207,7 @@
         {
           "test_id": "test.fp-flow-008.primary.v1",
           "kind": "e2e",
-          "path": "tests/runtime/e2e/test_compensation.py"
+          "path": "tests/core/application/test_compensation.py"
         }
       ],
       "evidence": [
@@ -224,7 +224,7 @@
     {
       "feature_id": "FP-FLOW-009",
       "priority": "P0",
-      "implementation_owner": "S2-RUNTIME",
+      "implementation_owner": "S5-CORE",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "命令使用版本检查与逻辑去重，不能直接篡改任务状态",
       "target_paths": [
@@ -234,7 +234,7 @@
         {
           "test_id": "test.fp-flow-009.primary.v1",
           "kind": "contract",
-          "path": "tests/runtime/contract/test_command_concurrency.py"
+          "path": "tests/core/contract/test_command_concurrency.py"
         }
       ],
       "evidence": [
@@ -656,7 +656,7 @@
     {
       "feature_id": "FP-APR-001",
       "priority": "P0",
-      "implementation_owner": "S2-RUNTIME",
+      "implementation_owner": "S5-CORE",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "审批绑定 action_digest",
       "target_paths": [
@@ -666,7 +666,7 @@
         {
           "test_id": "test.fp-apr-001.primary.v1",
           "kind": "security",
-          "path": "tests/platform/security/test_approval_digest.py"
+          "path": "tests/core/unit/test_approval_digest.py"
         }
       ],
       "evidence": [
@@ -764,7 +764,7 @@
     {
       "feature_id": "FP-SEC-002",
       "priority": "P0",
-      "implementation_owner": "S3-PLATFORM",
+      "implementation_owner": "S6-DATA",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "PostgreSQL RLS 隔离租户",
       "target_paths": [
@@ -774,7 +774,7 @@
         {
           "test_id": "test.fp-sec-002.primary.v1",
           "kind": "security",
-          "path": "tests/platform/tenant-isolation/test_rls.py"
+          "path": "tests/data/security/test_rls.py"
         }
       ],
       "evidence": [
@@ -953,7 +953,7 @@
     {
       "feature_id": "FP-DATA-001",
       "priority": "P0",
-      "implementation_owner": "S3-PLATFORM",
+      "implementation_owner": "S6-DATA",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "任务、审批、账本、Outbox 有事务边界",
       "target_paths": [
@@ -963,7 +963,7 @@
         {
           "test_id": "test.fp-data-001.primary.v1",
           "kind": "integration",
-          "path": "tests/platform/integration/test_transaction_boundaries.py"
+          "path": "tests/data/integration/test_transaction_boundaries.py"
         }
       ],
       "evidence": [
@@ -990,7 +990,7 @@
         {
           "test_id": "test.fp-data-002.primary.v1",
           "kind": "recovery",
-          "path": "tests/platform/recovery/test_redis_loss.py"
+          "path": "tests/runtime/recovery/test_redis_loss.py"
         }
       ],
       "evidence": [
@@ -1007,7 +1007,7 @@
     {
       "feature_id": "FP-DATA-003",
       "priority": "P0",
-      "implementation_owner": "S3-PLATFORM",
+      "implementation_owner": "S6-DATA",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "Outbox 事件至少一次、任务内有序且消费者可去重补洞",
       "target_paths": [
@@ -1017,7 +1017,7 @@
         {
           "test_id": "test.fp-data-003.primary.v1",
           "kind": "integration",
-          "path": "tests/platform/integration/test_outbox_sequence.py"
+          "path": "tests/data/integration/test_outbox_sequence.py"
         }
       ],
       "evidence": [
@@ -1331,7 +1331,7 @@
     {
       "feature_id": "FP-OPS-001",
       "priority": "P0",
-      "implementation_owner": "S3-PLATFORM",
+      "implementation_owner": "S6-DATA",
       "verification_owner": "S4-QUALITY",
       "observable_behavior": "Docker Compose 空环境可启动",
       "target_paths": [
@@ -1341,7 +1341,7 @@
         {
           "test_id": "test.fp-ops-001.primary.v1",
           "kind": "e2e",
-          "path": "tests/acceptance/e2e/test_compose_smoke.py"
+          "path": "tests/data/e2e/test_compose_smoke.py"
         }
       ],
       "evidence": [

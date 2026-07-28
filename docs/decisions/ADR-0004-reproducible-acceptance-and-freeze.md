@@ -7,7 +7,7 @@
 
 仅保存文件名、自由文本证据或整份可变清单的 SHA-256，无法证明三件事：
 
-1. S2、S3、S4 审查的是同一份不可变契约内容。
+1. S2、S3、S4、S5、S6 审查的是同一份不可变契约内容。
 2. 120 条功能用例、36 条安全/故障用例及其分母没有被静默删减。
 3. Feature 状态、工具写回读和 Audit 完整性对应真实且可复算的证据。
 
@@ -43,9 +43,9 @@ release_dependencies
 
 明确排除 `content_digest`、`status`、`reviews` 和 `frozen_at`。数组顺序属于内容；重排也会改变摘要。
 
-每条非 `PENDING` Review 必须保存 `reviewed_content_digest`、时间、证据路径和证据哈希。修改投影中的任何字段都必须计算新摘要并把三条 Review 重置为 `PENDING`。只有 S2、S3、S4 对同一摘要全部返回 `ACCEPT`，且所有发布依赖实际为 `frozen`，契约集才能冻结。
+每条非 `PENDING` Review 必须保存 `reviewed_content_digest`、时间、证据路径和证据哈希。修改投影中的任何字段都必须计算新摘要并把五条 Review 重置为 `PENDING`。只有 S2、S3、S4、S5、S6 对同一摘要全部返回 `ACCEPT`，且所有发布依赖实际为 `frozen`，契约集才能冻结。
 
-三条 Review 对同一 `candidate` 摘要全部 `ACCEPT` 后，该摘要可成为实现基线；S2/S3/S4 可以在独立 Worktree 开始编码。发布级 `frozen` 仍要等待 Registry、Dataset、Fixture 与 Traceability 完成，避免“实现必须等数据集冻结、数据集实现又必须等契约冻结”的循环依赖。
+五条 Review 对同一 `candidate` 摘要全部 `ACCEPT` 后，该摘要可成为实现基线；S2/S3/S4/S5/S6 可以在独立 Worktree 开始编码。发布级 `frozen` 仍要等待 Registry、Dataset、Fixture 与 Traceability 完成，避免“实现必须等数据集冻结、数据集实现又必须等契约冻结”的循环依赖。
 
 ### 2. 可移植字节
 

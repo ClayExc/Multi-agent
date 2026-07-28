@@ -18,23 +18,55 @@ FlowPilot 的 Context Engineering 不追求“把更多历史塞给模型”，�
 
 ```json
 {
-  "context_id": "ctx_...",
-  "task_id": "task_...",
+  "context_id": "ctx_12345678",
+  "task_id": "task_12345678",
   "tenant_id": "tenant-a",
   "agent_id": "knowledge-agent",
-  "purpose": "resolve_vpn_incident",
+  "purpose": "it_support",
   "policy": {
-    "context_policy_version": "ctx-policy-1",
-    "data_classification_ceiling": "internal",
-    "provider_allowlist": ["provider-a"],
-    "token_budget": 6000
+    "context_policy_version": "ctx-policy-v1",
+    "data_classification_ceiling": "confidential",
+    "provider_allowlist": ["test-provider"],
+    "token_budget": 4096
   },
-  "layers": [],
+  "layers": [
+    {
+      "name": "L0_SYSTEM_POLICY",
+      "trust": "controlled_instruction",
+      "classification": "internal",
+      "content": {
+        "policy_ref": "policy://runtime/v1"
+      },
+      "source_refs": ["policy://runtime/v1"]
+    },
+    {
+      "name": "L1_SECURITY_VIEW",
+      "trust": "authenticated_derived",
+      "classification": "confidential",
+      "content": {
+        "subject_ref": "subject://user-123"
+      },
+      "source_refs": ["security-context://tenant-a/12345678"]
+    },
+    {
+      "name": "L2_TASK_STATE",
+      "trust": "business_state",
+      "classification": "internal",
+      "content": {
+        "status": "RUNNING"
+      },
+      "source_refs": ["task://task_12345678/v1"]
+    }
+  ],
   "manifest": {
-    "included_refs": [],
-    "excluded_fields": [],
+    "included_refs": [
+      "policy://runtime/v1",
+      "security-context://tenant-a/12345678",
+      "task://task_12345678/v1"
+    ],
+    "excluded_fields": ["credential"],
     "redactions": [],
-    "input_tokens_estimated": 0,
+    "input_tokens_estimated": 256,
     "input_tokens_actual": null,
     "truncation_reason": null
   }

@@ -1,4 +1,4 @@
-# FlowPilot 四会话执行契约
+# FlowPilot 六会话执行契约
 
 ## 契约作用
 
@@ -7,9 +7,11 @@
 | 会话 | 契约 | 当前工作包 | 当前激活状态 |
 |---|---|---|---|
 | S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | [WP-000](../work-packages/WP-000-m0-contract-freeze.md) | ACTIVE |
-| S2-RUNTIME | [SC-S2-RUNTIME-v1](./S2-RUNTIME.md) | [WP-010](../work-packages/WP-010-runtime-bootstrap.md) | REVIEW_ONLY |
-| S3-PLATFORM | [SC-S3-PLATFORM-v1](./S3-PLATFORM.md) | [WP-020](../work-packages/WP-020-platform-bootstrap.md) | REVIEW_ONLY |
-| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | [WP-030](../work-packages/WP-030-quality-bootstrap.md) | REVIEW_ONLY |
+| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | [WP-010](../work-packages/WP-010-runtime-bootstrap.md) | REVIEW_ONLY |
+| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | [WP-020](../work-packages/WP-020-platform-bootstrap.md) | REVIEW_ONLY |
+| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | [WP-030](../work-packages/WP-030-quality-bootstrap.md) | ACTIVE_ON_COMMIT（离线范围） |
+| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | [WP-011](../work-packages/WP-011-core-bootstrap.md) | ACTIVE_ON_COMMIT |
+| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | [WP-021](../work-packages/WP-021-data-bootstrap.md) | REVIEW_ONLY |
 
 ## 约束优先级
 
@@ -28,14 +30,14 @@
 - `BLOCKED`：存在外部前置条件，除记录阻塞信息外不能推进。
 - `HANDOFF`：实现结束，等待跨角色审查或集成。
 
-当前尚无 Git 基线和独立 Worktree。为避免四会话同时修改同一目录，只有 S1 处于 `ACTIVE`。用户完成 Git 基线后，S1 按工作包索引把 S2、S3、S4 切换为 `ACTIVE`。
+当前 Git 仓库和远端已经建立。五个实现会话已对摘要 `sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc` 全部 `ACCEPT`，S1 已写入 Review Attestation 并复跑门禁。包含本状态的提交是实现基线激活提交；从该提交创建独立 Worktree 后，S5 与 S4 离线范围可写，S2/S6/S3 继续等待各自依赖。
 
-Git 基线前可以立即启动另外三个顶层会话进行只读审查。它们使用 [rc2 三会话复审指令](../RC2_REVIEW_INSTRUCTIONS.md) 绑定同一 `content_digest`，并按 [契约审查模板](../CONTRACT_REVIEW_TEMPLATE.md) 返回结论；由 S1 统一落盘，避免并行写同一目录。
+本摘要的五角色只读复审已经完成；[rc2 五会话复审指令](../RC2_REVIEW_INSTRUCTIONS.md) 现作为历史复现入口。若被摘要覆盖的内容发生变化，全部 Review 自动失效并重新进入 `REVIEW_ONLY`。
 
 ## 每次会话必须声明
 
 ```text
-SESSION_ROLE=<S1-ARCH|S2-RUNTIME|S3-PLATFORM|S4-QUALITY>
+SESSION_ROLE=<S1-ARCH|S2-RUNTIME|S3-PLATFORM|S4-QUALITY|S5-CORE|S6-DATA>
 WORK_PACKAGE=<WP-ID>
 FEATURE_IDS=<FP-ID,...>
 WRITE_SCOPE=<允许路径>

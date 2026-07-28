@@ -1,108 +1,95 @@
-# WP-010：Runtime 与 Python Workspace 基线
+# WP-010：Runtime、Graph 与 Worker 基线
 
 ## 元数据
 
 - 状态：BLOCKED
 - 责任会话：S2-RUNTIME
-- 评审会话：S1-ARCH、S4-QUALITY
-- 功能 ID：FP-FLOW-001、FP-FLOW-002、FP-FLOW-009、FP-AGT-002、FP-CTX-001
-- 依赖工作包：S2/S3/S4 对同一 WP-000 `content_digest` 全部 ACCEPT、Git 基线提交
-- 目标分支：`codex/s2-runtime/wp-010-runtime-bootstrap`
+- 评审会话：S1-ARCH、S4-QUALITY、S5-CORE
+- 功能 ID：FP-FLOW-001、FP-FLOW-002、FP-AGT-002、FP-CTX-001
+- 依赖工作包：S2/S3/S4/S5/S6 对同一 WP-000 `content_digest` 全部 ACCEPT、实现基线激活提交；公共 Python Workspace 依赖 WP-011
+- 目标分支：`codex/s2/wp-010-runtime-bootstrap`
 
 ## 目标
 
-- 建立可安装、可测试的 Python 3.12+ workspace。
-- 建立 Domain、Application、API、Worker、Fake Runtime 与 Context 的最小端口和契约适配骨架。
-- 用架构依赖测试阻止领域层依赖框架和 Provider SDK。
+- 建立 LangGraph、Agent Runtime、Context、Model Gateway 与 Worker 的最小可恢复骨架。
+- 建立 Provider 中立 Runtime Port、确定性 Fake、Checkpoint/Interrupt 和 Handoff 边界。
+- 用恢复与架构测试阻止状态权威、工具旁路和 Provider Session 漂移。
 
 ## 非目标
 
-- 完整 VPN 业务闭环或 Multi-Agent 图。
-- 真实 Provider 账户调用。
+- 领域模型、Application Use Case、FastAPI 或公共 Python Workspace。
+- 真实 Provider 账户调用或完整 IT 服务闭环。
 - 直连 PostgreSQL、Redis、OPA、MCP 或企业网络。
-- 修改公共契约或实现最终授权。
+- 修改公共契约、授权结果或持久化实现。
 
 ## 允许修改路径
 
-- `apps/api/**`
 - `apps/worker/**`
-- `packages/domain/**`
-- `packages/application/**`
 - `packages/graph/**`
 - `packages/agent-runtime/**`
 - `packages/model-gateway/**`
 - `packages/context/**`
-- `domain-packs/it-service/**`
 - `tests/runtime/**`
-- `pyproject.toml`
-- `uv.lock`
-- `Makefile`
 
-本工作包是 M0 中 `pyproject.toml`、`uv.lock`、`Makefile` 的唯一写入者。
+不得修改 `pyproject.toml`、`uv.lock`、`Makefile`；依赖变化通过 WP-011/S5 交接。
 
 ## 输入契约
 
 | 契约 | 版本 | 提供者 |
 |---|---|---|
-| `contract-set.v1.json` | `1.0.0-rc.2` reviewed implementation baseline | S1-ARCH |
-| Task / Command / Event | v1 | S1-ARCH |
-| ContextEnvelope / AgentRunRequest / AgentRunResult | v1 | S1-ARCH |
-| ToolRequest / ToolResult | v1 | S1-ARCH |
-| Agent Runtime Port 与 Conformance Cases | rc2 当前版本 | S1-ARCH |
+| `contract-set.v1.json` | reviewed implementation baseline | S1-ARCH |
+| Task / Command / Event、Context、Agent Runtime、ToolRequest/Result | v1 | S1-ARCH |
+| Application/Execution Port | M0 internal | S5-CORE / WP-011 |
+| Python Workspace 与测试命令 | M0 | S5-CORE / WP-011 |
+| Persistence Adapter Port | M0 internal | S6-DATA / WP-021 |
 
 ## 输出契约
 
 | 契约 | 版本 | 消费者 |
 |---|---|---|
-| Python workspace 与稳定测试命令 | M0 | S3、S4、S1 |
-| Domain/Application Port | M0 internal | S3 |
+| Runtime Execution Adapter | M0 internal | S5 |
 | Fake Runtime Conformance Fixture | M0 | S4 |
-| API Command/Event 适配层 | v1 skeleton | S4 |
+| ToolRequest 与安全上下文引用 | v1 | S3 |
+| Worker Lease/Checkpoint 需求 | M0 internal | S6 |
+| Task Event/SSE 运行事实 | v1 | S4、S5 |
 
 ## 架构与安全约束
 
-- `packages/domain` 不依赖 FastAPI、LangGraph、SQLAlchemy、Redis、MCP 或 Provider SDK。
-- API 只提交 `TaskCommand`；内部节点名不进入公共接口。
+- LangGraph 是唯一跨业务节点状态机；Task 只作为外部投影。
 - Graph State 不存 Provider Session、Token、原始附件或 SDK 对象。
+- Interrupt 前不得发生非幂等副作用；Handoff 必须重建 Context 和工具集合。
 - Fake Runtime 必须确定性且不依赖网络。
-- 所有跨进程对象严格消费冻结 Schema；契约不足时提交 RFC。
+- 所有工具执行只产生 Tool Proposal/ToolRequest，不绕过 S3 Gateway。
 
 ## 实施内容
 
-1. 创建 workspace、基础依赖组、格式/类型/测试配置与锁文件。
-2. 创建最小 API、Worker 入口和健康检查，不接真实基础设施。
-3. 定义纯领域 Task/Command 值对象和 Application Port。
-4. 创建 Fake Runtime 与最小 ContextEnvelope 构建器。
-5. 创建稳定错误码和契约转换边界。
-6. 添加领域依赖、命令冲突、重复命令与 Fake Runtime 测试。
-7. 提供 `make bootstrap`、`make test`、`make test-contract` 基础命令；未覆盖项必须失败或明确标记，不得假通过。
+1. 创建 Worker、Graph、Runtime、Context 与 Model Gateway 包骨架。
+2. 定义 S5 Execution Port 的实现适配层和稳定 Runtime 错误。
+3. 创建 Fake Runtime、最小 ContextEnvelope 构建器和 Provider Adapter Fake。
+4. 建立 Checkpoint、Interrupt、Handoff、并行 Reducer 与重试补偿骨架。
+5. 添加 Graph 状态、预算、Context、Provider 隔离和恢复测试。
+6. 通过 WP-011 提出的公共命令运行测试；未实现命令必须明确失败。
 
 ## 必须测试
 
-- 正常路径：创建命令进入可运行投影，Fake Runtime 返回确定性结果。
-- 边界条件：空可选上下文、最大允许版本值和合法等待状态。
-- 失败路径：过期 `expected_task_version`、未知命令类型和 Runtime 结构错误。
-- 安全负向：领域层依赖扫描；模型输出不能构造 SecurityContext/PolicyDecision。
-- 恢复/幂等：同一命令重复提交只产生一个逻辑处理结果。
+- 正常：S5 Application Port → Graph/Fake Runtime → 确定性结果。
+- 边界：最小 Context、预算边界、等待状态和并行 Reducer。
+- 失败：Provider 结构错误、预算耗尽、不可恢复错误和稳定错误映射。
+- 安全：越权工具提案、伪造安全上下文、敏感字段进入 State 被拒绝。
+- 恢复：Interrupt、Worker 重启、Checkpoint 恢复和图版本迁移。
 
 ## 验收命令
 
 ```bash
-make bootstrap
 make test
 make test-contract
 ```
 
-## 证据
-
-- `tests/runtime/**` 测试结果
-- 依赖边界报告
-- Runtime Conformance 报告
-- 按 `docs/team/HANDOFF_TEMPLATE.md` 创建的交接
+若 WP-011 尚未提供命令或依赖，记录为依赖阻塞，不得以手工检查冒充通过。
 
 ## 完成定义
 
-- 所有验收命令在空 Python 环境按文档可重复运行。
-- 正常、边界、失败、负向和幂等测试均存在且通过。
-- 未复制或放宽公共 Schema。
-- S1/S4 完成跨角色审查；相关功能只能按证据更新状态。
+- Runtime Conformance、Graph 恢复、Context 和 Worker 重投测试通过。
+- 未复制 S5 领域对象、公共 Schema 或 S6 Persistence 实现。
+- 没有工具旁路、Provider Session 事实化或状态权威漂移。
+- S1/S4/S5 完成跨角色审查。

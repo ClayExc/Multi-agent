@@ -23,9 +23,9 @@
 | FP-FLOW-004 | P0 | 审批 Interrupt 与恢复 | `packages/graph` | `tests/runtime/recovery/test_approval_resume.py` | Checkpoint + 两个 Run | DESIGNED |
 | FP-FLOW-005 | P0 | 服务重启从持久化 Checkpoint 恢复 | `apps/worker` | `tests/runtime/recovery/test_worker_restart.py` | 重启日志与节点计数 | DESIGNED |
 | FP-FLOW-006 | P0 | 死循环、步骤和成本预算终止 | `packages/graph` | `tests/runtime/e2e/test_budget_limits.py` | escalation 事件 | DESIGNED |
-| FP-FLOW-007 | P0 | 可恢复失败重试、业务失败不盲重试 | `packages/application` | `tests/runtime/recovery/test_retry_matrix.py` | 每类错误调用次数 | DESIGNED |
-| FP-FLOW-008 | P1 | 显式补偿动作 | `packages/application` | `tests/runtime/e2e/test_compensation.py` | 原动作与补偿审计 | DESIGNED |
-| FP-FLOW-009 | P0 | 命令使用版本检查与逻辑去重，不能直接篡改任务状态 | `packages/application` | `tests/runtime/contract/test_command_concurrency.py` | 冲突与重复命令断言 | DESIGNED |
+| FP-FLOW-007 | P0 | 可恢复失败重试、业务失败不盲重试 | `packages/application` | `tests/core/application/test_retry_matrix.py` | 每类错误调用次数 | DESIGNED |
+| FP-FLOW-008 | P1 | 显式补偿动作 | `packages/application` | `tests/core/application/test_compensation.py` | 原动作与补偿审计 | DESIGNED |
+| FP-FLOW-009 | P0 | 命令使用版本检查与逻辑去重，不能直接篡改任务状态 | `packages/application` | `tests/core/contract/test_command_concurrency.py` | 冲突与重复命令断言 | DESIGNED |
 | FP-AGT-001 | P0 | 知识/数据/规划 Agent 职责与工具隔离 | `packages/agent-runtime` | `tests/runtime/integration/test_agent_tool_scope.py` | 每 Agent 工具清单 | DESIGNED |
 | FP-AGT-002 | P0 | OpenAI/Claude Runtime 遵循统一端口 | `packages/agent-runtime` | `tests/runtime/contract/test_runtime_port.py` | Conformance 报告 | DESIGNED |
 | FP-AGT-003 | P0 | 一个节点只使用一个 Provider | `packages/graph` | `tests/runtime/integration/test_provider_selection.py` | Trace Provider 断言 | DESIGNED |
@@ -41,20 +41,20 @@
 | FP-MCP-004 | P0 | 工具结果回读验证 | `apps/mcp-gateway` | `tests/platform/integration/test_readback_verification.py` | ToolExecution VERIFIED | DESIGNED |
 | FP-MCP-005 | P0 | `UNKNOWN` 结果先对账再重试 | `apps/mcp-gateway` | `tests/platform/recovery/test_unknown_outcome.py` | 0 次重复写 | DESIGNED |
 | FP-MCP-006 | P0 | 目标资源绑定的短时凭据 | `apps/mcp-gateway` | `tests/platform/security/test_capability_token.py` | audience/scope/TTL 断言 | DESIGNED |
-| FP-APR-001 | P0 | 审批绑定 `action_digest` | `packages/domain` | `tests/platform/security/test_approval_digest.py` | 篡改拒绝事件 | DESIGNED |
+| FP-APR-001 | P0 | 审批绑定 `action_digest` | `packages/domain` | `tests/core/unit/test_approval_digest.py` | 篡改拒绝事件 | DESIGNED |
 | FP-APR-002 | P0 | 申请人与审批人职责分离 | `packages/policy` | `tests/platform/security/test_separation_of_duties.py` | PDP decision | DESIGNED |
 | FP-APR-003 | P0 | 权限撤销使旧审批失效 | `packages/policy` | `tests/platform/recovery/test_reauthorize_resume.py` | 恢复拒绝审计 | DESIGNED |
 | FP-SEC-001 | P0 | OIDC SecurityContext 不能由模型伪造 | `packages/security` | `tests/platform/security/test_security_context.py` | 签名/引用拒绝 | DESIGNED |
-| FP-SEC-002 | P0 | PostgreSQL RLS 隔离租户 | `packages/persistence` | `tests/platform/tenant-isolation/test_rls.py` | 跨租户成功数 0 | DESIGNED |
+| FP-SEC-002 | P0 | PostgreSQL RLS 隔离租户 | `packages/persistence` | `tests/data/security/test_rls.py` | 跨租户成功数 0 | DESIGNED |
 | FP-SEC-003 | P0 | 检索前 ACL 与租户过滤 | `packages/retrieval` | `tests/acceptance/security/test_retrieval_acl.py` | 候选集合断言 | DESIGNED |
 | FP-SEC-004 | P0 | RBAC + ABAC deny-overrides | `packages/policy` | `tests/platform/security/test_policy_matrix.py` | 表驱动结果 | DESIGNED |
 | FP-SEC-005 | P0 | Prompt Injection 不导致越权动作 | `packages/security` | `tests/platform/security/test_prompt_injection.py` | 未授权成功数 0 | DESIGNED |
 | FP-SEC-006 | P0 | Prompt/Trace/Checkpoint/日志无明文密钥 | `packages/security` | `tests/platform/security/test_secret_leakage.py` | Secret Scan 结果 0 | DESIGNED |
 | FP-SEC-007 | P0 | Token 不透传且校验 audience | `apps/mcp-gateway` | `tests/platform/security/test_token_audience.py` | 错 audience 拒绝 | DESIGNED |
 | FP-SEC-008 | P1 | 附件隔离、扫描、脱敏 | `packages/security` | `tests/platform/security/test_attachment_pipeline.py` | Quarantine/Observation | DESIGNED |
-| FP-DATA-001 | P0 | 任务、审批、账本、Outbox 有事务边界 | `packages/persistence` | `tests/platform/integration/test_transaction_boundaries.py` | 故障点一致性报告 | DESIGNED |
-| FP-DATA-002 | P0 | Redis 丢失不丢业务事实 | `apps/worker` | `tests/platform/recovery/test_redis_loss.py` | Outbox 重投证据 | DESIGNED |
-| FP-DATA-003 | P0 | Outbox 事件至少一次、任务内有序且消费者可去重补洞 | `packages/persistence` | `tests/platform/integration/test_outbox_sequence.py` | 重投、乱序与序号缺口报告 | DESIGNED |
+| FP-DATA-001 | P0 | 任务、审批、账本、Outbox 有事务边界 | `packages/persistence` | `tests/data/integration/test_transaction_boundaries.py` | 故障点一致性报告 | DESIGNED |
+| FP-DATA-002 | P0 | Redis 丢失不丢业务事实 | `apps/worker` | `tests/runtime/recovery/test_redis_loss.py` | Outbox 重投证据 | DESIGNED |
+| FP-DATA-003 | P0 | Outbox 事件至少一次、任务内有序且消费者可去重补洞 | `packages/persistence` | `tests/data/integration/test_outbox_sequence.py` | 重投、乱序与序号缺口报告 | DESIGNED |
 | FP-OBS-001 | P0 | OTel 贯通 API/Graph/Agent/MCP | `packages/observability` | `tests/acceptance/observability/test_trace_correlation.py` | Trace Assertions | DESIGNED |
 | FP-OBS-002 | P0 | Trace、Audit、Security Event 分流 | `packages/observability` | `tests/acceptance/observability/test_signal_separation.py` | 三类存储断言 | DESIGNED |
 | FP-OBS-003 | P0 | Audit 不采样、追加写且查询受控 | `packages/observability` | `tests/acceptance/security/test_audit_integrity.py` | 篡改拒绝/哈希链 | DESIGNED |
@@ -66,7 +66,7 @@
 | FP-ML-001 | P2 | 800 条路由样本具备数据卡 | `evals/datasets/routing-lora` | `tests/acceptance/evaluation/test_lora_dataset.py` | 哈希/切分/去重 | DESIGNED |
 | FP-ML-002 | P2 | LoRA 可灰度与回滚且不参与授权 | `packages/model-gateway` | `tests/acceptance/security/test_lora_boundary.py` | Promotion/rollback 报告 | DESIGNED |
 | FP-MM-001 | P2 | 多模态只消费安全 Observation | `packages/security` | `tests/platform/security/test_multimodal_observation.py` | 原件不可达断言 | DESIGNED |
-| FP-OPS-001 | P0 | Docker Compose 空环境可启动 | `infra/compose` | `tests/acceptance/e2e/test_compose_smoke.py` | 健康检查报告 | DESIGNED |
+| FP-OPS-001 | P0 | Docker Compose 空环境可启动 | `infra/compose` | `tests/data/e2e/test_compose_smoke.py` | 健康检查报告 | DESIGNED |
 | FP-OPS-002 | P0 | 一条命令生成完整验收包 | `scripts` / `Makefile` | `tests/acceptance/evaluation/test_acceptance_manifest.py` | manifest + REPORT | DESIGNED |
 | FP-OPS-003 | P1 | Provider/MCP/策略故障降级 | `apps/worker` | `tests/acceptance/chaos/test_dependency_failures.py` | Chaos 报告 | DESIGNED |
 

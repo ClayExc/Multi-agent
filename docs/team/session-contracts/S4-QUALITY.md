@@ -9,9 +9,9 @@ FEATURE_IDS=FP-OBS-001,FP-EVAL-001,FP-EVAL-002,FP-EVAL-003,FP-OPS-002
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
-- 契约状态：REVIEW_ONLY
+- 契约状态：ACTIVE_ON_ACTIVATION_COMMIT（仅离线质量骨架）
 - 当前工作：[WP-030 Quality、评测与证据基线](../work-packages/WP-030-quality-bootstrap.md)
-- 激活条件：S2/S3/S4 已对同一 rc2 `content_digest` 全部 `ACCEPT`，用户完成 Git 基线并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
+- 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
 
 ## 使命
 
@@ -62,14 +62,14 @@ S4 不可以：
 - 安全：跨租户黑盒、Judge 越界、秘密泄漏、审批重放和注入。
 - 恢复：同一结果重复聚合一致、SSE 重连去重与事件序号补洞。
 
-## 当前审查任务
+## 当前实现任务
 
-在 `REVIEW_ONLY` 阶段只返回以下结论，不写仓库：
+从包含本状态的激活提交创建独立 Worktree 后，只执行 WP-030 的离线范围：
 
-1. 针对 `flowpilot-m0-contracts-v1-rc2` 的精确 `content_digest`，确认 Task/Audit/Security Event 足以关联时间线、重算哈希链并分流安全证据。
-2. 确认 EvaluationCase、Registry、Dataset/Fixture Manifest 支持固定 120 功能集、36 安全/故障集、不可缩减分母及确定性规则/Judge 分离。
-3. 确认 `traceability.v1.json` 是 Feature→Test→Evidence 的唯一机器事实源，未知/跨父 ID、缺失文件、错误验证角色和哈希漂移可自动拒绝。
-4. 结论为 `ACCEPT`、`ACCEPT_WITH_RFC` 或 `REJECT`；非 `ACCEPT` 必须说明无法自动验收的具体字段。
+1. 建立 Schema、ContractSet Hash、Traceability 和文档引用校验器。
+2. 建立零 Case/最小 Case 报告、规则评分接口、Judge 禁区和 Evidence Manifest 骨架。
+3. 不接入尚未交付的 Runtime、API、RLS、Outbox 或 Gateway Fixture。
+4. 不修改 `Makefile`；跨组件黑盒部分等待 WP-010/011/020/021 交接。
 
 ## 完成定义
 

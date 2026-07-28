@@ -461,7 +461,7 @@ Judge 失败、缺失、未校准或 Prompt Hash 漂移不能覆盖任何确定�
 - Trace、Checkpoint、日志、报告 Secret Scan 为 0。
 - `traceability.v1.json` 中所有核心项为 `VERIFIED`，且其测试与证据引用真实存在；Markdown 只作为生成视图。
 - Feature 证据必须结构化绑定声明的 `evidence_id/test_id`、实际文件、SHA-256、验收 `run_id`、时间和独立验证角色；实现者不能同时充当该 Feature 的验证者。
-- 发布使用 `contract-set.v1.json.content_digest` 作为稳定候选身份；S2、S3、S4 的 ACCEPT 必须绑定同一摘要，Registry、Dataset、Fixture 与 Traceability 必须同步冻结。
+- 发布使用 `contract-set.v1.json.content_digest` 作为稳定候选身份；S2、S3、S4、S5、S6 的 ACCEPT 必须绑定同一摘要，Registry、Dataset、Fixture 与 Traceability 必须同步冻结。
 - README 的状态与证据清单一致。
 
 性能、Token 和质量指标报告实际值；除非提前在发布策略中注册，否则不为了达到简历数字而修改分母或筛选 Case。

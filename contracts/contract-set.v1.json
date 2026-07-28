@@ -3,7 +3,7 @@
   "contract_set_id": "flowpilot-m0-contracts-v1-rc2",
   "version": "1.0.0-rc.2",
   "digest_profile": "flowpilot.contract-set-content-rfc8785-sha256-v1",
-  "content_digest": "sha256:a8de1d2bd74d7bd507f766829c0e31e2d60f29d1904aabb502a47bcbd505f8ec",
+  "content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
   "status": "candidate",
   "published_on": "2026-07-28",
   "frozen_at": null,
@@ -16,32 +16,50 @@
   "required_reviewers": [
     "S2-RUNTIME",
     "S3-PLATFORM",
-    "S4-QUALITY"
+    "S4-QUALITY",
+    "S5-CORE",
+    "S6-DATA"
   ],
   "reviews": [
     {
       "role": "S2-RUNTIME",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_at": "2026-07-28T15:14:40.919Z",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S2-RUNTIME.md",
+      "evidence_sha256": "sha256:efa4208a5ac3bccd1e1d91a3370cd7f8ce49d996b85ea63ba907bda2f8d9b78f"
     },
     {
       "role": "S3-PLATFORM",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_at": "2026-07-28T15:14:40.919Z",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S3-PLATFORM.md",
+      "evidence_sha256": "sha256:c0ea6f98f17de379ae3b8396133631e2bf3ca2513b542777b37c3694376e1ccb"
     },
     {
       "role": "S4-QUALITY",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_at": "2026-07-28T15:14:40.919Z",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S4-QUALITY.md",
+      "evidence_sha256": "sha256:e67de8b40a4d577f6a77be9d24d5544baea2969c4a41ccca1bf4a5ac14a84f28"
+    },
+    {
+      "role": "S5-CORE",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_at": "2026-07-28T15:14:40.919Z",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S5-CORE.md",
+      "evidence_sha256": "sha256:949b46607ca8295660cfdc2cb265482b292774126c0c736c071661083b8a8780"
+    },
+    {
+      "role": "S6-DATA",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_at": "2026-07-28T15:14:40.919Z",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S6-DATA.md",
+      "evidence_sha256": "sha256:451d08a17799d4c79129e39aad460ad8f6d3b09a5d38b73b1aa655295a1ce396"
     }
   ],
   "freeze_requirements": [
@@ -87,7 +105,7 @@
       "name": "ContractSet",
       "path": "jsonschema/contract-set.v1.schema.json",
       "id": "https://flowpilot.local/schemas/contract-set.v1.schema.json",
-      "sha256": "sha256:2d5452209bd73b455057d89ddaf93d046493bf45a0849d5bc15babf1dba430eb"
+      "sha256": "sha256:21f7bda90948a8a9ef0be41fe803d043d250c4a4cfd2e7e02f751a41942ce965"
     },
     {
       "name": "EvaluationCase",
@@ -117,7 +135,7 @@
       "name": "FeatureTraceability",
       "path": "jsonschema/feature-traceability.v1.schema.json",
       "id": "https://flowpilot.local/schemas/feature-traceability.v1.schema.json",
-      "sha256": "sha256:7127aeb1aa3f7f0aeb48ba9f472265fd18de7d50f02f728d61210326b31cf282"
+      "sha256": "sha256:892a9a1b2fe7c8dd7deec5a29a267d3672a82968e51be987e0fa7a3ba07c54c7"
     },
     {
       "name": "PlannedAction",
@@ -135,7 +153,7 @@
       "name": "SecurityContextRef",
       "path": "jsonschema/security-context-ref.v1.schema.json",
       "id": "https://flowpilot.local/schemas/security-context-ref.v1.schema.json",
-      "sha256": "sha256:aa689cfa94f0fd598179703ff2270a1e9ff40fcc45644395650f43b7898fff0a"
+      "sha256": "sha256:6b9044ccd81e37a3c3467e2c2a405073957e6517022bc3934a391ca9ade4d4b6"
     },
     {
       "name": "SecurityEvent",
@@ -193,17 +211,17 @@
     {
       "name": "ContractConformanceCases",
       "path": "conformance/rc2-cases.json",
-      "sha256": "sha256:6e33952125975c0837fbd01aaaa7331aec72cfa78820d64e9c5932e8b3a38b2f"
+      "sha256": "sha256:5d742ddb8078aefeefbcb82bfe049bfbc6686e1f75993b2356b37efaef3dc0f5"
     },
     {
       "name": "ContractConformanceValidator",
       "path": "conformance/validate.py",
-      "sha256": "sha256:bba9641e11b3c586965ac0e6ff7f91b9dc7e7d8b3074df226ddaeade8cb46d2d"
+      "sha256": "sha256:68369cfed446f92f9dcccd62d8403f8f0f6069f39f8e0d711e6964a0701a4053"
     },
     {
       "name": "FeatureTraceabilityInstance",
       "path": "../docs/acceptance/traceability.v1.json",
-      "sha256": "sha256:4816b04abfaa9dc768adfd5965230809fbcd45b72176ede950443abaa0f9f761"
+      "sha256": "sha256:5e3a0beea7b2b9cf5f14823256a8b5a1a8b04254df8c8a391ed06e3d2496ff14"
     }
   ],
   "release_dependencies": {
@@ -228,7 +246,7 @@
     "traceability": {
       "path": "../docs/acceptance/traceability.v1.json",
       "version": "1.0.0-rc.2",
-      "sha256": "sha256:4816b04abfaa9dc768adfd5965230809fbcd45b72176ede950443abaa0f9f761",
+      "sha256": "sha256:5e3a0beea7b2b9cf5f14823256a8b5a1a8b04254df8c8a391ed06e3d2496ff14",
       "status": "candidate"
     }
   }

@@ -1,9 +1,9 @@
 # FlowPilot 契约可实现性审查模板
 
-该模板用于 WP-000 的 S2/S3/S4 只读审查。审查会话在聊天中返回完整内容，不直接写入 S1 独占目录。
+该模板用于 WP-000 的 S2/S3/S4/S5/S6 只读审查。审查会话在聊天中返回完整内容，不直接写入 S1 独占目录。
 
 ```text
-SESSION_ROLE=<S2-RUNTIME|S3-PLATFORM|S4-QUALITY>
+SESSION_ROLE=<S2-RUNTIME|S3-PLATFORM|S4-QUALITY|S5-CORE|S6-DATA>
 WORK_PACKAGE=WP-000-REVIEW
 REVIEW_TARGET=flowpilot-m0-contracts-v1-rc2
 REVIEWED_CONTENT_DIGEST=sha256:<64hex>

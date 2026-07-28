@@ -2,12 +2,12 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：READY_ON_ACTIVATION_COMMIT（离线范围）
 - 责任会话：S4-QUALITY
-- 评审会话：S1-ARCH、S2-RUNTIME、S3-PLATFORM
+- 评审会话：S1-ARCH、S2-RUNTIME、S3-PLATFORM、S5-CORE、S6-DATA
 - 功能 ID：FP-OBS-001、FP-EVAL-001、FP-EVAL-002、FP-EVAL-003、FP-OPS-002
-- 依赖工作包：S2/S3/S4 对同一 WP-000 `content_digest` 全部 ACCEPT、Git 基线提交；跨组件部分依赖 WP-010/WP-020
-- 目标分支：`codex/s4-quality/wp-030-quality-bootstrap`
+- 依赖工作包：五角色同摘要 ACCEPT 与 Attestation 已完成；从实现基线激活提交创建独立 Worktree；跨组件部分依赖 WP-010/WP-011/WP-020/WP-021
+- 目标分支：`codex/s4/wp-030-quality-bootstrap`
 
 ## 目标
 
@@ -32,7 +32,7 @@
 - `artifacts/acceptance/**` 的生成器与结构
 - `scripts/acceptance/**`
 
-共享 `Makefile` 由 WP-010 单写；接入 `make acceptance` 需在 WP-010 合并后另开工作包。
+共享 `Makefile` 由 WP-011 单写；接入 `make acceptance` 需在 WP-011 合并后另开工作包。
 
 ## 输入契约
 
@@ -44,6 +44,8 @@
 | `traceability.v1.json` 与验收定义 | rc2 当前基线 | S1-ARCH |
 | Fake Runtime Fixture | WP-010 | S2 |
 | 安全/数据 Fixture | WP-020 | S3 |
+| API/Domain Fixture | WP-011 | S5 |
+| RLS/Outbox/恢复 Fixture | WP-021 | S6 |
 
 ## 输出契约
 
@@ -69,7 +71,7 @@
 3. 建立确定性规则评分接口及 Judge 禁区测试。
 4. 建立 Acceptance Manifest 生成器和空结果报告。
 5. 建立 Trace Correlation 属性与信号分流测试 Fixture。
-6. 在 WP-010/WP-020 交付后接入 Fake Runtime、RLS 和 Outbox 黑盒测试。
+6. 在 WP-010/WP-011/WP-020/WP-021 交付后接入 Fake Runtime、API、RLS、Outbox 和安全黑盒测试。
 
 ## 必须测试
 
@@ -97,5 +99,5 @@
 
 - 校验器能检测哈希漂移、未知功能 ID、重复 Case 和证据泄漏。
 - 规则评分与 Judge 边界有自动化负向测试。
-- 与 WP-010/WP-020 的公共对象仅通过冻结契约交换。
+- 与 WP-010/WP-011/WP-020/WP-021 的公共对象仅通过已评审实现基线契约交换。
 - S1、S2、S3 完成跨角色审查。

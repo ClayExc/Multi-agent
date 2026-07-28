@@ -2,7 +2,7 @@
 
 ## 1. 适用范围
 
-本文件适用于 FlowPilot 仓库中的所有 Codex 会话。四会话职责、路径所有权、启动提示和协作流程见 `docs/team/CODEX_SESSIONS.md`。
+本文件适用于 FlowPilot 仓库中的所有 Codex 会话。六会话职责、路径所有权、启动提示和协作流程见 `docs/team/CODEX_SESSIONS.md`。
 
 开始工作前必须依次阅读：
 
@@ -18,9 +18,11 @@
 每个会话必须在首条任务中声明且只承担一个角色：
 
 - `S1-ARCH`：架构、契约、验收与集成。本会话默认属于此角色。
-- `S2-RUNTIME`：领域、LangGraph、Agent Runtime、Context 与 API/Worker。
-- `S3-PLATFORM`：MCP Gateway、安全、策略、数据、基础设施。
+- `S2-RUNTIME`：LangGraph、Agent Runtime、Context、Model Gateway 与 Worker。
+- `S3-PLATFORM`：MCP Gateway、工具契约、安全与策略执行。
 - `S4-QUALITY`：产品体验、评测、可观测性、跨组件质量。
+- `S5-CORE`：领域、应用用例、API、IT Service Domain Pack 与公共 Python Workspace。
+- `S6-DATA`：持久化、迁移、PostgreSQL/Redis、基础设施与数据恢复。
 
 不得在同一工作包内自行切换角色。收到超出所有权的请求时：
 
@@ -42,6 +44,7 @@
 
 - `README.md`
 - `STRUCTURE.md`
+- `WORKFLOW.md`
 - `AGENTS.md`
 - `contracts/**`
 - `docs/architecture/**`
@@ -53,15 +56,11 @@
 
 ### `S2-RUNTIME` 独占
 
-- `apps/api/**`
 - `apps/worker/**`
-- `packages/domain/**`
-- `packages/application/**`
 - `packages/graph/**`
 - `packages/agent-runtime/**`
 - `packages/model-gateway/**`
 - `packages/context/**`
-- `domain-packs/it-service/**`
 - `tests/runtime/**`
 
 ### `S3-PLATFORM` 独占
@@ -69,11 +68,8 @@
 - `apps/mcp-gateway/**`
 - `packages/tool-contracts/**`
 - `packages/policy/**`
-- `packages/persistence/**`
 - `packages/security/**`
 - `mcp-servers/**`
-- `migrations/**`
-- `infra/**`
 - `tests/platform/**`
 
 ### `S4-QUALITY` 独占
@@ -87,6 +83,21 @@
 - `tests/experience/**`
 - `artifacts/acceptance/**` 的生成器与结构；生成结果默认不提交
 
+### `S5-CORE` 独占
+
+- `apps/api/**`
+- `packages/domain/**`
+- `packages/application/**`
+- `domain-packs/it-service/**`
+- `tests/core/**`
+
+### `S6-DATA` 独占
+
+- `packages/persistence/**`
+- `migrations/**`
+- `infra/**`
+- `tests/data/**`
+
 ### 共享文件
 
 - `pyproject.toml`
@@ -99,8 +110,8 @@
 
 共享文件只能由工作包指定的单一会话修改。默认：
 
-- Python workspace、公共依赖：`S2-RUNTIME`
-- Compose、环境变量与部署依赖：`S3-PLATFORM`
+- Python workspace、公共依赖：`S5-CORE`
+- Compose、环境变量与部署依赖：`S6-DATA`
 - 验收命令、报告入口：`S4-QUALITY`
 - 最终冲突决策：`S1-ARCH`
 
@@ -177,7 +188,7 @@ make acceptance
 ## 9. Git 与并行约定
 
 - 并行写入必须使用独立 Git worktree/分支。
-- 四个会话不得同时编辑同一工作目录。
+- 六个会话不得同时编辑同一工作目录。
 - 分支命名：`codex/<session>/<work-package>`。
 - 一个工作包只解决一个垂直目标或一组强相关功能 ID。
 - 禁止对其他会话分支 force-push、reset、rebase 或覆盖未合并提交。
@@ -227,4 +238,6 @@ make acceptance
 - `S2-RUNTIME` 的图和状态修改由 `S1-ARCH` 或 `S4-QUALITY` 复核。
 - `S3-PLATFORM` 的授权、租户、凭据和写路径必须由 `S1-ARCH` 复核，并由 `S4-QUALITY` 增加黑盒负向测试。
 - `S4-QUALITY` 的 Judge、指标和报告聚合由 `S1-ARCH` 复核，防止分母、跳过和指标定义漂移。
+- `S5-CORE` 的领域状态转换、Command Intake 与 API 错误映射由 `S1-ARCH` 或 `S2-RUNTIME` 复核。
+- `S6-DATA` 的 RLS、事务、Inbox/Outbox、迁移与恢复路径必须由 `S1-ARCH` 复核，并由 `S4-QUALITY` 增加黑盒故障测试。
 - `S1-ARCH` 的契约和 ADR 至少由对应实现会话验证可实现性。

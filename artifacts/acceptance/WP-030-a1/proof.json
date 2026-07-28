@@ -1,0 +1,75 @@
+{
+  "artifact_type": "flowpilot.wp030.offline-proof.v1",
+  "attempt_id": "WP-030-a1",
+  "work_package": "WP-030",
+  "session_role": "S4-QUALITY",
+  "risk_class": "R1",
+  "base_commit": "b5caaf2448c2860cfa67d8c5a39b9cda62eca809",
+  "implementation_commit": "04a0e6da504aaad4cd25ada40f5c3b1b3c0e8578",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "feature_ids": [
+    "FP-OBS-001",
+    "FP-EVAL-001",
+    "FP-EVAL-002",
+    "FP-EVAL-003",
+    "FP-OPS-002"
+  ],
+  "scope": "implementation_offline",
+  "produced_at": "2026-07-28T15:57:41.186562Z",
+  "commands": [
+    {
+      "command": "python scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "exit_code": 0,
+      "summary": "case_count=2 findings=0 gate=pass"
+    },
+    {
+      "command": "python contracts/conformance/validate.py",
+      "result": "NOT_RUN",
+      "exit_code": 1,
+      "summary": "default environment lacks jsonschema>=4.23; dependency belongs to WP-011"
+    },
+    {
+      "command": "E:\\workspace\\personal-kb-qa-system\\.venv\\Scripts\\python.exe -B contracts/conformance/validate.py",
+      "result": "PASS",
+      "exit_code": 0,
+      "summary": "schemas=20 cases=35 semantic_negative=43 audit_chain_negative=4 manifest_negative=20 features=52"
+    },
+    {
+      "command": "python -m pytest tests/acceptance -q",
+      "result": "NOT_RUN",
+      "exit_code": 1,
+      "summary": "default environment lacks pytest; dependency belongs to WP-011"
+    },
+    {
+      "command": "E:\\workspace\\personal-kb-qa-system\\.venv\\Scripts\\python.exe -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "exit_code": 0,
+      "summary": "26 passed in 2.27s; external pytest-asyncio plugin emitted one configuration deprecation warning"
+    },
+    {
+      "command": "git diff --cached --check",
+      "result": "PASS",
+      "exit_code": 0,
+      "summary": "no whitespace errors before implementation commit"
+    },
+    {
+      "command": "python -B AST and JSON parse checks",
+      "result": "PASS",
+      "exit_code": 0,
+      "summary": "AST_PARSE_OK=16 JSON_PARSE_OK=3"
+    }
+  ],
+  "security": {
+    "secret_scan": "PASS",
+    "plain_secret_or_pii_findings": 0,
+    "notes": "The only PRIVATE KEY text is the detector regular expression itself; no production prompts, traces, credentials, tokens, PII, or raw attachments are present."
+  },
+  "deferred": [
+    "Runtime and Fake Agent Runtime integration waits for WP-010.",
+    "API and Domain black-box integration waits for WP-011.",
+    "Gateway and platform security integration waits for WP-020.",
+    "RLS, Outbox, ledger, and recovery integration waits for WP-021.",
+    "make acceptance wiring requires a later shared-file work package."
+  ]
+}

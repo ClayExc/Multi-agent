@@ -1,0 +1,22 @@
+{
+  "fixture_id": "offline.signal-routing.v1",
+  "trace": {
+    "kind": "trace",
+    "retained": false,
+    "tenant_id": "tenant-a",
+    "trace_id": "0123456789abcdef0123456789abcdef",
+    "task_id": "task_12345678",
+    "correlation_id": "corr-12345678",
+    "payload": {
+      "component": "worker",
+      "span_name": "flowpilot.offline.fixture"
+    }
+  },
+  "audit_case_id": "audit.denied_linked.valid",
+  "security_event_case_id": "security_event.blocked.valid",
+  "expected_destinations": {
+    "trace": "otel.trace",
+    "audit": "audit.append_only",
+    "security": "security.append_only"
+  }
+}

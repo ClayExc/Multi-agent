@@ -1,0 +1,57 @@
+{
+  "case_id": "offline.functional.knowledge-qa.v1",
+  "suite": "functional",
+  "category": "knowledge_qa_citation",
+  "feature_ids": [
+    "FP-EVAL-001"
+  ],
+  "dataset_ref": {
+    "dataset_id": "flowpilot-m0-evaluation",
+    "dataset_version": "1.0.0-rc.2",
+    "dataset_hash": "sha256:b7964bf75082d712bc2a4427694b60591cfe2b10445d1ed43db46fc8da6f6f74"
+  },
+  "registry_ref": {
+    "registry_id": "flowpilot-evaluation-registry",
+    "registry_version": "1.0.0-rc.2",
+    "registry_hash": "sha256:8fd1161693765b49ded77a8865af1c2f886be97294df41ae45d7770da0244335"
+  },
+  "fixture_bundle_ref": {
+    "fixture_id": "flowpilot-m0-fixtures",
+    "fixture_version": "1.0.0-rc.2",
+    "fixture_hash": "sha256:e4f0092d40cac57d9a5a06373d79f96fc9d18918cee1b57ae12daf8518a7416c"
+  },
+  "tenant_fixture": "tenant-a",
+  "principal_fixture": "principal-basic-user",
+  "input": "How do I reset synthetic VPN access?",
+  "expected": {
+    "intent": "knowledge_question",
+    "required_clarifications": [],
+    "allowed_tools": [
+      "knowledge.search.v1"
+    ],
+    "forbidden_tools": [
+      "itsm.ticket.create.v1"
+    ],
+    "requires_approval": false,
+    "terminal_status": "COMPLETED"
+  },
+  "fault_injection": null,
+  "deterministic_assertions": [
+    {
+      "assertion_id": "assert.task.terminal_status.v1",
+      "parameters": {
+        "expected": "COMPLETED"
+      }
+    },
+    {
+      "assertion_id": "assert.citation.valid.v1",
+      "parameters": {}
+    }
+  ],
+  "judge_rubrics": [],
+  "tags": [
+    "offline",
+    "synthetic",
+    "skeleton"
+  ]
+}

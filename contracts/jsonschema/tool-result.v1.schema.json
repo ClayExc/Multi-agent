@@ -1,0 +1,485 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/tool-result.v1.schema.json",
+  "title": "FlowPilot ToolResult v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "execution_id",
+    "request_id",
+    "operation",
+    "status",
+    "data",
+    "display_summary",
+    "output_classification",
+    "policy_decision_id",
+    "retryable",
+    "retry_basis",
+    "error_code",
+    "verification",
+    "reconciliation",
+    "started_at",
+    "finished_at"
+  ],
+  "properties": {
+    "execution_id": {
+      "type": "string",
+      "pattern": "^tex_[A-Za-z0-9_-]{8,128}$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^treq_[A-Za-z0-9_-]{8,128}$"
+    },
+    "operation": {
+      "enum": [
+        "read",
+        "write"
+      ]
+    },
+    "status": {
+      "enum": [
+        "verified",
+        "failed_retryable",
+        "failed_final",
+        "unknown"
+      ]
+    },
+    "data": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "display_summary": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "evidence_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "output_classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "policy_decision_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "redaction_summary": {
+      "type": "object"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "retry_basis": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "not_sent",
+        "confirmed_not_executed",
+        null
+      ]
+    },
+    "error_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "verification": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "matched"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "read_back",
+            "upstream_idempotency_lookup",
+            "business_key_lookup",
+            "not_applicable"
+          ]
+        },
+        "matched": {
+          "type": "boolean"
+        },
+        "observed_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    },
+    "reconciliation": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "strategy",
+            "next_action",
+            "ref"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "pending",
+                "manual_required"
+              ]
+            },
+            "strategy": {
+              "enum": [
+                "upstream_idempotency_lookup",
+                "business_key_lookup",
+                "manual"
+              ]
+            },
+            "next_action": {
+              "const": "reconcile_only"
+            },
+            "ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 512
+            }
+          }
+        }
+      ]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          },
+          "operation": {
+            "const": "write"
+          }
+        },
+        "required": [
+          "status",
+          "operation"
+        ]
+      },
+      "then": {
+        "required": [
+          "data",
+          "evidence_ref",
+          "verification"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "enum": [
+                  "read_back",
+                  "upstream_idempotency_lookup",
+                  "business_key_lookup"
+                ]
+              },
+              "matched": {
+                "const": true
+              },
+              "observed_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "method",
+              "matched",
+              "observed_ref"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "retryable": {
+            "const": false
+          },
+          "retry_basis": {
+            "type": "null"
+          },
+          "error_code": {
+            "type": "null"
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "matched": {
+                "const": true
+              }
+            },
+            "required": [
+              "matched"
+            ]
+          },
+          "reconciliation": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed_retryable"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "retryable": {
+            "const": true
+          },
+          "retry_basis": {
+            "enum": [
+              "not_sent",
+              "confirmed_not_executed"
+            ]
+          },
+          "error_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verification": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "matched": {
+                    "const": false
+                  }
+                },
+                "required": [
+                  "matched"
+                ]
+              }
+            ]
+          },
+          "reconciliation": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed_final"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "retryable": {
+            "const": false
+          },
+          "retry_basis": {
+            "type": "null"
+          },
+          "error_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verification": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "matched": {
+                    "const": false
+                  }
+                },
+                "required": [
+                  "matched"
+                ]
+              }
+            ]
+          },
+          "reconciliation": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "unknown"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "retryable": {
+            "const": false
+          },
+          "retry_basis": {
+            "type": "null"
+          },
+          "error_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verification": {
+            "type": "null"
+          },
+          "reconciliation": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed_retryable"
+          },
+          "retry_basis": {
+            "const": "not_sent"
+          }
+        },
+        "required": [
+          "status",
+          "retry_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verification": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed_retryable"
+          },
+          "retry_basis": {
+            "const": "confirmed_not_executed"
+          }
+        },
+        "required": [
+          "status",
+          "retry_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verification": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "enum": [
+                  "upstream_idempotency_lookup",
+                  "business_key_lookup"
+                ]
+              },
+              "matched": {
+                "const": false
+              },
+              "observed_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "method",
+              "matched",
+              "observed_ref"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

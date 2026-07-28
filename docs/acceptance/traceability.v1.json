@@ -1,0 +1,1414 @@
+{
+  "$schema": "../../contracts/jsonschema/feature-traceability.v1.schema.json",
+  "manifest_id": "flowpilot-feature-traceability",
+  "version": "1.0.0-rc.2",
+  "status": "candidate",
+  "source_of_truth": true,
+  "features": [
+    {
+      "feature_id": "FP-FLOW-001",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "LangGraph 是唯一业务状态机",
+      "target_paths": [
+        "packages/graph"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-001.primary.v1",
+          "kind": "e2e",
+          "path": "tests/runtime/e2e/test_state_authority.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-001.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-001/evidence.json",
+          "description": "状态转换与写入路径断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-002",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "缺失字段触发追问并续跑",
+      "target_paths": [
+        "packages/graph/nodes"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-002.primary.v1",
+          "kind": "e2e",
+          "path": "tests/runtime/e2e/test_clarification.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-002.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-002/evidence.json",
+          "description": "WAITING_USER 前后事件"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-003",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "知识/数据只读分支并行汇总",
+      "target_paths": [
+        "packages/graph"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-003.primary.v1",
+          "kind": "e2e",
+          "path": "tests/runtime/e2e/test_parallel_reads.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-003.primary.v1",
+          "type": "trace_assertion",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-003/evidence.json",
+          "description": "Trace 时间区间重叠"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-004",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "审批 Interrupt 与恢复",
+      "target_paths": [
+        "packages/graph"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-004.primary.v1",
+          "kind": "recovery",
+          "path": "tests/runtime/recovery/test_approval_resume.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-004.primary.v1",
+          "type": "trace_assertion",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-004/evidence.json",
+          "description": "Checkpoint + 两个 Run"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-005",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "服务重启从持久化 Checkpoint 恢复",
+      "target_paths": [
+        "apps/worker"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-005.primary.v1",
+          "kind": "recovery",
+          "path": "tests/runtime/recovery/test_worker_restart.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-005.primary.v1",
+          "type": "operational_report",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-005/evidence.json",
+          "description": "重启日志与节点计数"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-006",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "死循环、步骤和成本预算终止",
+      "target_paths": [
+        "packages/graph"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-006.primary.v1",
+          "kind": "e2e",
+          "path": "tests/runtime/e2e/test_budget_limits.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-006.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-006/evidence.json",
+          "description": "escalation 事件"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-007",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "可恢复失败重试、业务失败不盲重试",
+      "target_paths": [
+        "packages/application"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-007.primary.v1",
+          "kind": "recovery",
+          "path": "tests/runtime/recovery/test_retry_matrix.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-007.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-007/evidence.json",
+          "description": "每类错误调用次数"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-008",
+      "priority": "P1",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "显式补偿动作",
+      "target_paths": [
+        "packages/application"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-008.primary.v1",
+          "kind": "e2e",
+          "path": "tests/runtime/e2e/test_compensation.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-008.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-008/evidence.json",
+          "description": "原动作与补偿审计"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-FLOW-009",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "命令使用版本检查与逻辑去重，不能直接篡改任务状态",
+      "target_paths": [
+        "packages/application"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-flow-009.primary.v1",
+          "kind": "contract",
+          "path": "tests/runtime/contract/test_command_concurrency.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-flow-009.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-FLOW-009/evidence.json",
+          "description": "冲突与重复命令断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-AGT-001",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "知识/数据/规划 Agent 职责与工具隔离",
+      "target_paths": [
+        "packages/agent-runtime"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-agt-001.primary.v1",
+          "kind": "integration",
+          "path": "tests/runtime/integration/test_agent_tool_scope.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-agt-001.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-AGT-001/evidence.json",
+          "description": "每 Agent 工具清单"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-AGT-002",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "OpenAI/Claude Runtime 遵循统一端口",
+      "target_paths": [
+        "packages/agent-runtime"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-agt-002.primary.v1",
+          "kind": "contract",
+          "path": "tests/runtime/contract/test_runtime_port.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-agt-002.primary.v1",
+          "type": "contract_report",
+          "path_pattern": "artifacts/acceptance/FP-AGT-002/evidence.json",
+          "description": "Conformance 报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-AGT-003",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "一个节点只使用一个 Provider",
+      "target_paths": [
+        "packages/graph"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-agt-003.primary.v1",
+          "kind": "integration",
+          "path": "tests/runtime/integration/test_provider_selection.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-agt-003.primary.v1",
+          "type": "trace_assertion",
+          "path_pattern": "artifacts/acceptance/FP-AGT-003/evidence.json",
+          "description": "Trace Provider 断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-AGT-004",
+      "priority": "P1",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Handoff 不跨审批/执行边界",
+      "target_paths": [
+        "packages/agent-runtime"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-agt-004.primary.v1",
+          "kind": "integration",
+          "path": "tests/runtime/integration/test_handoff_boundary.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-agt-004.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-AGT-004/evidence.json",
+          "description": "Handoff 路径与拒绝事件"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-CTX-001",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "每次模型调用使用 ContextEnvelope",
+      "target_paths": [
+        "packages/context"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ctx-001.primary.v1",
+          "kind": "contract",
+          "path": "tests/runtime/contract/test_context_envelope.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ctx-001.primary.v1",
+          "type": "contract_report",
+          "path_pattern": "artifacts/acceptance/FP-CTX-001/evidence.json",
+          "description": "Context Manifest"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-CTX-002",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "分层摘要区分声称、验证与推断",
+      "target_paths": [
+        "packages/context"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ctx-002.primary.v1",
+          "kind": "unit",
+          "path": "tests/runtime/unit/test_summary_contract.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ctx-002.primary.v1",
+          "type": "contract_report",
+          "path_pattern": "artifacts/acceptance/FP-CTX-002/evidence.json",
+          "description": "摘要 Schema 结果"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-CTX-003",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Handoff 字段与工具重新过滤",
+      "target_paths": [
+        "packages/context"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ctx-003.primary.v1",
+          "kind": "integration",
+          "path": "tests/runtime/integration/test_handoff_filter.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ctx-003.primary.v1",
+          "type": "contract_report",
+          "path_pattern": "artifacts/acceptance/FP-CTX-003/evidence.json",
+          "description": "Handoff Manifest"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-CTX-004",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "长对话硬 Token 预算",
+      "target_paths": [
+        "packages/context"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ctx-004.primary.v1",
+          "kind": "e2e",
+          "path": "tests/runtime/e2e/test_long_context_budget.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ctx-004.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-CTX-004/evidence.json",
+          "description": "逐层 Token 报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-CTX-005",
+      "priority": "P1",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "Baseline/Optimized Context 消融",
+      "target_paths": [
+        "packages/evaluation"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ctx-005.primary.v1",
+          "kind": "evaluation",
+          "path": "evals/runners/context_ablation.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ctx-005.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-CTX-005/evidence.json",
+          "description": "context-ablation.json"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MCP-001",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "所有业务工具只经 MCP Gateway",
+      "target_paths": [
+        "apps/mcp-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mcp-001.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_no_tool_bypass.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mcp-001.primary.v1",
+          "type": "operational_report",
+          "path_pattern": "artifacts/acceptance/FP-MCP-001/evidence.json",
+          "description": "网络策略与调用图"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MCP-002",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Tool Schema 固定与变更降级",
+      "target_paths": [
+        "apps/mcp-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mcp-002.primary.v1",
+          "kind": "contract",
+          "path": "tests/platform/contract/test_schema_pinning.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mcp-002.primary.v1",
+          "type": "contract_report",
+          "path_pattern": "artifacts/acceptance/FP-MCP-002/evidence.json",
+          "description": "Schema diff 事件"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MCP-003",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "写动作幂等重放",
+      "target_paths": [
+        "packages/tool-contracts"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mcp-003.primary.v1",
+          "kind": "integration",
+          "path": "tests/platform/integration/test_write_idempotency.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mcp-003.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-MCP-003/evidence.json",
+          "description": "10 次请求/1 个资源"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MCP-004",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "工具结果回读验证",
+      "target_paths": [
+        "apps/mcp-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mcp-004.primary.v1",
+          "kind": "integration",
+          "path": "tests/platform/integration/test_readback_verification.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mcp-004.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-MCP-004/evidence.json",
+          "description": "ToolExecution VERIFIED"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MCP-005",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "UNKNOWN 结果先对账再重试",
+      "target_paths": [
+        "apps/mcp-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mcp-005.primary.v1",
+          "kind": "recovery",
+          "path": "tests/platform/recovery/test_unknown_outcome.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mcp-005.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-MCP-005/evidence.json",
+          "description": "0 次重复写"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MCP-006",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "目标资源绑定的短时凭据",
+      "target_paths": [
+        "apps/mcp-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mcp-006.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_capability_token.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mcp-006.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-MCP-006/evidence.json",
+          "description": "audience/scope/TTL 断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-APR-001",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "审批绑定 action_digest",
+      "target_paths": [
+        "packages/domain"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-apr-001.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_approval_digest.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-apr-001.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-APR-001/evidence.json",
+          "description": "篡改拒绝事件"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-APR-002",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "申请人与审批人职责分离",
+      "target_paths": [
+        "packages/policy"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-apr-002.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_separation_of_duties.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-apr-002.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-APR-002/evidence.json",
+          "description": "PDP decision"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-APR-003",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "权限撤销使旧审批失效",
+      "target_paths": [
+        "packages/policy"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-apr-003.primary.v1",
+          "kind": "recovery",
+          "path": "tests/platform/recovery/test_reauthorize_resume.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-apr-003.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-APR-003/evidence.json",
+          "description": "恢复拒绝审计"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-001",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "OIDC SecurityContext 不能由模型伪造",
+      "target_paths": [
+        "packages/security"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-001.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_security_context.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-001.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-SEC-001/evidence.json",
+          "description": "签名/引用拒绝"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-002",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "PostgreSQL RLS 隔离租户",
+      "target_paths": [
+        "packages/persistence"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-002.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/tenant-isolation/test_rls.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-002.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-SEC-002/evidence.json",
+          "description": "跨租户成功数 0"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-003",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "检索前 ACL 与租户过滤",
+      "target_paths": [
+        "packages/retrieval"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-003.primary.v1",
+          "kind": "security",
+          "path": "tests/acceptance/security/test_retrieval_acl.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-003.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-SEC-003/evidence.json",
+          "description": "候选集合断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-004",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "RBAC + ABAC deny-overrides",
+      "target_paths": [
+        "packages/policy"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-004.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_policy_matrix.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-004.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-SEC-004/evidence.json",
+          "description": "表驱动结果"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-005",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Prompt Injection 不导致越权动作",
+      "target_paths": [
+        "packages/security"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-005.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_prompt_injection.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-005.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-SEC-005/evidence.json",
+          "description": "未授权成功数 0"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-006",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Prompt/Trace/Checkpoint/日志无明文密钥",
+      "target_paths": [
+        "packages/security"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-006.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_secret_leakage.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-006.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-SEC-006/evidence.json",
+          "description": "Secret Scan 结果 0"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-007",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Token 不透传且校验 audience",
+      "target_paths": [
+        "apps/mcp-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-007.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_token_audience.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-007.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-SEC-007/evidence.json",
+          "description": "错 audience 拒绝"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-SEC-008",
+      "priority": "P1",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "附件隔离、扫描、脱敏",
+      "target_paths": [
+        "packages/security"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-sec-008.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_attachment_pipeline.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-sec-008.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-SEC-008/evidence.json",
+          "description": "Quarantine/Observation"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-DATA-001",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "任务、审批、账本、Outbox 有事务边界",
+      "target_paths": [
+        "packages/persistence"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-data-001.primary.v1",
+          "kind": "integration",
+          "path": "tests/platform/integration/test_transaction_boundaries.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-data-001.primary.v1",
+          "type": "operational_report",
+          "path_pattern": "artifacts/acceptance/FP-DATA-001/evidence.json",
+          "description": "故障点一致性报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-DATA-002",
+      "priority": "P0",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Redis 丢失不丢业务事实",
+      "target_paths": [
+        "apps/worker"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-data-002.primary.v1",
+          "kind": "recovery",
+          "path": "tests/platform/recovery/test_redis_loss.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-data-002.primary.v1",
+          "type": "operational_report",
+          "path_pattern": "artifacts/acceptance/FP-DATA-002/evidence.json",
+          "description": "Outbox 重投证据"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-DATA-003",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Outbox 事件至少一次、任务内有序且消费者可去重补洞",
+      "target_paths": [
+        "packages/persistence"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-data-003.primary.v1",
+          "kind": "integration",
+          "path": "tests/platform/integration/test_outbox_sequence.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-data-003.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-DATA-003/evidence.json",
+          "description": "重投、乱序与序号缺口报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-OBS-001",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "OTel 贯通 API/Graph/Agent/MCP",
+      "target_paths": [
+        "packages/observability"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-obs-001.primary.v1",
+          "kind": "observability",
+          "path": "tests/acceptance/observability/test_trace_correlation.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-obs-001.primary.v1",
+          "type": "trace_assertion",
+          "path_pattern": "artifacts/acceptance/FP-OBS-001/evidence.json",
+          "description": "Trace Assertions"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-OBS-002",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "Trace、Audit、Security Event 分流",
+      "target_paths": [
+        "packages/observability"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-obs-002.primary.v1",
+          "kind": "observability",
+          "path": "tests/acceptance/observability/test_signal_separation.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-obs-002.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-OBS-002/evidence.json",
+          "description": "三类存储断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-OBS-003",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "Audit 不采样、追加写且查询受控",
+      "target_paths": [
+        "packages/observability"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-obs-003.primary.v1",
+          "kind": "security",
+          "path": "tests/acceptance/security/test_audit_integrity.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-obs-003.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-OBS-003/evidence.json",
+          "description": "篡改拒绝/哈希链"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-EVAL-001",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "固定 120 条功能任务",
+      "target_paths": [
+        "evals/datasets/functional"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-eval-001.primary.v1",
+          "kind": "evaluation",
+          "path": "tests/acceptance/evaluation/test_dataset_manifest.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-eval-001.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-EVAL-001/evidence.json",
+          "description": "数据集卡与哈希"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-EVAL-002",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "固定 36 条安全/故障任务",
+      "target_paths": [
+        "evals/datasets/safety-fault"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-eval-002.primary.v1",
+          "kind": "evaluation",
+          "path": "tests/acceptance/evaluation/test_dataset_manifest.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-eval-002.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-EVAL-002/evidence.json",
+          "description": "数据集卡与哈希"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-EVAL-003",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "规则评分与 Judge 分离",
+      "target_paths": [
+        "packages/evaluation"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-eval-003.primary.v1",
+          "kind": "evaluation",
+          "path": "tests/acceptance/evaluation/test_scorer_boundaries.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-eval-003.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-EVAL-003/evidence.json",
+          "description": "评分维度映射"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-EVAL-004",
+      "priority": "P1",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "Judge 有盲测人工校准",
+      "target_paths": [
+        "packages/evaluation"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-eval-004.primary.v1",
+          "kind": "evaluation",
+          "path": "evals/runners/calibrate_judge.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-eval-004.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-EVAL-004/evidence.json",
+          "description": "calibration.json"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-EVAL-005",
+      "priority": "P1",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "单 Agent/Multi-Agent 公平对比",
+      "target_paths": [
+        "packages/evaluation"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-eval-005.primary.v1",
+          "kind": "evaluation",
+          "path": "evals/runners/ablation.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-eval-005.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-EVAL-005/evidence.json",
+          "description": "baseline 报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-ML-001",
+      "priority": "P2",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "800 条路由样本具备数据卡",
+      "target_paths": [
+        "evals/datasets/routing-lora"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ml-001.primary.v1",
+          "kind": "evaluation",
+          "path": "tests/acceptance/evaluation/test_lora_dataset.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ml-001.primary.v1",
+          "type": "test_result",
+          "path_pattern": "artifacts/acceptance/FP-ML-001/evidence.json",
+          "description": "哈希/切分/去重"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-ML-002",
+      "priority": "P2",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "LoRA 可灰度与回滚且不参与授权",
+      "target_paths": [
+        "packages/model-gateway"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ml-002.primary.v1",
+          "kind": "security",
+          "path": "tests/acceptance/security/test_lora_boundary.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ml-002.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-ML-002/evidence.json",
+          "description": "Promotion/rollback 报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-MM-001",
+      "priority": "P2",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "多模态只消费安全 Observation",
+      "target_paths": [
+        "packages/security"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-mm-001.primary.v1",
+          "kind": "security",
+          "path": "tests/platform/security/test_multimodal_observation.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-mm-001.primary.v1",
+          "type": "security_report",
+          "path_pattern": "artifacts/acceptance/FP-MM-001/evidence.json",
+          "description": "原件不可达断言"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-OPS-001",
+      "priority": "P0",
+      "implementation_owner": "S3-PLATFORM",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Docker Compose 空环境可启动",
+      "target_paths": [
+        "infra/compose"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ops-001.primary.v1",
+          "kind": "e2e",
+          "path": "tests/acceptance/e2e/test_compose_smoke.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ops-001.primary.v1",
+          "type": "operational_report",
+          "path_pattern": "artifacts/acceptance/FP-OPS-001/evidence.json",
+          "description": "健康检查报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-OPS-002",
+      "priority": "P0",
+      "implementation_owner": "S4-QUALITY",
+      "verification_owner": "S1-ARCH",
+      "observable_behavior": "一条命令生成完整验收包",
+      "target_paths": [
+        "scripts",
+        "Makefile"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ops-002.primary.v1",
+          "kind": "evaluation",
+          "path": "tests/acceptance/evaluation/test_acceptance_manifest.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ops-002.primary.v1",
+          "type": "evaluation_report",
+          "path_pattern": "artifacts/acceptance/FP-OPS-002/evidence.json",
+          "description": "manifest + REPORT"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    },
+    {
+      "feature_id": "FP-OPS-003",
+      "priority": "P1",
+      "implementation_owner": "S2-RUNTIME",
+      "verification_owner": "S4-QUALITY",
+      "observable_behavior": "Provider/MCP/策略故障降级",
+      "target_paths": [
+        "apps/worker"
+      ],
+      "tests": [
+        {
+          "test_id": "test.fp-ops-003.primary.v1",
+          "kind": "chaos",
+          "path": "tests/acceptance/chaos/test_dependency_failures.py"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "evidence.fp-ops-003.primary.v1",
+          "type": "operational_report",
+          "path_pattern": "artifacts/acceptance/FP-OPS-003/evidence.json",
+          "description": "Chaos 报告"
+        }
+      ],
+      "status": "DESIGNED",
+      "valid_evidence_refs": []
+    }
+  ]
+}

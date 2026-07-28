@@ -1,0 +1,230 @@
+# FlowPilot Codex 工程约定
+
+## 1. 适用范围
+
+本文件适用于 FlowPilot 仓库中的所有 Codex 会话。四会话职责、路径所有权、启动提示和协作流程见 `docs/team/CODEX_SESSIONS.md`。
+
+开始工作前必须依次阅读：
+
+1. `README.md`
+2. `STRUCTURE.md`
+3. `docs/acceptance/TRACEABILITY.md`
+4. `docs/team/CODEX_SESSIONS.md`
+5. `docs/team/session-contracts/<SESSION_ROLE>.md`
+6. 当前工作包引用的架构、ADR 和验收文档
+
+## 2. 会话身份
+
+每个会话必须在首条任务中声明且只承担一个角色：
+
+- `S1-ARCH`：架构、契约、验收与集成。本会话默认属于此角色。
+- `S2-RUNTIME`：领域、LangGraph、Agent Runtime、Context 与 API/Worker。
+- `S3-PLATFORM`：MCP Gateway、安全、策略、数据、基础设施。
+- `S4-QUALITY`：产品体验、评测、可观测性、跨组件质量。
+
+不得在同一工作包内自行切换角色。收到超出所有权的请求时：
+
+1. 完成必要的只读分析。
+2. 记录所需接口、验收条件和建议责任会话。
+3. 不直接修改其他会话独占目录。
+
+## 3. 事实与状态
+
+- 当前仓库处于 `Architecture Baseline`，无功能实现。
+- `DESIGNED`、`IMPLEMENTED`、`VERIFIED`、`RELEASED` 的定义以 `docs/acceptance/ACCEPTANCE.md` 为准。
+- 没有代码、测试和证据包时，不得使用“已实现”“已提升”“已达到”。
+- 24%、82.5%→90%、0.86→0.91 只是参考目标，不得预填为结果。
+- 所有工作必须关联至少一个 `FP-<DOMAIN>-NNN` 功能 ID；新需求先由 `S1-ARCH` 分配 ID。
+
+## 4. 路径所有权
+
+### `S1-ARCH` 独占
+
+- `README.md`
+- `STRUCTURE.md`
+- `AGENTS.md`
+- `contracts/**`
+- `docs/architecture/**`
+- `docs/acceptance/**`
+- `docs/decisions/**`
+- `docs/roadmap/**`
+- `docs/review/**`
+- `docs/team/**`
+
+### `S2-RUNTIME` 独占
+
+- `apps/api/**`
+- `apps/worker/**`
+- `packages/domain/**`
+- `packages/application/**`
+- `packages/graph/**`
+- `packages/agent-runtime/**`
+- `packages/model-gateway/**`
+- `packages/context/**`
+- `domain-packs/it-service/**`
+- `tests/runtime/**`
+
+### `S3-PLATFORM` 独占
+
+- `apps/mcp-gateway/**`
+- `packages/tool-contracts/**`
+- `packages/policy/**`
+- `packages/persistence/**`
+- `packages/security/**`
+- `mcp-servers/**`
+- `migrations/**`
+- `infra/**`
+- `tests/platform/**`
+
+### `S4-QUALITY` 独占
+
+- `web/**`
+- `packages/retrieval/**`
+- `packages/observability/**`
+- `packages/evaluation/**`
+- `evals/**`
+- `tests/acceptance/**`
+- `tests/experience/**`
+- `artifacts/acceptance/**` 的生成器与结构；生成结果默认不提交
+
+### 共享文件
+
+- `pyproject.toml`
+- `uv.lock`
+- `Makefile`
+- `.env.example`
+- `.gitignore`
+- `.worktreeinclude`
+- 根级 Docker/CI 配置
+
+共享文件只能由工作包指定的单一会话修改。默认：
+
+- Python workspace、公共依赖：`S2-RUNTIME`
+- Compose、环境变量与部署依赖：`S3-PLATFORM`
+- 验收命令、报告入口：`S4-QUALITY`
+- 最终冲突决策：`S1-ARCH`
+
+## 5. 架构不变量
+
+所有角色都必须维护：
+
+1. LangGraph 是唯一跨业务节点的持久化状态机。
+2. Agent 不直连业务数据库、上游 MCP、企业网络或密钥。
+3. 所有业务工具只通过 MCP Gateway。
+4. 模型不能决定授权、审批、租户或终态。
+5. 写动作绑定 `action_digest`、策略决策、幂等键和回读结果。
+6. LangGraph Interrupt 前不得存在非幂等副作用。
+7. Redis 不是业务事实源。
+8. Provider Session 不是业务 Checkpoint。
+9. Handoff 重新构建 Context 和工具集合。
+10. Trace 可采样，Audit 不可采样；两者不得包含明文密钥或隐藏思维链。
+11. LLM-as-Judge 不判定安全、授权或工具是否实际成功。
+12. 跨租户成功读取和写入必须为 0。
+
+违反上述不变量需要 ADR，不得以“临时实现”绕过。
+
+## 6. 契约优先
+
+- 跨进程对象以 `contracts/**` 为唯一公共契约。
+- 实现代码不得复制并扩展一套更宽松的枚举或字段。
+- 需要改变契约时，非架构会话先提交 `docs/team/requests/RFC-<ID>-<role>.md`，不得直接修改契约。
+- `S1-ARCH` 审查兼容性、风险和验收后更新 Schema/ADR。
+- 不兼容变更必须升级 Major 契约版本。
+- Tool Schema 变化必须重新计算 Schema Hash，并使旧审批失效。
+
+## 7. 编码约定
+
+- Python 使用 3.12+ 兼容语法；具体版本由锁文件固定。
+- 公共函数和跨层对象必须有类型标注。
+- 领域层不得依赖 FastAPI、LangGraph、SQLAlchemy、Redis、MCP 或 Provider SDK。
+- 应用层依赖端口，基础设施实现端口。
+- Graph 节点保持小、可重放、结构化输出；确定性路由优先。
+- 外部错误映射为稳定错误码，不把 Provider/MCP 原始异常直接泄漏给 API。
+- 时间统一使用带时区 UTC；标识使用不可猜测 ID。
+- 日志结构化，禁止 `print` 业务敏感值。
+- 不提交密钥、访问令牌、真实 PII、生产 Prompt/Trace 或原始附件。
+- 新生产依赖必须说明用途、许可证、替代方案和攻击面。
+
+## 8. 测试约定
+
+每项变更至少包含：
+
+- 正常路径。
+- 一个边界条件。
+- 一个失败路径。
+- 涉及租户、工具、审批或数据时的负向安全测试。
+
+测试层级：
+
+- 单元测试：纯领域、路由、策略、Context、转换器。
+- 契约测试：JSON Schema、OpenAPI、MCP、事件和 Runtime Port。
+- 集成测试：PostgreSQL、Redis、OPA、MCP Gateway。
+- 端到端测试：两个 IT 服务闭环。
+- 恢复测试：重启、超时、重复投递、`UNKNOWN`。
+- 安全测试：跨租户、提权、注入、审批重放和密钥泄漏。
+
+实现阶段稳定命令为：
+
+```bash
+make test
+make test-contract
+make test-security
+make acceptance
+```
+
+命令尚不存在时，必须明确报告“未实现”，不能用手工检查代替通过状态。
+
+## 9. Git 与并行约定
+
+- 并行写入必须使用独立 Git worktree/分支。
+- 四个会话不得同时编辑同一工作目录。
+- 分支命名：`codex/<session>/<work-package>`。
+- 一个工作包只解决一个垂直目标或一组强相关功能 ID。
+- 禁止对其他会话分支 force-push、reset、rebase 或覆盖未合并提交。
+- 不修改无关用户变更。
+- 提交应小而可验证，格式：
+
+```text
+<type>(<scope>): <outcome> [FP-XXX-NNN]
+```
+
+允许的 `type`：`feat`、`fix`、`test`、`docs`、`refactor`、`chore`、`security`。
+
+- `S1-ARCH` 负责最终集成顺序和冲突裁决。
+- 合并前责任会话先自测，另一个会话执行跨角色审查。
+
+## 10. 工作包
+
+开始修改前必须明确：
+
+- Work Package ID。
+- 责任会话。
+- 功能 ID。
+- 允许修改路径。
+- 输入契约和输出契约。
+- 必须通过的测试。
+- 不在本包范围内的事项。
+
+模板见 `docs/team/WORK_PACKAGE_TEMPLATE.md`。
+
+## 11. 交接
+
+交接必须使用 `docs/team/HANDOFF_TEMPLATE.md`，至少包含：
+
+- 完成内容和未完成内容。
+- 修改文件。
+- 契约或数据库变化。
+- 运行过的命令及结果。
+- 已知风险。
+- 证据路径。
+- 接收会话需要执行的下一步。
+
+不得用“应该可以”“大概通过”替代测试结果。
+
+## 12. 代码审查规则
+
+- 审查者不得只检查格式，优先检查不变量、错误路径和缺失测试。
+- `S2-RUNTIME` 的图和状态修改由 `S1-ARCH` 或 `S4-QUALITY` 复核。
+- `S3-PLATFORM` 的授权、租户、凭据和写路径必须由 `S1-ARCH` 复核，并由 `S4-QUALITY` 增加黑盒负向测试。
+- `S4-QUALITY` 的 Judge、指标和报告聚合由 `S1-ARCH` 复核，防止分母、跳过和指标定义漂移。
+- `S1-ARCH` 的契约和 ADR 至少由对应实现会话验证可实现性。

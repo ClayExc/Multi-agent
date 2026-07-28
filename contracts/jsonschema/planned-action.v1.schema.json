@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/planned-action.v1.schema.json",
+  "title": "FlowPilot PlannedAction v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "action_id",
+    "tenant_id",
+    "task_id",
+    "requester_id",
+    "agent",
+    "tool",
+    "arguments",
+    "resource",
+    "purpose",
+    "data_classification",
+    "policy_version",
+    "expires_at"
+  ],
+  "properties": {
+    "action_id": {
+      "type": "string",
+      "pattern": "^act_[A-Za-z0-9_-]{8,128}$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "requester_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "schema_hash",
+        "operation"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*\\.v[1-9][0-9]*$"
+        },
+        "schema_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "operation": {
+          "enum": [
+            "read",
+            "write"
+          ]
+        }
+      }
+    },
+    "arguments": {
+      "type": "object"
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "owner_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        }
+      }
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "data_classification": {
+      "$ref": "#/$defs/dataClassification"
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "dataClassification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    }
+  }
+}
+

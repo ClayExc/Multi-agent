@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/audit-event.v1.schema.json",
+  "title": "FlowPilot AuditEvent v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "tenant_id",
+    "trace_id",
+    "thread_id",
+    "run_id",
+    "task_id",
+    "producer",
+    "producer_principal_ref",
+    "correlation_id",
+    "causation_id",
+    "actor",
+    "agent",
+    "action",
+    "decision",
+    "reason_codes",
+    "result",
+    "data_classification",
+    "stream_id",
+    "sequence",
+    "integrity"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[A-Za-z0-9_-]{8,128}$"
+    },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*\\.v[1-9][0-9]*$"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128
+    },
+    "thread_id": {
+      "type": "string",
+      "pattern": "^thread_[A-Za-z0-9_-]{8,128}$"
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^run_[A-Za-z0-9_-]{8,128}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "producer": {
+      "enum": [
+        "api",
+        "worker",
+        "mcp_gateway",
+        "approval_service",
+        "policy",
+        "reconciler"
+      ]
+    },
+    "producer_principal_ref": {
+      "description": "Authenticated workload identity that stamped the producer field.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "causation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "user",
+            "agent",
+            "service",
+            "administrator"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "agent_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      }
+    },
+    "agent": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version",
+            "principal_ref"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "principal_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      ]
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "resource": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "allow",
+        "deny",
+        "require_approval",
+        "not_applicable"
+      ]
+    },
+    "policy_decision_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "policy_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "approval_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^apr_[A-Za-z0-9_-]{8,128}$"
+    },
+    "action_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "tool_execution_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^tex_[A-Za-z0-9_-]{8,128}$"
+    },
+    "security_event_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sevt_[A-Za-z0-9_-]{8,128}$"
+    },
+    "arguments_redacted": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "result": {
+      "enum": [
+        "success",
+        "failure",
+        "blocked",
+        "unknown"
+      ]
+    },
+    "data_classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "stream_id": {
+      "description": "Audit Store assigned stream from the trusted tenant/partition registry; callers cannot mint streams.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "previous_hash",
+        "event_hash"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "rfc8785"
+        },
+        "previous_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "event_hash": {
+          "description": "sha256(lowerhex) of RFC 8785 canonical bytes for {\"profile\":\"flowpilot.audit-chain.v1\",\"event\":<this AuditEvent with only integrity.event_hash removed>}. signature_ref, when present, is included and must be fixed before hashing.",
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "signature_ref": {
+          "description": "Optional protected signature or external anchor reference. It is included in event_hash and therefore immutable after hashing.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "allow",
+              "deny",
+              "require_approval"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "required": [
+          "policy_decision_id",
+          "policy_version"
+        ],
+        "properties": {
+          "reason_codes": {
+            "minItems": 1
+          },
+          "policy_decision_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policy_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": {
+            "const": "blocked"
+          }
+        },
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "required": [
+          "security_event_id"
+        ],
+        "properties": {
+          "reason_codes": {
+            "minItems": 1
+          },
+          "security_event_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "deny"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "const": "blocked"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "sequence": {
+            "const": 1
+          }
+        },
+        "required": [
+          "sequence"
+        ]
+      },
+      "then": {
+        "properties": {
+          "integrity": {
+            "properties": {
+              "previous_hash": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "integrity": {
+            "required": [
+              "previous_hash"
+            ],
+            "properties": {
+              "previous_hash": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

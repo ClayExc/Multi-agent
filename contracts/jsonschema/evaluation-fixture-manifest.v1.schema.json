@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/evaluation-fixture-manifest.v1.schema.json",
+  "title": "FlowPilot EvaluationFixtureManifest v1",
+  "description": "Synthetic tenant and principal fixture inventory referenced by immutable hash. It contains no credentials or real PII.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fixture_id",
+    "version",
+    "status",
+    "tenant_fixtures",
+    "principal_fixtures"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "frozen",
+        "retired"
+      ]
+    },
+    "tenant_fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant_fixture_id",
+          "synthetic_tenant_key"
+        ],
+        "properties": {
+          "tenant_fixture_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+          },
+          "synthetic_tenant_key": {
+            "type": "string",
+            "pattern": "^synthetic-[a-z0-9-]+$"
+          }
+        }
+      }
+    },
+    "principal_fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "principal_fixture_id",
+          "subject_type",
+          "roles"
+        ],
+        "properties": {
+          "principal_fixture_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+          },
+          "subject_type": {
+            "enum": [
+              "user",
+              "service",
+              "administrator"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/contract-set.v1.schema.json",
+  "title": "FlowPilot ContractSet v1",
+  "description": "Versioned contract content plus mutable review/freeze envelope. Reviews bind content_digest rather than the mutable file hash.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "contract_set_id",
+    "version",
+    "digest_profile",
+    "content_digest",
+    "status",
+    "published_on",
+    "frozen_at",
+    "owner",
+    "supersedes",
+    "required_reviewers",
+    "reviews",
+    "freeze_requirements",
+    "schemas",
+    "artifacts",
+    "release_dependencies"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./jsonschema/contract-set.v1.schema.json"
+    },
+    "contract_set_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "digest_profile": {
+      "const": "flowpilot.contract-set-content-rfc8785-sha256-v1"
+    },
+    "content_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "frozen",
+        "rejected"
+      ]
+    },
+    "published_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "frozen_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "owner": {
+      "const": "S1-ARCH"
+    },
+    "supersedes": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "required_reviewers": {
+      "const": [
+        "S2-RUNTIME",
+        "S3-PLATFORM",
+        "S4-QUALITY"
+      ]
+    },
+    "reviews": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/s2Review"
+        },
+        {
+          "$ref": "#/$defs/s3Review"
+        },
+        {
+          "$ref": "#/$defs/s4Review"
+        }
+      ],
+      "items": false
+    },
+    "freeze_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/schemaEntry"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifactEntry"
+      }
+    },
+    "release_dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluation_registry",
+        "evaluation_dataset",
+        "evaluation_fixtures",
+        "traceability"
+      ],
+      "properties": {
+        "evaluation_registry": {
+          "$ref": "#/$defs/releaseDependency"
+        },
+        "evaluation_dataset": {
+          "$ref": "#/$defs/releaseDependency"
+        },
+        "evaluation_fixtures": {
+          "$ref": "#/$defs/releaseDependency"
+        },
+        "traceability": {
+          "$ref": "#/$defs/releaseDependency"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "frozen"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "frozen_at": {
+            "type": "string"
+          },
+          "reviews": {
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/s2AcceptedReview"
+              },
+              {
+                "$ref": "#/$defs/s3AcceptedReview"
+              },
+              {
+                "$ref": "#/$defs/s4AcceptedReview"
+              }
+            ]
+          },
+          "release_dependencies": {
+            "properties": {
+              "evaluation_registry": {
+                "properties": {
+                  "status": {
+                    "const": "frozen"
+                  }
+                }
+              },
+              "evaluation_dataset": {
+                "properties": {
+                  "status": {
+                    "const": "frozen"
+                  }
+                }
+              },
+              "evaluation_fixtures": {
+                "properties": {
+                  "status": {
+                    "const": "frozen"
+                  }
+                }
+              },
+              "traceability": {
+                "properties": {
+                  "status": {
+                    "const": "frozen"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "frozen_at": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "reviewBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "decision",
+        "reviewed_content_digest",
+        "reviewed_at",
+        "evidence_ref",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "S2-RUNTIME",
+            "S3-PLATFORM",
+            "S4-QUALITY"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "PENDING",
+            "ACCEPT",
+            "ACCEPT_WITH_RFC",
+            "REJECT"
+          ]
+        },
+        "reviewed_content_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "evidence_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "PENDING"
+              }
+            },
+            "required": [
+              "decision"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reviewed_content_digest": {
+                "type": "null"
+              },
+              "reviewed_at": {
+                "type": "null"
+              },
+              "evidence_ref": {
+                "type": "null"
+              },
+              "evidence_sha256": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "reviewed_content_digest": {
+                "type": "string"
+              },
+              "reviewed_at": {
+                "type": "string"
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence_sha256": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "s2Review": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewBase"
+        },
+        {
+          "properties": {
+            "role": {
+              "const": "S2-RUNTIME"
+            }
+          }
+        }
+      ]
+    },
+    "s3Review": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewBase"
+        },
+        {
+          "properties": {
+            "role": {
+              "const": "S3-PLATFORM"
+            }
+          }
+        }
+      ]
+    },
+    "s4Review": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewBase"
+        },
+        {
+          "properties": {
+            "role": {
+              "const": "S4-QUALITY"
+            }
+          }
+        }
+      ]
+    },
+    "s2AcceptedReview": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/s2Review"
+        },
+        {
+          "properties": {
+            "decision": {
+              "const": "ACCEPT"
+            }
+          }
+        }
+      ]
+    },
+    "s3AcceptedReview": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/s3Review"
+        },
+        {
+          "properties": {
+            "decision": {
+              "const": "ACCEPT"
+            }
+          }
+        }
+      ]
+    },
+    "s4AcceptedReview": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/s4Review"
+        },
+        {
+          "properties": {
+            "decision": {
+              "const": "ACCEPT"
+            }
+          }
+        }
+      ]
+    },
+    "schemaEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "id",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^jsonschema/[a-z0-9._-]+\\.json$"
+        },
+        "id": {
+          "type": "string",
+          "format": "uri"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "artifactEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "releaseDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "version",
+        "sha256",
+        "status"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "status": {
+          "enum": [
+            "candidate",
+            "frozen"
+          ]
+        }
+      }
+    }
+  }
+}

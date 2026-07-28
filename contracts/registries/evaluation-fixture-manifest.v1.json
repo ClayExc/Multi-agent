@@ -1,0 +1,21 @@
+{
+  "$schema": "../jsonschema/evaluation-fixture-manifest.v1.schema.json",
+  "fixture_id": "flowpilot-m0-fixtures",
+  "version": "1.0.0-rc.2",
+  "status": "candidate",
+  "tenant_fixtures": [
+    {
+      "tenant_fixture_id": "tenant-a",
+      "synthetic_tenant_key": "synthetic-tenant-a"
+    }
+  ],
+  "principal_fixtures": [
+    {
+      "principal_fixture_id": "principal-basic-user",
+      "subject_type": "user",
+      "roles": [
+        "employee"
+      ]
+    }
+  ]
+}

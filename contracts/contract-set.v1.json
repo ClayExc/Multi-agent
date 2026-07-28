@@ -1,0 +1,235 @@
+{
+  "$schema": "./jsonschema/contract-set.v1.schema.json",
+  "contract_set_id": "flowpilot-m0-contracts-v1-rc2",
+  "version": "1.0.0-rc.2",
+  "digest_profile": "flowpilot.contract-set-content-rfc8785-sha256-v1",
+  "content_digest": "sha256:a8de1d2bd74d7bd507f766829c0e31e2d60f29d1904aabb502a47bcbd505f8ec",
+  "status": "candidate",
+  "published_on": "2026-07-28",
+  "frozen_at": null,
+  "owner": "S1-ARCH",
+  "supersedes": {
+    "contract_set_id": "flowpilot-m0-contracts-v1-rc1",
+    "status": "rejected",
+    "disposition": "../docs/review/WP-000-RC1-DISPOSITION.md"
+  },
+  "required_reviewers": [
+    "S2-RUNTIME",
+    "S3-PLATFORM",
+    "S4-QUALITY"
+  ],
+  "reviews": [
+    {
+      "role": "S2-RUNTIME",
+      "decision": "PENDING",
+      "reviewed_content_digest": null,
+      "reviewed_at": null,
+      "evidence_ref": null,
+      "evidence_sha256": null
+    },
+    {
+      "role": "S3-PLATFORM",
+      "decision": "PENDING",
+      "reviewed_content_digest": null,
+      "reviewed_at": null,
+      "evidence_ref": null,
+      "evidence_sha256": null
+    },
+    {
+      "role": "S4-QUALITY",
+      "decision": "PENDING",
+      "reviewed_content_digest": null,
+      "reviewed_at": null,
+      "evidence_ref": null,
+      "evidence_sha256": null
+    }
+  ],
+  "freeze_requirements": [
+    "all schema files parse as JSON",
+    "all schema files compile as JSON Schema Draft 2020-12 and all references resolve",
+    "official positive and negative conformance cases pass",
+    "registry and traceability cross-file identifiers are unique and registered",
+    "listed sha256 values match repository bytes",
+    "all required reviewers return ACCEPT for this exact content_digest"
+  ],
+  "schemas": [
+    {
+      "name": "AgentRunRequest",
+      "path": "jsonschema/agent-run-request.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/agent-run-request.v1.schema.json",
+      "sha256": "sha256:9cbe477053fb91a5d16803b7ed09e3358430d6a91b3e6df4fa2a2da7d64bdf3a"
+    },
+    {
+      "name": "AgentRunResult",
+      "path": "jsonschema/agent-run-result.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/agent-run-result.v1.schema.json",
+      "sha256": "sha256:bf0ece16fb94b3dc743a6324a1e30a32a0f45b8fe820672d441f2a3782d14c47"
+    },
+    {
+      "name": "Approval",
+      "path": "jsonschema/approval.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/approval.v1.schema.json",
+      "sha256": "sha256:a9023cdba4481cb4dd44a196704f5b4aece2c0eceb70560c02b0aa735b1d2f7e"
+    },
+    {
+      "name": "AuditEvent",
+      "path": "jsonschema/audit-event.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/audit-event.v1.schema.json",
+      "sha256": "sha256:7c69b88325669e5f1bffe00c44791ed4d2a017e6955c26c5e013f5f4972141ea"
+    },
+    {
+      "name": "ContextEnvelope",
+      "path": "jsonschema/context-envelope.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/context-envelope.v1.schema.json",
+      "sha256": "sha256:655f1c9ff003e3d3d4fc096b213df5265616a0c4ef554eb754e7b01f8cf16749"
+    },
+    {
+      "name": "ContractSet",
+      "path": "jsonschema/contract-set.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/contract-set.v1.schema.json",
+      "sha256": "sha256:2d5452209bd73b455057d89ddaf93d046493bf45a0849d5bc15babf1dba430eb"
+    },
+    {
+      "name": "EvaluationCase",
+      "path": "jsonschema/evaluation-case.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/evaluation-case.v1.schema.json",
+      "sha256": "sha256:9ea17df0eec044b1f6d1c2a4610d7dfc94aa9cd2899ab230fd571b983b71bb6f"
+    },
+    {
+      "name": "EvaluationDatasetManifest",
+      "path": "jsonschema/evaluation-dataset-manifest.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/evaluation-dataset-manifest.v1.schema.json",
+      "sha256": "sha256:9349e09e756884a6c59a3f301dadd41646b67cbbee0edb5d6d498424f97453c0"
+    },
+    {
+      "name": "EvaluationFixtureManifest",
+      "path": "jsonschema/evaluation-fixture-manifest.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/evaluation-fixture-manifest.v1.schema.json",
+      "sha256": "sha256:71e5ae77626b2c6b26e21fe487996d67929a8598ede3810ae4a050bfb9972731"
+    },
+    {
+      "name": "EvaluationRegistry",
+      "path": "jsonschema/evaluation-registry.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/evaluation-registry.v1.schema.json",
+      "sha256": "sha256:a8baed2bfbb8c014392e1242725d5ea3cabfb1cc898c358a99a73d215a7b6ec0"
+    },
+    {
+      "name": "FeatureTraceability",
+      "path": "jsonschema/feature-traceability.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/feature-traceability.v1.schema.json",
+      "sha256": "sha256:7127aeb1aa3f7f0aeb48ba9f472265fd18de7d50f02f728d61210326b31cf282"
+    },
+    {
+      "name": "PlannedAction",
+      "path": "jsonschema/planned-action.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/planned-action.v1.schema.json",
+      "sha256": "sha256:6bfa5fe5b277f7f8b7e34524489974e0e24ceec8f5a406dc0f64ddb91c3fd683"
+    },
+    {
+      "name": "PolicyDecision",
+      "path": "jsonschema/policy-decision.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/policy-decision.v1.schema.json",
+      "sha256": "sha256:64bb5f759c6a3a303fa71799d50d24e96f22145e13950889d484867231fd44e2"
+    },
+    {
+      "name": "SecurityContextRef",
+      "path": "jsonschema/security-context-ref.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/security-context-ref.v1.schema.json",
+      "sha256": "sha256:aa689cfa94f0fd598179703ff2270a1e9ff40fcc45644395650f43b7898fff0a"
+    },
+    {
+      "name": "SecurityEvent",
+      "path": "jsonschema/security-event.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/security-event.v1.schema.json",
+      "sha256": "sha256:4f8c19a3986cd5af72b52acbb75ada154868c6dd1bc5c47ea29db3b7c9ab5c58"
+    },
+    {
+      "name": "TaskCommand",
+      "path": "jsonschema/task-command.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/task-command.v1.schema.json",
+      "sha256": "sha256:fee0c926d616c0fce696fa26b834bc8f4c9e47be52a9fec7a3151cb2858adf45"
+    },
+    {
+      "name": "TaskEvent",
+      "path": "jsonschema/task-event.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/task-event.v1.schema.json",
+      "sha256": "sha256:e93aa55c3b254e3879129758060de2fc7627cf3394ad4a1628fbe0986dc50511"
+    },
+    {
+      "name": "Task",
+      "path": "jsonschema/task.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/task.v1.schema.json",
+      "sha256": "sha256:c8c51eae63659d7586958d27c1af0d733615e76d746c541f0da6a261e74db62c"
+    },
+    {
+      "name": "ToolRequest",
+      "path": "jsonschema/tool-request.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/tool-request.v1.schema.json",
+      "sha256": "sha256:874e5a6884714b65e3102103dbff7155dda62e160e9e97320de1c5fce0751171"
+    },
+    {
+      "name": "ToolResult",
+      "path": "jsonschema/tool-result.v1.schema.json",
+      "id": "https://flowpilot.local/schemas/tool-result.v1.schema.json",
+      "sha256": "sha256:24a3150977e3415078133953ea6a747fca685a357836dd695a03b8dfe1320060"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "EvaluationDatasetManifestInstance",
+      "path": "registries/evaluation-dataset-manifest.v1.json",
+      "sha256": "sha256:b7964bf75082d712bc2a4427694b60591cfe2b10445d1ed43db46fc8da6f6f74"
+    },
+    {
+      "name": "EvaluationFixtureManifestInstance",
+      "path": "registries/evaluation-fixture-manifest.v1.json",
+      "sha256": "sha256:e4f0092d40cac57d9a5a06373d79f96fc9d18918cee1b57ae12daf8518a7416c"
+    },
+    {
+      "name": "EvaluationRegistryInstance",
+      "path": "registries/evaluation-registry.v1.json",
+      "sha256": "sha256:8fd1161693765b49ded77a8865af1c2f886be97294df41ae45d7770da0244335"
+    },
+    {
+      "name": "ContractConformanceCases",
+      "path": "conformance/rc2-cases.json",
+      "sha256": "sha256:6e33952125975c0837fbd01aaaa7331aec72cfa78820d64e9c5932e8b3a38b2f"
+    },
+    {
+      "name": "ContractConformanceValidator",
+      "path": "conformance/validate.py",
+      "sha256": "sha256:bba9641e11b3c586965ac0e6ff7f91b9dc7e7d8b3074df226ddaeade8cb46d2d"
+    },
+    {
+      "name": "FeatureTraceabilityInstance",
+      "path": "../docs/acceptance/traceability.v1.json",
+      "sha256": "sha256:4816b04abfaa9dc768adfd5965230809fbcd45b72176ede950443abaa0f9f761"
+    }
+  ],
+  "release_dependencies": {
+    "evaluation_registry": {
+      "path": "registries/evaluation-registry.v1.json",
+      "version": "1.0.0-rc.2",
+      "sha256": "sha256:8fd1161693765b49ded77a8865af1c2f886be97294df41ae45d7770da0244335",
+      "status": "candidate"
+    },
+    "evaluation_dataset": {
+      "path": "registries/evaluation-dataset-manifest.v1.json",
+      "version": "1.0.0-rc.2",
+      "sha256": "sha256:b7964bf75082d712bc2a4427694b60591cfe2b10445d1ed43db46fc8da6f6f74",
+      "status": "candidate"
+    },
+    "evaluation_fixtures": {
+      "path": "registries/evaluation-fixture-manifest.v1.json",
+      "version": "1.0.0-rc.2",
+      "sha256": "sha256:e4f0092d40cac57d9a5a06373d79f96fc9d18918cee1b57ae12daf8518a7416c",
+      "status": "candidate"
+    },
+    "traceability": {
+      "path": "../docs/acceptance/traceability.v1.json",
+      "version": "1.0.0-rc.2",
+      "sha256": "sha256:4816b04abfaa9dc768adfd5965230809fbcd45b72176ede950443abaa0f9f761",
+      "status": "candidate"
+    }
+  }
+}

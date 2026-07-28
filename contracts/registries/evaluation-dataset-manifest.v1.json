@@ -1,0 +1,8 @@
+{
+  "$schema": "../jsonschema/evaluation-dataset-manifest.v1.schema.json",
+  "dataset_id": "flowpilot-m0-evaluation",
+  "version": "1.0.0-rc.2",
+  "status": "candidate",
+  "case_schema_id": "https://flowpilot.local/schemas/evaluation-case.v1.schema.json",
+  "cases": []
+}

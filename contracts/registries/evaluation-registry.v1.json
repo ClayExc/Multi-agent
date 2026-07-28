@@ -1,0 +1,514 @@
+{
+  "$schema": "../jsonschema/evaluation-registry.v1.schema.json",
+  "registry_id": "flowpilot-evaluation-registry",
+  "version": "1.0.0-rc.2",
+  "status": "candidate",
+  "categories": {
+    "functional": [
+      "knowledge_qa_citation",
+      "clarification",
+      "business_read",
+      "ticket_write_verification",
+      "approval_recovery",
+      "parallel_composite",
+      "long_context_handoff"
+    ],
+    "safety_fault": [
+      "tenant_isolation",
+      "rbac_abac_sod",
+      "prompt_injection_malicious_mcp",
+      "approval_replay_tamper_duplicate_write",
+      "dependency_failure_unknown",
+      "secret_dlp_audit"
+    ],
+    "multimodal_optional": [
+      "attachment_quarantine",
+      "observation_redaction",
+      "multimodal_prompt_injection"
+    ],
+    "routing_lora": [
+      "known_intent",
+      "unknown_escalate",
+      "low_confidence_fallback"
+    ]
+  },
+  "suite_policies": {
+    "functional": {
+      "expected_case_count": 120,
+      "category_counts": {
+        "knowledge_qa_citation": 24,
+        "clarification": 16,
+        "business_read": 16,
+        "ticket_write_verification": 16,
+        "approval_recovery": 16,
+        "parallel_composite": 16,
+        "long_context_handoff": 16
+      },
+      "denominator_policy": {
+        "denominator": "all_declared_cases",
+        "passed": "success",
+        "failed": "failure",
+        "skipped": "failure",
+        "quarantined": "failure"
+      },
+      "required_assertions_by_category": {
+        "knowledge_qa_citation": [
+          "assert.task.terminal_status.v1",
+          "assert.citation.valid.v1"
+        ],
+        "clarification": [
+          "assert.task.terminal_status.v1",
+          "assert.intent.matches.v1"
+        ],
+        "business_read": [
+          "assert.task.terminal_status.v1",
+          "assert.tool.allowed.v1"
+        ],
+        "ticket_write_verification": [
+          "assert.task.terminal_status.v1",
+          "assert.tool.execution_verified.v1",
+          "assert.tool.write_count.v1"
+        ],
+        "approval_recovery": [
+          "assert.task.terminal_status.v1",
+          "assert.approval.valid.v1",
+          "assert.tool.write_count.v1"
+        ],
+        "parallel_composite": [
+          "assert.task.terminal_status.v1",
+          "assert.trace.parallel_overlap.v1"
+        ],
+        "long_context_handoff": [
+          "assert.task.terminal_status.v1",
+          "assert.context.within_budget.v1",
+          "assert.handoff.fields_allowed.v1"
+        ]
+      }
+    },
+    "safety_fault": {
+      "expected_case_count": 36,
+      "category_counts": {
+        "tenant_isolation": 6,
+        "rbac_abac_sod": 6,
+        "prompt_injection_malicious_mcp": 6,
+        "approval_replay_tamper_duplicate_write": 6,
+        "dependency_failure_unknown": 6,
+        "secret_dlp_audit": 6
+      },
+      "denominator_policy": {
+        "denominator": "all_declared_cases",
+        "passed": "success",
+        "failed": "failure",
+        "skipped": "failure",
+        "quarantined": "failure"
+      },
+      "required_assertions_by_category": {
+        "tenant_isolation": [
+          "assert.tenant.cross_access_zero.v1",
+          "assert.audit.complete.v1"
+        ],
+        "rbac_abac_sod": [
+          "assert.approval.valid.v1",
+          "assert.audit.complete.v1"
+        ],
+        "prompt_injection_malicious_mcp": [
+          "assert.secret.exposure_zero.v1",
+          "assert.tool.write_count.v1",
+          "assert.audit.complete.v1"
+        ],
+        "approval_replay_tamper_duplicate_write": [
+          "assert.approval.valid.v1",
+          "assert.tool.execution_verified.v1",
+          "assert.tool.write_count.v1",
+          "assert.audit.complete.v1"
+        ],
+        "dependency_failure_unknown": [
+          "assert.task.terminal_status.v1",
+          "assert.event.sequence_complete.v1",
+          "assert.tool.write_count.v1"
+        ],
+        "secret_dlp_audit": [
+          "assert.secret.exposure_zero.v1",
+          "assert.audit.complete.v1"
+        ]
+      }
+    },
+    "multimodal_optional": {
+      "expected_case_count": 0,
+      "category_counts": {
+        "attachment_quarantine": 0,
+        "observation_redaction": 0,
+        "multimodal_prompt_injection": 0
+      },
+      "denominator_policy": {
+        "denominator": "all_declared_cases",
+        "passed": "success",
+        "failed": "failure",
+        "skipped": "failure",
+        "quarantined": "failure"
+      },
+      "required_assertions_by_category": {
+        "attachment_quarantine": [
+          "assert.secret.exposure_zero.v1"
+        ],
+        "observation_redaction": [
+          "assert.secret.exposure_zero.v1"
+        ],
+        "multimodal_prompt_injection": [
+          "assert.secret.exposure_zero.v1"
+        ]
+      }
+    },
+    "routing_lora": {
+      "expected_case_count": 0,
+      "category_counts": {
+        "known_intent": 0,
+        "unknown_escalate": 0,
+        "low_confidence_fallback": 0
+      },
+      "denominator_policy": {
+        "denominator": "all_declared_cases",
+        "passed": "success",
+        "failed": "failure",
+        "skipped": "failure",
+        "quarantined": "failure"
+      },
+      "required_assertions_by_category": {
+        "known_intent": [
+          "assert.intent.matches.v1"
+        ],
+        "unknown_escalate": [
+          "assert.intent.matches.v1"
+        ],
+        "low_confidence_fallback": [
+          "assert.intent.matches.v1"
+        ]
+      }
+    }
+  },
+  "deterministic_assertions": [
+    {
+      "assertion_id": "assert.intent.matches.v1",
+      "gate_domain": "flow",
+      "implementation_key": "intent_matches",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected"
+        ],
+        "properties": {
+          "expected": {
+            "type": "string"
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault",
+        "routing_lora"
+      ]
+    },
+    {
+      "assertion_id": "assert.task.terminal_status.v1",
+      "gate_domain": "flow",
+      "implementation_key": "task_terminal_status",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected"
+        ],
+        "properties": {
+          "expected": {
+            "enum": [
+              "COMPLETED",
+              "CANCELLED",
+              "ESCALATED",
+              "FAILED"
+            ]
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.tool.allowed.v1",
+      "gate_domain": "tool",
+      "implementation_key": "tool_allowed",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tools"
+        ],
+        "properties": {
+          "tools": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.approval.valid.v1",
+      "gate_domain": "approval",
+      "implementation_key": "approval_valid",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.tool.execution_verified.v1",
+      "gate_domain": "tool",
+      "implementation_key": "tool_execution_verified",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.tool.write_count.v1",
+      "gate_domain": "tool",
+      "implementation_key": "tool_write_count",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "maximum"
+        ],
+        "properties": {
+          "maximum": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.tenant.cross_access_zero.v1",
+      "gate_domain": "tenant",
+      "implementation_key": "tenant_cross_access_zero",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.citation.valid.v1",
+      "gate_domain": "evaluation",
+      "implementation_key": "citation_valid",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "functional"
+      ]
+    },
+    {
+      "assertion_id": "assert.context.within_budget.v1",
+      "gate_domain": "context",
+      "implementation_key": "context_within_budget",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "maximum_input_tokens"
+        ],
+        "properties": {
+          "maximum_input_tokens": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.event.sequence_complete.v1",
+      "gate_domain": "observability",
+      "implementation_key": "event_sequence_complete",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.audit.complete.v1",
+      "gate_domain": "observability",
+      "implementation_key": "audit_complete",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    },
+    {
+      "assertion_id": "assert.secret.exposure_zero.v1",
+      "gate_domain": "security",
+      "implementation_key": "secret_exposure_zero",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "allowed_suites": [
+        "safety_fault",
+        "multimodal_optional"
+      ]
+    },
+    {
+      "assertion_id": "assert.trace.parallel_overlap.v1",
+      "gate_domain": "observability",
+      "implementation_key": "trace_parallel_overlap",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch_ids"
+        ],
+        "properties": {
+          "branch_ids": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional"
+      ]
+    },
+    {
+      "assertion_id": "assert.handoff.fields_allowed.v1",
+      "gate_domain": "context",
+      "implementation_key": "handoff_fields_allowed",
+      "parameters_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed_fields"
+        ],
+        "properties": {
+          "allowed_fields": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "allowed_suites": [
+        "functional",
+        "safety_fault"
+      ]
+    }
+  ],
+  "judge_rubrics": [
+    {
+      "rubric_id": "judge.semantic.answer_relevance.v1",
+      "dimension": "answer_relevance",
+      "gate_domain": "semantic_only",
+      "prompt_ref": null,
+      "prompt_hash": null,
+      "output_schema_ref": "registry://judge-output/v1",
+      "calibration_policy_ref": "docs/acceptance/ACCEPTANCE.md#judge-calibration",
+      "allowed_suites": [
+        "functional"
+      ]
+    },
+    {
+      "rubric_id": "judge.semantic.summary_faithfulness.v1",
+      "dimension": "summary_faithfulness",
+      "gate_domain": "semantic_only",
+      "prompt_ref": null,
+      "prompt_hash": null,
+      "output_schema_ref": "registry://judge-output/v1",
+      "calibration_policy_ref": "docs/acceptance/ACCEPTANCE.md#judge-calibration",
+      "allowed_suites": [
+        "functional"
+      ]
+    },
+    {
+      "rubric_id": "judge.semantic.citation_support.v1",
+      "dimension": "citation_support",
+      "gate_domain": "semantic_only",
+      "prompt_ref": null,
+      "prompt_hash": null,
+      "output_schema_ref": "registry://judge-output/v1",
+      "calibration_policy_ref": "docs/acceptance/ACCEPTANCE.md#judge-calibration",
+      "allowed_suites": [
+        "functional"
+      ]
+    },
+    {
+      "rubric_id": "judge.semantic.clarification_quality.v1",
+      "dimension": "clarification_quality",
+      "gate_domain": "semantic_only",
+      "prompt_ref": null,
+      "prompt_hash": null,
+      "output_schema_ref": "registry://judge-output/v1",
+      "calibration_policy_ref": "docs/acceptance/ACCEPTANCE.md#judge-calibration",
+      "allowed_suites": [
+        "functional"
+      ]
+    },
+    {
+      "rubric_id": "judge.semantic.ticket_description_quality.v1",
+      "dimension": "ticket_description_quality",
+      "gate_domain": "semantic_only",
+      "prompt_ref": null,
+      "prompt_hash": null,
+      "output_schema_ref": "registry://judge-output/v1",
+      "calibration_policy_ref": "docs/acceptance/ACCEPTANCE.md#judge-calibration",
+      "allowed_suites": [
+        "functional"
+      ]
+    }
+  ],
+  "aggregation_rules": {
+    "deterministic_failure_precedence": true,
+    "uncalibrated_judge_effect": "no_effect",
+    "safety_score_source": "deterministic_only"
+  }
+}

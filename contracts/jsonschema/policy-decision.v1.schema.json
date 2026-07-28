@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/policy-decision.v1.schema.json",
+  "title": "FlowPilot PolicyDecision v1",
+  "description": "Deterministic PDP result. Models may provide risk signals but cannot produce an authoritative instance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "tenant_id",
+    "task_id",
+    "subject_ref",
+    "subject_context_hash",
+    "agent",
+    "action",
+    "decision",
+    "reason_codes",
+    "obligations",
+    "approval_requirements",
+    "policy_version",
+    "input_canonicalization",
+    "input_hash",
+    "evaluated_at",
+    "expires_at"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "pattern": "^pd_[A-Za-z0-9_-]{8,128}$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "subject_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "subject_context_hash": {
+      "description": "Exact SecurityContextRef.context_hash used by the PDP. Gateways must bind this value in addition to subject_ref.",
+      "$ref": "#/$defs/sha256"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "principal_ref"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "principal_ref": {
+          "description": "Authenticated workload principal bound to this logical Agent identity.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "operation",
+        "action_digest"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*\\.v[1-9][0-9]*$"
+        },
+        "operation": {
+          "enum": [
+            "read",
+            "write"
+          ]
+        },
+        "action_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "decision": {
+      "enum": [
+        "allow",
+        "deny",
+        "require_approval"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/maskFieldsObligation"
+          },
+          {
+            "$ref": "#/$defs/limitRecordsObligation"
+          },
+          {
+            "$ref": "#/$defs/auditLevelObligation"
+          },
+          {
+            "$ref": "#/$defs/requireMfaObligation"
+          },
+          {
+            "$ref": "#/$defs/restrictProviderObligation"
+          },
+          {
+            "$ref": "#/$defs/credentialTtlObligation"
+          }
+        ]
+      }
+    },
+    "approval_requirements": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "roles",
+        "minimum_approvers",
+        "separation_of_duties"
+      ],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "minimum_approvers": {
+          "const": 1
+        },
+        "separation_of_duties": {
+          "const": true
+        }
+      }
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "input_canonicalization": {
+      "const": "rfc8785"
+    },
+    "input_hash": {
+      "description": "RFC 8785 digest of the complete PDP input, including subject_context_hash, authenticated Agent principal, action digest, tenant, purpose and policy inputs.",
+      "$ref": "#/$defs/sha256"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "const": "require_approval"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "approval_requirements": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "approval_requirements": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "obligations": {
+          "contains": {
+            "properties": {
+              "name": {
+                "const": "mask_fields"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "obligations": {
+          "contains": {
+            "properties": {
+              "name": {
+                "const": "limit_records"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "obligations": {
+          "contains": {
+            "properties": {
+              "name": {
+                "const": "audit_level"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "obligations": {
+          "contains": {
+            "properties": {
+              "name": {
+                "const": "require_mfa"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "obligations": {
+          "contains": {
+            "properties": {
+              "name": {
+                "const": "restrict_provider"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "obligations": {
+          "contains": {
+            "properties": {
+              "name": {
+                "const": "credential_ttl_seconds"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "maskFieldsObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "properties": {
+        "name": {
+          "const": "mask_fields"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fields"
+          ],
+          "properties": {
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        }
+      }
+    },
+    "limitRecordsObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "properties": {
+        "name": {
+          "const": "limit_records"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maximum"
+          ],
+          "properties": {
+            "maximum": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          }
+        }
+      }
+    },
+    "auditLevelObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "properties": {
+        "name": {
+          "const": "audit_level"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "level"
+          ],
+          "properties": {
+            "level": {
+              "enum": [
+                "standard",
+                "detailed",
+                "security"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "requireMfaObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "properties": {
+        "name": {
+          "const": "require_mfa"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minimum_assurance"
+          ],
+          "properties": {
+            "minimum_assurance": {
+              "enum": [
+                "substantial",
+                "high"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "restrictProviderObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "properties": {
+        "name": {
+          "const": "restrict_provider"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "providers"
+          ],
+          "properties": {
+            "providers": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    "credentialTtlObligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parameters"
+      ],
+      "properties": {
+        "name": {
+          "const": "credential_ttl_seconds"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seconds"
+          ],
+          "properties": {
+            "seconds": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 3600
+            }
+          }
+        }
+      }
+    }
+  }
+}

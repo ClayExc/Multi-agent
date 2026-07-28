@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/agent-run-request.v1.schema.json",
+  "title": "FlowPilot AgentRunRequest v1",
+  "description": "Provider-neutral request to one bounded Agent Runtime invocation. It contains no bearer credentials or provider-native session objects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "task_id",
+    "tenant_id",
+    "trace_id",
+    "run_id",
+    "agent",
+    "context",
+    "security_context",
+    "provider_selection",
+    "budget",
+    "session_ref",
+    "issued_at"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^arq_[A-Za-z0-9_-]{8,128}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[A-Za-z0-9_-]{8,128}$"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "prompt_version",
+        "mode",
+        "output_schema",
+        "allowed_tools",
+        "maximum_handoffs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "prompt_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "mode": {
+          "enum": [
+            "structured",
+            "bounded_agent_loop"
+          ]
+        },
+        "output_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "hash"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "hash": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "schema_hash",
+              "operation"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*\\.v[1-9][0-9]*$"
+              },
+              "schema_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "operation": {
+                "enum": [
+                  "read",
+                  "propose_write"
+                ]
+              }
+            }
+          }
+        },
+        "maximum_handoffs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        }
+      }
+    },
+    "context": {
+      "$ref": "./context-envelope.v1.schema.json"
+    },
+    "security_context": {
+      "$ref": "./security-context-ref.v1.schema.json"
+    },
+    "provider_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "data_policy_id",
+        "routing_reason_code"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "data_policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "routing_reason_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_turns",
+        "maximum_tool_calls",
+        "maximum_input_tokens",
+        "maximum_output_tokens",
+        "maximum_total_tokens",
+        "maximum_cost_microunits",
+        "timeout_ms"
+      ],
+      "properties": {
+        "maximum_turns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "maximum_tool_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "maximum_input_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum_output_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum_total_tokens": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "maximum_cost_microunits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        }
+      }
+    },
+    "session_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

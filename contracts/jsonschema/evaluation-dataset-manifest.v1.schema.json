@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/evaluation-dataset-manifest.v1.schema.json",
+  "title": "FlowPilot EvaluationDatasetManifest v1",
+  "description": "Immutable inventory of evaluation cases. Candidate manifests may be empty; frozen manifests must be complete and are checked against EvaluationRegistry suite policies.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_id",
+    "version",
+    "status",
+    "case_schema_id",
+    "cases"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "frozen",
+        "retired"
+      ]
+    },
+    "case_schema_id": {
+      "const": "https://flowpilot.local/schemas/evaluation-case.v1.schema.json"
+    },
+    "cases": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "suite",
+          "category",
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+          },
+          "suite": {
+            "$ref": "#/$defs/suite"
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^evals/cases/[a-z0-9_./-]+\\.json$",
+            "maxLength": 512
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "frozen"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cases": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "suite": {
+      "enum": [
+        "functional",
+        "safety_fault",
+        "multimodal_optional",
+        "routing_lora"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

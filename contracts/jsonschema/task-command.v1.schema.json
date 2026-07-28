@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/task-command.v1.schema.json",
+  "title": "FlowPilot TaskCommand v1",
+  "description": "Append-only command intent. Commands never directly set task status or graph nodes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "command_id",
+    "command_type",
+    "tenant_id",
+    "task_id",
+    "actor",
+    "security_context",
+    "expected_task_version",
+    "idempotency_key",
+    "command_digest",
+    "payload",
+    "issued_at"
+  ],
+  "properties": {
+    "command_id": {
+      "type": "string",
+      "pattern": "^cmd_[A-Za-z0-9_-]{8,128}$"
+    },
+    "command_type": {
+      "enum": [
+        "task.create.v1",
+        "task.message.submit.v1",
+        "task.approval.decide.v1",
+        "task.cancel.request.v1",
+        "task.retry.request.v1"
+      ]
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "user",
+            "service",
+            "administrator"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "security_context": {
+      "$ref": "./security-context-ref.v1.schema.json"
+    },
+    "expected_task_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "idempotency_key": {
+      "$ref": "#/$defs/sha256"
+    },
+    "command_digest": {
+      "description": "RFC 8785 + SHA-256 digest of command_type, tenant_id, task_id, actor, expected_task_version, and payload. It excludes command_id, idempotency_key, correlation_id, security_context, and issued_at.",
+      "$ref": "#/$defs/sha256"
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "payload": {
+      "type": "object"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "command_type": {
+          "const": "task.create.v1"
+        },
+        "expected_task_version": {
+          "type": "null"
+        },
+        "payload": {
+          "$ref": "#/$defs/createTaskPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "command_type": {
+          "const": "task.message.submit.v1"
+        },
+        "expected_task_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload": {
+          "$ref": "#/$defs/submitMessagePayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "command_type": {
+          "const": "task.approval.decide.v1"
+        },
+        "expected_task_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload": {
+          "$ref": "#/$defs/decideApprovalPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "command_type": {
+          "const": "task.cancel.request.v1"
+        },
+        "expected_task_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload": {
+          "$ref": "#/$defs/cancelTaskPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "command_type": {
+          "const": "task.retry.request.v1"
+        },
+        "expected_task_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload": {
+          "$ref": "#/$defs/retryTaskPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "createTaskPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial_message_id",
+        "initial_message_ref",
+        "channel",
+        "purpose"
+      ],
+      "properties": {
+        "initial_message_id": {
+          "type": "string",
+          "pattern": "^msg_[A-Za-z0-9_-]{8,128}$"
+        },
+        "initial_message_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "attachment_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "channel": {
+          "enum": [
+            "web",
+            "api",
+            "service_desk"
+          ]
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "submitMessagePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_id",
+        "message_ref"
+      ],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "pattern": "^msg_[A-Za-z0-9_-]{8,128}$"
+        },
+        "message_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "attachment_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "decideApprovalPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id",
+        "action_digest",
+        "decision"
+      ],
+      "properties": {
+        "approval_id": {
+          "type": "string",
+          "pattern": "^apr_[A-Za-z0-9_-]{8,128}$"
+        },
+        "action_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "decision": {
+          "enum": [
+            "approve",
+            "reject"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        }
+      }
+    },
+    "cancelTaskPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        }
+      }
+    },
+    "retryTaskPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failed_run_id"
+      ],
+      "properties": {
+        "failed_run_id": {
+          "type": "string",
+          "pattern": "^run_[A-Za-z0-9_-]{8,128}$"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}

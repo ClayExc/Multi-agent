@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/approval.v1.schema.json",
+  "title": "FlowPilot Approval v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_id",
+    "tenant_id",
+    "task_id",
+    "requester_id",
+    "action_id",
+    "action_digest",
+    "tool_schema_hash",
+    "policy_decision_id",
+    "policy_version",
+    "status",
+    "approver_id",
+    "decision_reason",
+    "separation_of_duties_result",
+    "requested_at",
+    "decided_at",
+    "expires_at"
+  ],
+  "properties": {
+    "approval_id": {
+      "type": "string",
+      "pattern": "^apr_[A-Za-z0-9_-]{8,128}$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "requester_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "action_id": {
+      "type": "string",
+      "pattern": "^act_[A-Za-z0-9_-]{8,128}$"
+    },
+    "action_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "tool_schema_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy_decision_id": {
+      "type": "string",
+      "pattern": "^pd_[A-Za-z0-9_-]{8,128}$"
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "revoked"
+      ]
+    },
+    "approver_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "decision_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "separation_of_duties_result": {
+      "description": "Deterministic PDP/Gateway result. For approved records the approver must differ from requester_id; that cross-field comparison is enforced by the conformance semantic gate.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decided_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pending"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_id": {
+            "type": "null"
+          },
+          "decision_reason": {
+            "type": "null"
+          },
+          "separation_of_duties_result": {
+            "type": "null"
+          },
+          "decided_at": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "separation_of_duties_result": {
+            "const": true
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "approver_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "separation_of_duties_result": {
+            "type": "boolean"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "expired",
+              "revoked"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

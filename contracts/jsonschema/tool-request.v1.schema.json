@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/tool-request.v1.schema.json",
+  "title": "FlowPilot ToolRequest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "trace_id",
+    "security_context",
+    "agent_principal",
+    "planned_action",
+    "action_digest",
+    "policy_decision_id",
+    "idempotency_key",
+    "requested_at"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^treq_[A-Za-z0-9_-]{8,128}$"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128
+    },
+    "security_context": {
+      "$ref": "./security-context-ref.v1.schema.json"
+    },
+    "agent_principal": {
+      "description": "Server-attested logical Agent identity. Gateway must match it to PlannedAction.agent and the authenticated workload.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "principal_ref"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "principal_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "planned_action": {
+      "$ref": "./planned-action.v1.schema.json"
+    },
+    "action_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy_decision_id": {
+      "type": "string",
+      "pattern": "^pd_[A-Za-z0-9_-]{8,128}$"
+    },
+    "idempotency_key": {
+      "$ref": "#/$defs/sha256"
+    },
+    "approval_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^apr_[A-Za-z0-9_-]{8,128}$"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

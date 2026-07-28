@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/evaluation-case.v1.schema.json",
+  "title": "FlowPilot EvaluationCase v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "suite",
+    "category",
+    "feature_ids",
+    "dataset_ref",
+    "registry_ref",
+    "fixture_bundle_ref",
+    "tenant_fixture",
+    "input",
+    "expected",
+    "deterministic_assertions",
+    "tags"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
+    "suite": {
+      "enum": [
+        "functional",
+        "safety_fault",
+        "multimodal_optional",
+        "routing_lora"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "feature_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^FP-[A-Z]+-[0-9]{3}$"
+      }
+    },
+    "dataset_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_id",
+        "dataset_version",
+        "dataset_hash"
+      ],
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "dataset_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "dataset_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "registry_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "registry_version",
+        "registry_hash"
+      ],
+      "properties": {
+        "registry_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "registry_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "registry_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "fixture_bundle_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "fixture_version",
+        "fixture_hash"
+      ],
+      "properties": {
+        "fixture_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "fixture_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "fixture_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "tenant_fixture": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "principal_fixture": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required_clarifications": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "requires_approval": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "terminal_status": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "./task.v1.schema.json#/$defs/terminalStatus"
+            }
+          ]
+        }
+      }
+    },
+    "fault_injection": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profile_id",
+            "profile_version",
+            "profile_hash"
+          ],
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+            },
+            "profile_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "profile_hash": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ]
+    },
+    "deterministic_assertions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assertion_id",
+          "parameters"
+        ],
+        "properties": {
+          "assertion_id": {
+            "type": "string",
+            "pattern": "^assert\\.[a-z0-9]+(?:[._-][a-z0-9]+)*\\.v[1-9][0-9]*$"
+          },
+          "parameters": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "judge_rubrics": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rubric_id"
+        ],
+        "properties": {
+          "rubric_id": {
+            "type": "string",
+            "pattern": "^judge\\.semantic\\.[a-z0-9]+(?:[._-][a-z0-9]+)*\\.v[1-9][0-9]*$"
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowpilot.local/schemas/task-event.v1.schema.json",
+  "title": "FlowPilot TaskEvent v1",
+  "description": "Versioned outbox and SSE event. Delivery is at-least-once; consumers deduplicate by event_id and detect sequence gaps.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "tenant_id",
+    "task_id",
+    "thread_id",
+    "task_version",
+    "sequence",
+    "trace_id",
+    "run_id",
+    "producer",
+    "producer_principal_ref",
+    "correlation_id",
+    "causation_id",
+    "data_classification",
+    "payload",
+    "occurred_at"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[A-Za-z0-9_-]{8,128}$"
+    },
+    "event_type": {
+      "enum": [
+        "task.created.v1",
+        "task.status.changed.v1",
+        "task.input.required.v1",
+        "task.approval.required.v1",
+        "task.approval.decided.v1",
+        "task.tool_execution.updated.v1",
+        "task.completed.v1",
+        "task.failed.v1",
+        "task.escalated.v1"
+      ]
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task_[A-Za-z0-9_-]{8,128}$"
+    },
+    "thread_id": {
+      "type": "string",
+      "pattern": "^thread_[A-Za-z0-9_-]{8,128}$"
+    },
+    "task_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128
+    },
+    "run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^run_[A-Za-z0-9_-]{8,128}$"
+    },
+    "producer": {
+      "enum": [
+        "worker",
+        "mcp_gateway",
+        "approval_service",
+        "reconciler"
+      ]
+    },
+    "producer_principal_ref": {
+      "description": "Authenticated workload identity that stamped the producer field.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "causation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "data_classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.created.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskCreatedPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.status.changed.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/statusChangedPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.input.required.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/inputRequiredPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.approval.required.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/approvalRequiredPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.approval.decided.v1"
+        },
+        "producer": {
+          "const": "approval_service"
+        },
+        "payload": {
+          "$ref": "#/$defs/approvalDecidedPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.tool_execution.updated.v1"
+        },
+        "producer": {
+          "enum": [
+            "mcp_gateway",
+            "reconciler"
+          ]
+        },
+        "payload": {
+          "$ref": "#/$defs/toolExecutionUpdatedPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.completed.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskCompletedPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.failed.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskFailedPayload"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "task.escalated.v1"
+        },
+        "producer": {
+          "const": "worker"
+        },
+        "payload": {
+          "$ref": "#/$defs/taskEscalatedPayload"
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "producer": {
+            "enum": [
+              "worker",
+              "mcp_gateway",
+              "reconciler"
+            ]
+          }
+        },
+        "required": [
+          "producer"
+        ]
+      },
+      "then": {
+        "properties": {
+          "run_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "taskStatus": {
+      "enum": [
+        "RECEIVED",
+        "RUNNABLE",
+        "RUNNING",
+        "WAITING_USER",
+        "WAITING_APPROVAL",
+        "VERIFYING",
+        "COMPLETED",
+        "CANCELLED",
+        "ESCALATED",
+        "FAILED"
+      ]
+    },
+    "taskCreatedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "task_ref"
+      ],
+      "properties": {
+        "status": {
+          "const": "RECEIVED"
+        },
+        "task_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "statusChangedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "reason_code"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/taskStatus"
+        },
+        "to": {
+          "$ref": "#/$defs/taskStatus"
+        },
+        "reason_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      }
+    },
+    "inputRequiredPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "prompt_ref",
+        "missing_fields"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "prompt_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "missing_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "approvalRequiredPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id",
+        "action_digest",
+        "display_ref",
+        "expires_at"
+      ],
+      "properties": {
+        "approval_id": {
+          "type": "string",
+          "pattern": "^apr_[A-Za-z0-9_-]{8,128}$"
+        },
+        "action_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "display_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "approvalDecidedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id",
+        "action_digest",
+        "decision"
+      ],
+      "properties": {
+        "approval_id": {
+          "type": "string",
+          "pattern": "^apr_[A-Za-z0-9_-]{8,128}$"
+        },
+        "action_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "decision": {
+          "enum": [
+            "approved",
+            "rejected",
+            "expired",
+            "revoked"
+          ]
+        }
+      }
+    },
+    "toolExecutionUpdatedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_id",
+        "status"
+      ],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "pattern": "^tex_[A-Za-z0-9_-]{8,128}$"
+        },
+        "status": {
+          "enum": [
+            "prepared",
+            "running",
+            "verified",
+            "failed_retryable",
+            "failed_final",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "taskCompletedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_ref"
+      ],
+      "properties": {
+        "result_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    },
+    "taskFailedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error_code",
+        "retryable"
+      ],
+      "properties": {
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "detail_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    },
+    "taskEscalatedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason_code"
+      ],
+      "properties": {
+        "reason_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "handoff_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    }
+  }
+}

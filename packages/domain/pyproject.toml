@@ -1,0 +1,15 @@
+[project]
+name = "flowpilot-domain"
+version = "0.1.0"
+description = "Framework-independent FlowPilot domain model"
+requires-python = ">=3.12"
+dependencies = [
+    "rfc8785>=0.1.4,<0.2",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowpilot_domain"]

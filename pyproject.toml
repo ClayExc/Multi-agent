@@ -8,6 +8,9 @@ dependencies = [
     "flowpilot-application",
     "flowpilot-domain",
     "langgraph>=1.2,<2",
+    "psycopg[binary,pool]>=3.2,<4",
+    "redis>=5.2,<6",
+    "sqlalchemy[asyncio]>=2.0,<3",
 ]
 
 [dependency-groups]
@@ -33,6 +36,7 @@ members = [
     "packages/domain",
     "packages/graph",
     "packages/model-gateway",
+    "packages/persistence",
 ]
 
 [tool.uv.sources]
@@ -43,11 +47,12 @@ flowpilot-context = { workspace = true }
 flowpilot-domain = { workspace = true }
 flowpilot-graph = { workspace = true }
 flowpilot-model-gateway = { workspace = true }
+flowpilot-persistence = { workspace = true }
 flowpilot-worker = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers -p no:cacheprovider"
-testpaths = ["tests/core", "tests/runtime"]
+testpaths = ["tests/core", "tests/runtime", "tests/data"]
 
 [tool.ruff]
 line-length = 88

@@ -13,7 +13,6 @@ from flowpilot_api.testing import StaticRequestSecurity
 from flowpilot_application import CommandIntakeService, TaskQueryService
 from flowpilot_application.testing import (
     FakeExecutionPort,
-    FakeTaskRepository,
     FakeUnitOfWorkFactory,
 )
 from flowpilot_domain import ActorType, Task, TaskCommand
@@ -104,7 +103,7 @@ def _configured_client(
             unit_of_work=unit_of_work,
             execution=execution,
         ),
-        task_query=TaskQueryService(FakeTaskRepository(unit_of_work.store)),
+        task_query=TaskQueryService(unit_of_work),
         request_security=security,
     )
     return (

@@ -15,7 +15,7 @@ from .errors import ApplicationError, ErrorCode
 from .models import CommandAcceptance, ExecutionReceipt, StoredCommand
 from .ports import (
     ExecutionPort,
-    TaskQueryPort,
+    TaskQueryUnitOfWorkFactory,
     UnitOfWorkFactory,
     VersionSlotReservation,
 )
@@ -26,12 +26,13 @@ Clock = Callable[[], datetime]
 class TaskQueryService:
     """Read a tenant-scoped Task projection without mutating workflow state."""
 
-    def __init__(self, repository: TaskQueryPort) -> None:
-        self._repository = repository
+    def __init__(self, unit_of_work: TaskQueryUnitOfWorkFactory) -> None:
+        self._unit_of_work = unit_of_work
 
     async def get(self, tenant_id: str, task_id: str) -> Task:
         try:
-            task = await self._repository.get(tenant_id, task_id)
+            async with self._unit_of_work() as unit_of_work:
+                task = await unit_of_work.tasks.get(tenant_id, task_id)
         except Exception as exc:
             raise ApplicationError(
                 ErrorCode.REPOSITORY_UNAVAILABLE,

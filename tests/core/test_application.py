@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from typing import Self
 
 import pytest
 from flowpilot_application import (
@@ -18,9 +19,28 @@ from flowpilot_application.testing import (
 from flowpilot_domain import TaskCommand
 
 
-class FailingTaskQueryRepository:
+class FailingTaskQueryUnitOfWork:
+    tasks: Self
+
+    async def __aenter__(self) -> Self:
+        self.tasks = self
+        return self
+
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _traceback: object,
+    ) -> None:
+        return None
+
     async def get(self, _tenant_id: str, _task_id: str) -> None:
         raise RuntimeError("database password=never expose")
+
+
+class FailingTaskQueryUnitOfWorkFactory:
+    def __call__(self) -> FailingTaskQueryUnitOfWork:
+        return FailingTaskQueryUnitOfWork()
 
 
 def run(coroutine: object) -> object:
@@ -204,7 +224,7 @@ def test_invalid_execution_receipt_fails_closed(
 
 
 def test_task_query_repository_failure_is_stable_and_sanitized() -> None:
-    service = TaskQueryService(FailingTaskQueryRepository())
+    service = TaskQueryService(FailingTaskQueryUnitOfWorkFactory())
 
     with pytest.raises(ApplicationError) as captured:
         run(service.get("tenant-a", "task_12345678"))

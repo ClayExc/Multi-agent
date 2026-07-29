@@ -22,6 +22,8 @@ defined here without exposing raw exception text.
   persisted receipt suppresses further dispatch.
 - `TaskQueryPort` must scope every lookup by `(tenant_id, task_id)` and must
   never return a projection for a different tenant or task.
+- `TaskQueryService` opens a read Unit of Work for each lookup so tenant
+  binding, transaction cleanup, and connection lifecycle remain adapter-owned.
 - Domain Packs are data-only directories. Loading uses bounded files, exact
   fields, path containment, and a safe YAML loader that rejects aliases; no
   module is imported from a pack.

@@ -35,6 +35,26 @@ class TaskQueryPort(Protocol):
         """Return the exact tenant/task projection, or None when absent."""
 
 
+class TaskQueryUnitOfWork(Protocol):
+    """Read transaction boundary for a tenant-scoped Task projection."""
+
+    @property
+    def tasks(self) -> TaskQueryPort: ...
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+
+class TaskQueryUnitOfWorkFactory(Protocol):
+    def __call__(self) -> TaskQueryUnitOfWork: ...
+
+
 class CommandInboxPort(Protocol):
     """Transactional command deduplication and version-slot boundary."""
 

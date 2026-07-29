@@ -17,7 +17,7 @@ flowpilot/
 ├── README.md
 ├── STRUCTURE.md
 ├── AGENTS.md                         # 实现阶段的仓库协作与验证约定
-├── WORKFLOW.md                       # 六会话任务控制面、调度与恢复协议
+├── WORKFLOW.md                       # 七会话任务控制面、调度与恢复协议
 ├── Makefile                          # 稳定开发命令入口
 ├── pyproject.toml                    # Python workspace、工具和公共约束
 ├── uv.lock                           # 锁定 Python 依赖
@@ -104,6 +104,7 @@ flowpilot/
 │   │   ├── e2e/
 │   │   └── recovery/
 │   ├── experience/                   # S4：Web、组件、可访问性
+│   ├── integration/                  # S7：跨分支组合、依赖闭包与证据复现
 │   └── acceptance/                   # S4：跨组件 E2E、评测与证据
 │       ├── e2e/
 │       ├── evaluation/
@@ -133,9 +134,10 @@ flowpilot/
 │   └── audit/
 │
 ├── migrations/                       # 数据库迁移和 RLS 策略
-├── scripts/                          # 可复现的开发、种子与验收脚本
+├── scripts/                          # 可复现的开发、种子、验收与 S7 集成复现脚本
 ├── artifacts/                        # 本地验收证据，默认不提交敏感内容
-│   └── acceptance/
+│   ├── acceptance/
+│   └── integration/                  # S7 组合验证生成物，默认不提交
 └── docs/
     ├── architecture/                  # 总体、Context 与 Agent Runtime Port
     ├── acceptance/                    # 定义、机器 Traceability 与人类视图

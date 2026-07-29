@@ -19,7 +19,7 @@ Status: Manual control plane, Symphony-inspired v1
 
 ```text
 WORK_PACKAGE=<WP-ID>
-SESSION_ROLE=<S2-RUNTIME|S3-PLATFORM|S4-QUALITY|S5-CORE|S6-DATA>
+SESSION_ROLE=<S2-RUNTIME|S3-PLATFORM|S4-QUALITY|S5-CORE|S6-DATA|S7-INTEGRATION>
 FEATURE_IDS=<FP-ID,...>
 ATTEMPT_ID=<WP-ID>-a<number>
 RISK_CLASS=<R0|R1|R2|R3>
@@ -30,6 +30,9 @@ WORKTREE=<absolute-path>
 WRITE_SCOPE=<paths>
 DEPENDENCIES=<WP-ID,...|none>
 ACCEPTANCE_COMMANDS=<commands>
+EXECUTION_MODE=<PARALLEL|READ_ONLY_PARALLEL|ORDERED>
+ORDER_INDEX=<n|none>
+UNLOCK_CONDITION=<evidence-or-state|none>
 ```
 
 字段缺失时只能只读分析，不得进入 `IN_PROGRESS`。
@@ -67,6 +70,14 @@ BACKLOG → READY → IN_PROGRESS → REVIEW → HANDOFF → ACCEPTED → MERGED
 6. 没有未处理的阻断 RFC。
 
 人工阶段同时写入的工作项不超过 3。其余会话可以只读审查、补测试设计或准备后续 Issue。
+
+跨会话派发必须明确调度语义：
+
+- `PARALLEL`：任务可同时写入各自独占路径；派发必须说明最终汇合门禁。
+- `READ_ONLY_PARALLEL`：任务只读并行；禁止文件修改和 Git 写操作。
+- `ORDERED`：任务必须按 `ORDER_INDEX` 执行；只有 `UNLOCK_CONDITION` 被 S1 确认后，下一项才能进入写模式。
+
+消息到达顺序、用户粘贴顺序或会话编号均不自动构成执行顺序。
 
 ## 5. Risk gate and execution lease
 

@@ -2,7 +2,7 @@
 
 ## 1. 适用范围
 
-本文件适用于 FlowPilot 仓库中的所有 Codex 会话。六会话职责、路径所有权、启动提示和协作流程见 `docs/team/CODEX_SESSIONS.md`。
+本文件适用于 FlowPilot 仓库中的所有 Codex 会话。七会话职责、路径所有权、启动提示和协作流程见 `docs/team/CODEX_SESSIONS.md`。
 
 开始工作前必须依次阅读：
 
@@ -23,6 +23,7 @@
 - `S4-QUALITY`：产品体验、评测、可观测性、跨组件质量。
 - `S5-CORE`：领域、应用用例、API、IT Service Domain Pack 与公共 Python Workspace。
 - `S6-DATA`：持久化、迁移、PostgreSQL/Redis、基础设施与数据恢复。
+- `S7-INTEGRATION`：跨分支组合验证、依赖闭包、证据复算与集成故障定位。
 
 不得在同一工作包内自行切换角色。收到超出所有权的请求时：
 
@@ -32,7 +33,7 @@
 
 ## 3. 事实与状态
 
-- 当前仓库处于 `Architecture Baseline`，无功能实现。
+- 当前仓库处于 `Architecture Baseline + M0 增量实现与集成`；具体功能状态以 `docs/acceptance/TRACEABILITY.md` 和已接受证据为准。
 - `DESIGNED`、`IMPLEMENTED`、`VERIFIED`、`RELEASED` 的定义以 `docs/acceptance/ACCEPTANCE.md` 为准。
 - 没有代码、测试和证据包时，不得使用“已实现”“已提升”“已达到”。
 - 24%、82.5%→90%、0.86→0.91 只是参考目标，不得预填为结果。
@@ -97,6 +98,14 @@
 - `migrations/**`
 - `infra/**`
 - `tests/data/**`
+
+### `S7-INTEGRATION` 独占
+
+- `scripts/integration/**`
+- `tests/integration/**`
+- `artifacts/integration/**` 的生成器与结构；生成结果默认不提交
+
+S7 默认从只读组合验证开始。未取得独立 Worktree、工作包和 `MODE=IMPLEMENTATION` 前，不得创建上述路径。
 
 ### 共享文件
 
@@ -188,7 +197,7 @@ make acceptance
 ## 9. Git 与并行约定
 
 - 并行写入必须使用独立 Git worktree/分支。
-- 六个会话不得同时编辑同一工作目录。
+- 七个会话不得同时编辑同一工作目录。
 - 分支命名：`codex/<session>/<work-package>`。
 - 一个工作包只解决一个垂直目标或一组强相关功能 ID。
 - 禁止对其他会话分支 force-push、reset、rebase 或覆盖未合并提交。
@@ -203,6 +212,10 @@ make acceptance
 
 - `S1-ARCH` 负责最终集成顺序和冲突裁决。
 - 合并前责任会话先自测，另一个会话执行跨角色审查。
+- 每条跨会话派发必须声明 `EXECUTION_MODE`：
+  - `PARALLEL`：可并行写入，必须列出互斥路径和汇合门禁。
+  - `READ_ONLY_PARALLEL`：可并行只读复核，不得修改文件或 Git。
+  - `ORDERED`：必须列出顺序、前置交付和解锁条件；后序会话不得提前写入。
 
 ## 10. 工作包
 
@@ -240,4 +253,5 @@ make acceptance
 - `S4-QUALITY` 的 Judge、指标和报告聚合由 `S1-ARCH` 复核，防止分母、跳过和指标定义漂移。
 - `S5-CORE` 的领域状态转换、Command Intake 与 API 错误映射由 `S1-ARCH` 或 `S2-RUNTIME` 复核。
 - `S6-DATA` 的 RLS、事务、Inbox/Outbox、迁移与恢复路径必须由 `S1-ARCH` 复核，并由 `S4-QUALITY` 增加黑盒故障测试。
+- `S7-INTEGRATION` 的组合结果、依赖闭包与证据复算由 `S1-ARCH` 复核；S7 不得用自身生成的报告单方面批准合并。
 - `S1-ARCH` 的契约和 ADR 至少由对应实现会话验证可实现性。

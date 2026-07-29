@@ -1,4 +1,4 @@
-# FlowPilot 六会话执行契约
+# FlowPilot 七会话执行契约
 
 ## 契约作用
 
@@ -12,6 +12,7 @@
 | S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | [WP-030](../work-packages/WP-030-quality-bootstrap.md) | ACTIVE_ON_COMMIT（离线范围） |
 | S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | [WP-011](../work-packages/WP-011-core-bootstrap.md) | ACTIVE_ON_COMMIT |
 | S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | [WP-021](../work-packages/WP-021-data-bootstrap.md) | REVIEW_ONLY |
+| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | [WP-040](../work-packages/WP-040-integration-verification.md) | REVIEW_ONLY_PENDING_WORKTREE |
 
 ## 约束优先级
 
@@ -37,10 +38,11 @@
 ## 每次会话必须声明
 
 ```text
-SESSION_ROLE=<S1-ARCH|S2-RUNTIME|S3-PLATFORM|S4-QUALITY|S5-CORE|S6-DATA>
+SESSION_ROLE=<S1-ARCH|S2-RUNTIME|S3-PLATFORM|S4-QUALITY|S5-CORE|S6-DATA|S7-INTEGRATION>
 WORK_PACKAGE=<WP-ID>
 FEATURE_IDS=<FP-ID,...>
 WRITE_SCOPE=<允许路径>
+EXECUTION_MODE=<PARALLEL|READ_ONLY_PARALLEL|ORDERED>
 ```
 
 缺失以上声明时，只允许只读分析。

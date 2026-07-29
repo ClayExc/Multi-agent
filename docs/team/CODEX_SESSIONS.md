@@ -1,8 +1,8 @@
-# FlowPilot 六 Codex 会话协作设计
+# FlowPilot 七 Codex 会话协作设计
 
 ## 1. 设计目标
 
-FlowPilot 使用六个长期存在、用户可分别继续对话的顶层 Codex 会话。角色负责稳定的能力和路径，实际执行围绕 Work Package、Git Worktree、分支和证据包组织。
+FlowPilot 使用七个长期存在、用户可分别继续对话的顶层 Codex 会话。角色负责稳定的能力和路径，实际执行围绕 Work Package、Git Worktree、分支和证据包组织。
 
 这与 OpenAI Symphony 的核心思路一致：从“管理聊天会话”转向“管理待完成工作”。FlowPilot 当前先采用人工控制面，后续可把 GitHub Issues/Projects 接成任务控制面。
 
@@ -14,12 +14,14 @@ flowchart LR
     S6["S6-DATA<br/>Persistence/Migration/Infra"]
     S3["S3-PLATFORM<br/>MCP/Policy/Security"]
     S4["S4-QUALITY<br/>Experience/Evals/Observability"]
+    S7["S7-INTEGRATION<br/>组合验证/依赖闭包/证据复现"]
 
     S1 -->|"公共契约与完成定义"| S2
     S1 -->|"公共契约与完成定义"| S3
     S1 -->|"公共契约与完成定义"| S4
     S1 -->|"公共契约与完成定义"| S5
     S1 -->|"公共契约与完成定义"| S6
+    S1 -->|"输入提交与调度模式"| S7
     S5 -->|"Application/Execution Port"| S2
     S5 -->|"Repository/UoW Port"| S6
     S2 -->|"ToolRequest"| S3
@@ -30,11 +32,17 @@ flowchart LR
     S5 -->|"API/Domain Fixture"| S4
     S6 -->|"RLS/恢复 Fixture"| S4
     S4 -->|"失败证据与回归报告"| S1
+    S2 -->|"Runtime Handoff"| S7
+    S3 -->|"Platform Handoff"| S7
+    S4 -->|"Acceptance Handoff"| S7
+    S5 -->|"Workspace/Lock Handoff"| S7
+    S6 -->|"Migration/Infra Handoff"| S7
+    S7 -->|"组合矩阵与复现报告"| S1
 ```
 
 当前会话是 `S1-ARCH`。所有会话必须先声明 `SESSION_ROLE`，再读取自己的 Session Contract 和 Work Package。
 
-## 2. 六个角色
+## 2. 七个角色
 
 | 会话 | 定位 | 独占产物 | 当前工作包 |
 |---|---|---|---|
@@ -44,12 +52,13 @@ flowchart LR
 | S4-QUALITY | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | WP-030 |
 | S5-CORE | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | WP-011 |
 | S6-DATA | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | WP-021 |
+| S7-INTEGRATION | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | WP-040 |
 
 路径所有权以根目录 `AGENTS.md` 为唯一总规则；Session Contract 和 Work Package 只能进一步收紧。
 
 ## 3. 会话与工作的分离
 
-六个会话是能力所有者，不是任务状态机。任务状态属于 Work Package 或 Issue：
+七个会话是能力所有者，不是任务状态机。任务状态属于 Work Package 或 Issue：
 
 ```text
 BACKLOG
@@ -107,33 +116,44 @@ CANCELLED 由用户或 S1 明确终止
 | S4 | `E:\workspace\Multi-agent-s4` | `codex/s4/wp-030-quality-bootstrap` |
 | S5 | `E:\workspace\Multi-agent-s5` | `codex/s5/wp-011-core-bootstrap` |
 | S6 | `E:\workspace\Multi-agent-s6` | `codex/s6/wp-021-data-bootstrap` |
+| S7 | `E:\workspace\Multi-agent-s7` | `codex/s7/wp-040-integration-verification` |
 
 S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一分支同时签出到多个 Worktree。
 
 ## 6. 并发容量
 
-六个会话不等于五个实现会话必须同时写代码。人工协调阶段同时写入上限为 3：
+七个会话不等于所有会话必须同时写代码。S2～S6 是产品实现角色，S7 默认只读验证；人工协调阶段同时写入上限仍为 3：
 
 1. 第一波：S5/WP-011；S4/WP-030 可并行建设离线评测与证据骨架。
 2. S1 接受 `WP-011-H1`（Python Workspace、Application/Repository Port）交接后，启动 S2/WP-010 与 S6/WP-021；若 S4 仍写入，此时正好三个并行写会话。
 3. S6 交付执行账本 Port 且 S5 Workspace 可用后启动 S3/WP-020。
 4. S4 在前置切片可运行后接入跨组件验收，S1 执行集成裁决。
+5. S7 可在任一阶段以 `READ_ONLY_PARALLEL` 复算交接；只有取得独立 Worktree、Attempt 与 S1 写指令后才计入写会话上限。
+
+每次多会话派发必须声明调度模式：
+
+- `PARALLEL`：可同时写入互斥路径，派发中写明汇合门禁。
+- `READ_ONLY_PARALLEL`：只读并行，不修改文件或 Git。
+- `ORDERED`：按显式顺序执行，前一项达到解锁条件后才能启动下一项。
+
+会话编号、消息到达顺序和用户粘贴顺序不自动构成执行顺序。
 
 若某会话等待依赖，它可以只读审查、补测试设计或准备 RFC，不能绕过依赖私自修改共享文件。
 
 ## 7. RACI
 
-| 事项 | S1 | S2 | S3 | S4 | S5 | S6 |
-|---|---|---|---|---|---|---|
-| 公共 Schema/ADR | A/R | C | C | C | C | C |
-| Domain/Application/API | A | C | C | C | R | C |
-| LangGraph/Runtime/Context | A | R | C | C | C | C |
-| MCP Gateway/Policy/Security | A | C | R | C | C | C |
-| Persistence/RLS/Migration/Infra | A | C | C | C | C | R |
-| Evaluation/Judge/Observability/Web | A | C | C | R | C | C |
-| Python Workspace/公共依赖 | A | C | C | C | R | C |
-| Compose/环境变量/部署依赖 | A | C | C | C | C | R |
-| 功能状态与发布裁决 | A/R | C | C | C | C | C |
+| 事项 | S1 | S2 | S3 | S4 | S5 | S6 | S7 |
+|---|---|---|---|---|---|---|---|
+| 公共 Schema/ADR | A/R | C | C | C | C | C | C |
+| Domain/Application/API | A | C | C | C | R | C | C |
+| LangGraph/Runtime/Context | A | R | C | C | C | C | C |
+| MCP Gateway/Policy/Security | A | C | R | C | C | C | C |
+| Persistence/RLS/Migration/Infra | A | C | C | C | C | R | C |
+| Evaluation/Judge/Observability/Web | A | C | C | R | C | C | C |
+| Python Workspace/公共依赖 | A | C | C | C | R | C | C |
+| Compose/环境变量/部署依赖 | A | C | C | C | C | R | C |
+| 跨分支组合与证据复现 | A | C | C | C | C | C | R |
+| 功能状态与发布裁决 | A/R | C | C | C | C | C | C |
 
 `A` 为最终负责，`R` 为实施负责，`C` 为必须咨询。
 
@@ -169,11 +189,12 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 - S4 Judge/指标/报告：S1 复核。
 - S5 Domain/Command/API：S1 或 S2 复核，S4 验证外部行为。
 - S6 RLS/事务/Inbox/Outbox/Migration：S1 复核，S3 验证安全语义，S4 增加故障测试。
+- S7 组合矩阵/依赖闭包/证据复算：S1 复核；涉及产品体验由 S4 复核，涉及安全或数据分别咨询 S3/S6。
 - S1 Schema/ADR：对应实现会话至少一名验证可实现性。
 
 ## 11. Symphony 式后续演进
 
-当前先人工执行六会话协议。完成 M0 后可增加 GitHub Issues/Projects 控制面：
+当前先人工执行七会话协议。完成 M0 后可增加 GitHub Issues/Projects 控制面：
 
 1. Issue 字段映射 Work Package、Feature ID、Owner Role、依赖、优先级和状态。
 2. 只有 `READY` 且依赖完成的 Issue 才创建隔离 Worktree。
@@ -189,6 +210,7 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 ## 12. 整体完成定义
 
 - 五个实现会话只在自己的 Worktree、分支和路径内写入。
+- S7 只在自己的集成 Worktree 中组合和复现，不修改输入分支；S1 保留最终合并与发布裁决。
 - 公共契约、依赖、共享配置和数据库变更具有单一权威。
 - 正常、边界、失败、安全和恢复证据可由其他会话复现。
 - 跨租户成功读写、重复逻辑写入和 Secret 泄漏均为 0。

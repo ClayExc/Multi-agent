@@ -17,6 +17,7 @@
 | [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | BLOCKED_ON_WP021_LEDGER | WP-011 H1 已合入；等待 WP-021 执行账本 Port | Gateway/Policy/Security 骨架 |
 | [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | READY_ON_BASELINE_SYNC | WP-011 H1 已合入；同步新基线 | Persistence/Migration/RLS/Compose 骨架 |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
+| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | READY_FOR_READ_ONLY_REVIEW | 初始只读；写模式等待独立 Worktree 与 Attempt | 跨分支组合、依赖闭包与证据复现 |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 
@@ -32,6 +33,8 @@ rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 
 6. WP-011 Workspace 可用且 WP-021 交付执行账本 Port 后启动 WP-020；WP-030 跨组件部分等待 WP-010/011/020/021 交接。
 7. 默认集成顺序：WP-011 → WP-010 → WP-021 → WP-020 → WP-030；每次集成后运行现有门禁。
 8. Registry、Dataset、Fixture 和 Traceability 完成后再进行发布级 `frozen` 复审。
+
+每次向多个会话派发时必须显式标注 `PARALLEL`、`READ_ONLY_PARALLEL` 或 `ORDERED`。消息到达顺序不代表执行顺序；`ORDERED` 派发必须写明前置交付和解锁条件。WP-040 可以只读并行复核，写模式计入“最多三个写会话”上限。
 
 ## 共享文件单写者
 

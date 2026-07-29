@@ -34,6 +34,10 @@ EXECUTION_MODE=<PARALLEL|READ_ONLY_PARALLEL|ORDERED>
 ORDER_INDEX=<n|none>
 UNLOCK_CONDITION=<evidence-or-state|none>
 COMMUNICATION_MODE=OUTCOME_FIRST
+CHAIN_ID=<chain-id|none>
+CHAIN_AUTHORITY_REF=<repository-relative-path|none>
+HANDOFF_POLICY=<S1_GATE|CONSUMER_GATE|FINAL_GATE>
+NEXT_ROLE=<session-role|S1-ARCH|none>
 ```
 
 字段缺失时只能只读分析，不得进入 `IN_PROGRESS`。
@@ -59,12 +63,16 @@ BACKLOG → READY → IN_PROGRESS → REVIEW → HANDOFF → ACCEPTED → MERGED
 
 任何内容摘要变化都会使未绑定新摘要的 Review 失效。
 
+预授权链中的 `CONSUMER_ACCEPTED` 是派生的消费结论，不是新的工作包
+状态。它只允许下一工作包启动，不能替代 `HANDOFF → ACCEPTED`。
+
 ## 4. Dispatch policy
 
 只有满足以下条件的工作项可以启动写入：
 
 1. 状态为 `READY`。
-2. 所有依赖为 `ACCEPTED` 或 `MERGED`。
+2. 所有依赖为 `ACCEPTED` 或 `MERGED`；预授权链中允许依赖处于
+   `HANDOFF`，但必须已经取得授权消费者的 `CONSUMER_ACCEPTED`。
 3. 责任角色与路径所有权一致。
 4. 分支和 Worktree 未被其他任务占用。
 5. ContractSet 摘要与工作项声明一致。
@@ -76,9 +84,26 @@ BACKLOG → READY → IN_PROGRESS → REVIEW → HANDOFF → ACCEPTED → MERGED
 
 - `PARALLEL`：任务可同时写入各自独占路径；派发必须说明最终汇合门禁。
 - `READ_ONLY_PARALLEL`：任务只读并行；禁止文件修改和 Git 写操作。
-- `ORDERED`：任务必须按 `ORDER_INDEX` 执行；只有 `UNLOCK_CONDITION` 被 S1 确认后，下一项才能进入写模式。
+- `ORDERED`：任务必须按 `ORDER_INDEX` 执行。默认由 S1 确认
+  `UNLOCK_CONDITION`；若存在有效的预授权链路记录，则由记录中指定的
+  消费者确认并直接续行。
 
 消息到达顺序、用户粘贴顺序或会话编号均不自动构成执行顺序。
+
+### 4.1 预授权链路
+
+S1 可以按
+[`docs/team/CHAIN_EXECUTION_PROTOCOL.md`](./docs/team/CHAIN_EXECUTION_PROTOCOL.md)
+一次性批准一条有序链。正常路径采用 `CONSUMER_GATE`：
+
+1. 生产者完成自测并生成 Handoff。
+2. 下一消费者核对精确 Head、摘要、范围和解锁证据。
+3. 消费者给出 `CONSUMER_VERDICT=ACCEPT` 后，在同一轮进入授权的
+   `MODE=IMPLEMENTATION`。
+4. 直到 S7 最终组合门禁或发生例外，才返回 S1。
+
+`R3` 不适用预授权续行。`R2` 必须预先固定 Reviewer、停止条件和最终
+S7 门禁。
 
 ## 5. Risk gate and execution lease
 
@@ -88,6 +113,9 @@ BACKLOG → READY → IN_PROGRESS → REVIEW → HANDOFF → ACCEPTED → MERGED
 - `R3`：公共契约不兼容变更、破坏性迁移、凭据/权限、发布与自动合并；开始和执行前均需要用户或 S1 明确批准。
 
 Agent 不得自行降低风险等级。
+
+预授权只减少正常路径中的人工中转，不降低风险门禁。公共契约变化、
+破坏性迁移、凭据权限、发布和自动合并仍逐次审批。
 
 人工模式下，`ATTEMPT_ID + branch + Worktree + IN_PROGRESS` 共同构成执行租约。发现会话失联或停滞时，不得直接启动第二个写入者；S1 先记录旧 Attempt 的最后提交和工作区状态，终止或接管旧租约，再建立新 Attempt。未来自动控制面应增加 `lease_owner`、`lease_expires_at` 与 `last_heartbeat_at`，但这些字段不能替代 Git 和 Evidence。
 

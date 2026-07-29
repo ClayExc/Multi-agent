@@ -3,10 +3,17 @@
 ## 元数据
 
 - 状态：DRAFT / READY / IN_PROGRESS / REVIEW / DONE / BLOCKED
+- Attempt ID：
+- 风险等级：R0 / R1 / R2 / R3
 - 责任会话：
 - 评审会话：
 - 功能 ID：
 - 依赖工作包：
+- 执行模式：PARALLEL / READ_ONLY_PARALLEL / ORDERED
+- Chain ID：无 / `<chain-id>`
+- Step ID：无 / `<step-id>`
+- 交接策略：S1_GATE / CONSUMER_GATE / FINAL_GATE
+- 下一角色：
 - 目标分支：`codex/<session>/<work-package>`
 
 ## 目标
@@ -62,4 +69,3 @@
 ## 完成定义
 
 -
-

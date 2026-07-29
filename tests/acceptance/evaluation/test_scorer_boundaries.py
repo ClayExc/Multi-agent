@@ -66,7 +66,7 @@ def test_missing_optional_judge_does_not_block_deterministic_pass() -> None:
     assert result.judge_scores == {}
 
 
-def test_quarantined_execution_cannot_be_promoted_by_passing_assertions() -> None:
+def test_failed_execution_with_passing_assertions_and_high_judge_stays_failed() -> None:
     scorer = DeterministicScorer.from_registry(REGISTRY)
 
     result = scorer.score(
@@ -77,7 +77,32 @@ def test_quarantined_execution_cannot_be_promoted_by_passing_assertions() -> Non
             "assert.task.terminal_status.v1": True,
             "assert.citation.valid.v1": True,
         },
-        execution_status=CaseStatus.QUARANTINED,
+        execution_status=CaseStatus.FAILED,
+        judge_scores={"judge.semantic.answer_relevance.v1": 1.0},
     )
 
-    assert result.status is CaseStatus.QUARANTINED
+    assert result.status is CaseStatus.FAILED
+    assert result.judge_scores["judge.semantic.answer_relevance.v1"] == 1.0
+
+
+@pytest.mark.parametrize(
+    "execution_status",
+    [CaseStatus.SKIPPED, CaseStatus.QUARANTINED],
+)
+def test_non_pass_execution_status_is_preserved(
+    execution_status: CaseStatus,
+) -> None:
+    scorer = DeterministicScorer.from_registry(REGISTRY)
+
+    result = scorer.score(
+        case_id="offline.functional.knowledge-qa.v1",
+        suite="functional",
+        category="knowledge_qa_citation",
+        assertion_results={
+            "assert.task.terminal_status.v1": True,
+            "assert.citation.valid.v1": True,
+        },
+        execution_status=execution_status,
+    )
+
+    assert result.status is execution_status

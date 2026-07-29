@@ -112,12 +112,14 @@ class DeterministicScorer:
             suite,
             judge_scores or {},
         )
-        if execution_status in {CaseStatus.SKIPPED, CaseStatus.QUARANTINED}:
-            status = execution_status
-        elif all(outcome.passed for outcome in outcomes):
-            status = CaseStatus.PASSED
+        if execution_status is CaseStatus.PASSED:
+            status = (
+                CaseStatus.PASSED
+                if all(outcome.passed for outcome in outcomes)
+                else CaseStatus.FAILED
+            )
         else:
-            status = CaseStatus.FAILED
+            status = execution_status
         return CaseResult(
             case_id=case_id,
             suite=suite,

@@ -33,6 +33,7 @@ ACCEPTANCE_COMMANDS=<commands>
 EXECUTION_MODE=<PARALLEL|READ_ONLY_PARALLEL|ORDERED>
 ORDER_INDEX=<n|none>
 UNLOCK_CONDITION=<evidence-or-state|none>
+COMMUNICATION_MODE=OUTCOME_FIRST
 ```
 
 字段缺失时只能只读分析，不得进入 `IN_PROGRESS`。
@@ -130,3 +131,17 @@ Agent 不得自行降低风险等级。
 - Agent 可以提出新 Issue/RFC，但不能自行批准、改变 Owner 或扩大 Scope。
 - Worktree 内不保存长期凭据、真实 PII、生产 Prompt/Trace 或原始敏感附件。
 - `S1-ARCH` 是最终集成和冲突裁决者，不是所有实现路径的直接写入者。
+
+## 10. Reasoning and communication protocol
+
+Agent 应在内部充分分析实现、契约、安全、恢复和证据，不向聊天或仓库倾倒原始隐藏思考过程。可审计的是输入、决策理由、证据、风险和动作，而不是逐 Token 推理。
+
+默认沟通模式为 `OUTCOME_FIRST`：
+
+1. 首行给出结果、状态或阻塞结论。
+2. 只列能支持结论的提交、文件、测试、哈希和最小复现。
+3. 已在范围内安全解决的问题放入 `ACTION_TAKEN`，不再向用户追问。
+4. 未解决问题按 `P0/P1/P2/P3` 合并报告，并指定 Owner 与解锁条件。
+5. `USER_INPUT_REQUIRED=none` 时会话继续推进，不因发送状态消息暂停。
+6. 等待中的会话只在依赖、HEAD、门禁或风险发生变化时更新，不重复发送相同状态。
+7. S1 只向实际 Owner 和必要 Reviewer 选择性派发；不得把所有更新广播给无关会话。

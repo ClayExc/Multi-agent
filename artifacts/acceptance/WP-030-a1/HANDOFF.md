@@ -9,9 +9,13 @@
 - 功能 ID：`FP-OBS-001`、`FP-EVAL-001`、`FP-EVAL-002`、`FP-EVAL-003`、`FP-OPS-002`
 - 分支：`codex/s4/wp-030-quality-bootstrap`
 - 基线提交：`b5caaf2448c2860cfa67d8c5a39b9cda62eca809`
+- 控制面提交：`4322d1778583df71bc861817547b9c0b2ead0ccb`
 - 实现提交：`04a0e6da504aaad4cd25ada40f5c3b1b3c0e8578`
+- 原交接提交：`a343d090adf5db5144be2a2162a937227a129512`
+- Remediation 提交：`be1f480e1b9bbb26915486371544dffb2ce854a1`
+- 已处置阻断：`S1-WP030-A1-001`
 - ContractSet 摘要：`sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
-- 状态：离线范围完成，等待跨角色复核；未合并
+- 状态：Remediation 完成，等待 S1 复审；未合并
 
 ## 完成内容
 
@@ -20,6 +24,7 @@
 - 固定功能 120、安全/故障 36 配额及 `all_declared_cases` 分母；`failed`、`skipped`、`quarantined` 全部计失败。
 - 提供两份合成最小 EvaluationCase Fixture；它们未加入 candidate Dataset Manifest，不代表 120/36 数据集完成。
 - 提供确定性评分接口和 Judge `semantic_only` 边界；Judge 高分不能覆盖确定性失败。
+- 修复执行状态提升：仅 `passed` 可按断言保持通过或降级失败；`failed`、`skipped`、`quarantined` 原样保留。
 - 提供零 Case/最小 Case 可复现报告和 Acceptance Manifest 生成骨架；零 Case 明确为失败、无成功率。
 - 提供结构化 Feature Evidence 生成接口，拒绝实现者自验、未声明 ID、缺失文件和哈希漂移。
 - 提供 Trace/Audit/Security Event 分流 Fixture；Trace 可采样，Audit/Security 不可被采样丢弃，并校验双向安全事件关联。
@@ -59,18 +64,20 @@
 | `python contracts/conformance/validate.py` | NOT_RUN：默认环境缺少 `jsonschema>=4.23` | `proof.json` |
 | 参考解释器运行 Contract Conformance | PASS：20 Schema、43 语义负例、5 Audit 链用例、21 Manifest 用例 | `proof.json` |
 | `python -m pytest tests/acceptance -q` | NOT_RUN：默认环境缺少 `pytest` | `proof.json` |
-| 参考解释器运行 `pytest` | PASS：26 tests | `proof.json` |
+| 参考解释器运行 `pytest` | PASS：28 tests | `proof.json` |
 | AST/JSON 解析与 `git diff --cached --check` | PASS | `proof.json` |
+| 临时目录 Evidence Bundle 生成 | PASS：幂等；零 Case 为失败且成功率为空 | `proof.json` |
 
 Evidence：
 
 - `artifacts/acceptance/WP-030-a1/proof.json`
-- SHA-256：`sha256:c48dce3aeb23fb91e7a683c4ff0327219a70d123ab9ebda36d1031b3f0938808`
+- SHA-256：`sha256:792c0dcddc39ab2af49bb966a836702d55fd55ee183808e1a7b7f10efcc264f5`
 
 ## 安全与失败路径
 
 - 已验证：未知 Feature、重复 Case、Schema 引用缺失、Contract/Case 哈希漂移、120/36 配额缩减、五角色门禁缩减、伪造 Feature Evidence。
 - 已验证：Judge 越权到安全集被拒绝；高 Judge 分不能覆盖确定性失败。
+- 已验证：执行状态为 `failed` 且全部断言通过、Judge 满分时仍保持 `failed`；`skipped`、`quarantined` 同样不可提升。
 - 已验证：零 Case、缺失结果、重复结果、跳过、隔离、聚合重放。
 - 已验证：Audit/Security 被采样丢弃、跨事件错链和 secret-like payload 均被拒绝。
 - Secret/PII 检查：0 个实际发现；测试与实现中仅保留检测规则本身。
@@ -83,12 +90,13 @@ Evidence：
 
 ## 接收会话下一步
 
-1. `S1-ARCH` 审查分母、Judge 边界、Evidence 结构和报告字段，确认未漂移公共契约。
-2. `S2-RUNTIME` 复核 Trace 关联字段和未来 Fake Runtime 接口。
-3. `S3-PLATFORM` 复核 Audit/Security 分流、不可采样与双向关联负例。
-4. WP-011 公共 Workspace 合入后，用默认 `python` 重跑两条激活验收命令。
-5. WP-010/011/020/021 交接后，为跨组件范围创建后续 Attempt；不得在本 Attempt 内推断其已通过。
+1. `S1-ARCH` 复审 `S1-WP030-A1-001`，确认非通过执行状态不再进入成功分子。
+2. `S1-ARCH` 继续审查分母、Judge 边界、Evidence 结构和报告字段，确认未漂移公共契约。
+3. `S2-RUNTIME` 复核 Trace 关联字段和未来 Fake Runtime 接口。
+4. `S3-PLATFORM` 复核 Audit/Security 分流、不可采样与双向关联负例。
+5. WP-011 公共 Workspace 合入后，用默认 `python` 重跑两条激活验收命令。
+6. WP-010/011/020/021 交接后，为跨组件范围创建后续 Attempt；不得在本 Attempt 内推断其已通过。
 
 ## 可回滚方式
 
-- 在未合并前丢弃本分支即可；若已集成，使用普通 `git revert` 依次回退 Handoff 提交和实现提交，不重写其他会话历史。
+- 在未合并前丢弃本分支即可；若已集成，使用普通 `git revert` 按逆序回退 remediation Handoff、修复、原 Handoff 和实现提交，不重写其他会话历史。

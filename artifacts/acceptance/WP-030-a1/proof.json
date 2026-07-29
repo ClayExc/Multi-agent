@@ -5,7 +5,9 @@
   "session_role": "S4-QUALITY",
   "risk_class": "R1",
   "base_commit": "b5caaf2448c2860cfa67d8c5a39b9cda62eca809",
+  "control_plane_commit": "4322d1778583df71bc861817547b9c0b2ead0ccb",
   "implementation_commit": "04a0e6da504aaad4cd25ada40f5c3b1b3c0e8578",
+  "remediation_commit": "be1f480e1b9bbb26915486371544dffb2ce854a1",
   "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
   "feature_ids": [
     "FP-OBS-001",
@@ -71,5 +73,55 @@
     "Gateway and platform security integration waits for WP-020.",
     "RLS, Outbox, ledger, and recovery integration waits for WP-021.",
     "make acceptance wiring requires a later shared-file work package."
-  ]
+  ],
+  "remediation": {
+    "blocker": "S1-WP030-A1-001",
+    "review": "docs/review/WP-030-A1-S1-REVIEW.md",
+    "produced_at": "2026-07-29T02:19:17.050652Z",
+    "behavior": {
+      "passed": "deterministic assertions may preserve passed or downgrade it to failed",
+      "failed": "preserved",
+      "skipped": "preserved",
+      "quarantined": "preserved",
+      "judge_effect": "semantic metadata only; cannot change execution status"
+    },
+    "commands": [
+      {
+        "command": "python -m pytest tests/acceptance -q",
+        "result": "NOT_RUN",
+        "exit_code": 1,
+        "summary": "default environment lacks pytest; dependency belongs to WP-011"
+      },
+      {
+        "command": "E:\\workspace\\personal-kb-qa-system\\.venv\\Scripts\\python.exe -m pytest tests/acceptance -q",
+        "result": "PASS",
+        "exit_code": 0,
+        "summary": "28 passed in 2.82s; external pytest-asyncio plugin emitted one configuration deprecation warning"
+      },
+      {
+        "command": "python -B scripts/acceptance/validate_offline.py",
+        "result": "PASS",
+        "exit_code": 0,
+        "summary": "case_count=2 findings=0 gate=pass"
+      },
+      {
+        "command": "python -B contracts/conformance/validate.py",
+        "result": "NOT_RUN",
+        "exit_code": 1,
+        "summary": "default environment lacks jsonschema>=4.23; dependency belongs to WP-011"
+      },
+      {
+        "command": "E:\\workspace\\personal-kb-qa-system\\.venv\\Scripts\\python.exe -B contracts/conformance/validate.py",
+        "result": "PASS",
+        "exit_code": 0,
+        "summary": "schemas=20 cases=35 semantic_negative=43 audit_chain_negative=4 manifest_negative=20 features=52"
+      },
+      {
+        "command": "temporary-directory evidence bundle generation",
+        "result": "PASS",
+        "exit_code": 0,
+        "summary": "idempotent=true zero_case_gate=fail success_rate=null"
+      }
+    ]
+  }
 }

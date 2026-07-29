@@ -9,7 +9,7 @@ FEATURE_IDS=FP-FLOW-001,FP-FLOW-002,FP-AGT-002,FP-CTX-001
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/agent-runtime/**,packages/model-gateway/**,packages/context/**,tests/runtime/**,WP-010授权共享文件
 ```
 
-- 契约状态：REVIEW_ONLY
+- 契约状态：READY_ON_BASELINE_SYNC；WP-011 H1 已接受
 - 当前工作：[WP-010 Runtime 基线](../work-packages/WP-010-runtime-bootstrap.md)
 - 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
 

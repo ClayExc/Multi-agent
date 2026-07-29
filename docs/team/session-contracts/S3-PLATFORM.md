@@ -9,7 +9,7 @@ FEATURE_IDS=FP-MCP-001,FP-MCP-002,FP-SEC-001,FP-SEC-004
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：REVIEW_ONLY
+- 契约状态：DEPENDENCY_WAIT；WP-011 H1 已合入，等待 WP-021 执行账本 Port
 - 当前工作：[WP-020 MCP、安全与策略基线](../work-packages/WP-020-platform-bootstrap.md)
 - 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
 

@@ -8,10 +8,24 @@
 - 分支：`codex/s4/wp-030-quality-bootstrap`
 - 基线：`b5caaf2448c2860cfa67d8c5a39b9cda62eca809`
 - 评审提交：`04a0e6da504aaad4cd25ada40f5c3b1b3c0e8578`、`a343d090adf5db5144be2a2162a937227a129512`
+- 修复提交：`be1f480e1b9bbb26915486371544dffb2ce854a1`
+- 修复交接：`34293f3c14c71bd8ae9f61ef1b01c3acbbc8651a`
+- 合并提交：`5cfa78b7e8d9cc1393dac4ae515ac6a9340fdf5f`
 - ContractSet：`sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
-- 裁决：`CHANGES_REQUESTED`
+- 裁决：`ACCEPTED_AND_MERGED`
 
-WP-030-a1 离线骨架暂不合入主分支。已有校验器、固定分母、Judge 边界、Evidence 和信号分流设计可以保留；修复失败状态提升问题后沿用原分支和 Attempt 复审。
+WP-030-a1 离线骨架已接受并合入主分支。跨组件质量验证仍等待 WP-010、WP-011、WP-020 与 WP-021 的可运行切片。
+
+## 复审结果
+
+- 只有 `execution_status=passed` 才按确定性断言保留通过或降级失败。
+- `failed`、`skipped`、`quarantined` 均保留原状态，Judge 不能提升。
+- S1 最小复现由 `RESULT=passed` 变为 `RESULT=failed`。
+- S1 独立运行 Acceptance：`28 passed`。
+- 离线 Gate：PASS，2 个合成 Case、0 Findings。
+- Contract Conformance：PASS。
+- Proof SHA-256：`sha256:792c0dcddc39ab2af49bb966a836702d55fd55ee183808e1a7b7f10efcc264f5`。
+- 合入 S5 H1 后的联合测试：`50 passed`。
 
 ## 已复核内容
 
@@ -23,7 +37,7 @@ WP-030-a1 离线骨架暂不合入主分支。已有校验器、固定分母、J
 - S1 独立运行离线 Gate：`case_count=2`、`findings=0`、PASS。
 - S1 独立运行 Contract Conformance：PASS。
 
-## 阻断项
+## 已关闭的阻断项
 
 ### S1-WP030-A1-001：明确失败的执行状态可被提升为 passed
 
@@ -41,7 +55,7 @@ RESULT=passed
 - WP-030“失败、跳过和隔离样本必须保留”的约束。
 - 验收报告不得用聚合逻辑美化结果的真实性边界。
 
-必须处置：
+处置要求（已完成）：
 
 1. 只有 `execution_status=passed` 时，才允许根据确定性断言计算通过。
 2. `failed`、`skipped`、`quarantined` 都必须保留原状态；Judge 分数不得改变它们。
@@ -54,15 +68,8 @@ RESULT=passed
 - 参考环境的 `pytest-asyncio` 配置弃用警告不阻断本 Attempt；公共 Workspace 接入后应以锁定依赖重跑。
 - 当前仍只接受离线骨架，不代表 120/36 数据集、跨组件黑盒验收或 `make acceptance` 已完成。
 
-## 复审入口
+## 后续范围
 
-S4 提交修复后提供：
-
-```text
-SESSION_ROLE=S4-QUALITY
-WORK_PACKAGE=WP-030
-ATTEMPT_ID=WP-030-a1
-MODE=REMEDIATION_HANDOFF
-NEW_HEAD=<commit>
-FIXED=S1-WP030-A1-001
-```
+- 当前仍是离线骨架，不代表 120/36 数据集完成。
+- 当前未接入 Runtime、API、Gateway、RLS、Outbox 或恢复黑盒测试。
+- `make acceptance` 仍需后续共享文件工作包接入。

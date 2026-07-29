@@ -5,18 +5,18 @@
 - 里程碑：M0 仓库与契约基线
 - 阶段状态：`IN_PROGRESS`
 - 架构责任：`S1-ARCH`
-- 发布状态：Architecture Baseline；无功能实现、无通过证据
+- 发布状态：Architecture Baseline + M0 实施；H1 与离线质量骨架已合入，尚无端到端业务闭环
 
 ## M0 工作包
 
 | 工作包 | 责任会话 | 状态 | 依赖 | 目标 |
 |---|---|---|---|---|
 | [WP-000](./WP-000-m0-contract-freeze.md) | S1-ARCH | IN_PROGRESS | 无 | 实现基线已评审；发布级冻结等待质量资产 |
-| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | BLOCKED | 五实现角色同摘要 ACCEPT、激活提交、WP-011 Workspace | Graph/Runtime/Context/Worker 骨架 |
-| [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | READY_ON_COMMIT | 从激活提交创建 S5 Worktree | Domain/Application/API/Python Workspace 骨架 |
-| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | BLOCKED | 五实现角色同摘要 ACCEPT、激活提交、WP-011 Workspace | Gateway/Policy/Security 骨架 |
-| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | BLOCKED | 五实现角色同摘要 ACCEPT、激活提交、WP-011 Workspace | Persistence/Migration/RLS/Compose 骨架 |
-| [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | READY_ON_COMMIT | 从激活提交创建 S4 Worktree；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
+| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | READY_ON_BASELINE_SYNC | WP-011 H1 已合入；同步新基线 | Graph/Runtime/Context/Worker 骨架 |
+| [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | IN_PROGRESS | H1 已合入；继续 API/Domain Pack | Domain/Application/API/Python Workspace 骨架 |
+| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | BLOCKED_ON_WP021_LEDGER | WP-011 H1 已合入；等待 WP-021 执行账本 Port | Gateway/Policy/Security 骨架 |
+| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | READY_ON_BASELINE_SYNC | WP-011 H1 已合入；同步新基线 | Persistence/Migration/RLS/Compose 骨架 |
+| [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 

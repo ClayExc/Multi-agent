@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前仓库处于 **Architecture Baseline v1.0（架构基线）** 阶段，尚无可运行代码、容器镜像或实测性能报告。
+当前仓库处于 **Architecture Baseline v1.0 + M0 实施阶段**。Python Workspace、Domain/Application Port H1 和离线质量骨架已经进入主分支；API、Worker、LangGraph、MCP Gateway、数据库基础设施和端到端业务闭环仍未实现，也没有容器镜像或实测性能报告。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -12,6 +12,8 @@
 | README、目标目录与模块依赖 | 已基线化 | 可使用“规划” |
 | 功能与安全验收标准 | 已定义 | 可使用“定义验收” |
 | M0 公共 JSON Schema | rc1 已拒绝；rc2 五角色同摘要 ACCEPT，本提交激活实现基线 | 可使用“rc2 实现基线已激活”，不可使用“已冻结” |
+| Python Workspace、Domain/Application Port | H1 已编码、经 S1 复审并合入主分支 | 只能描述 H1 实施里程碑，不代表 API 或业务闭环完成 |
+| 离线评测、证据与信号分流骨架 | 已编码、经 S1 复审并合入主分支 | 只能描述离线骨架，不代表 120/36 数据集或跨组件验收完成 |
 | LangGraph、Agents SDK、MCP Gateway | 未实现 | 不可使用“已实现” |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |
 | 800 条路由样本及 LoRA | 未构建 | 不可报告 Macro-F1 |
@@ -158,17 +160,22 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | 评测 | Pytest、规则评测、LLM-as-Judge、版本化 JSONL 数据集 |
 | 本地交付 | Docker Compose |
 
-依赖版本将在实现阶段通过锁文件固定。README 不提前承诺未经兼容性测试的具体版本。
+M0 Python Workspace 的依赖已经由 `uv.lock` 固定；其余技术栈仍在各工作包中逐步锁定。README 不提前承诺未经兼容性测试的具体版本。
 
 ## 目标开发命令
 
-以下是实现阶段必须提供的稳定开发接口，目前尚不可执行：
+当前已经提供：
 
 ```bash
 make bootstrap
-make dev
 make test
 make test-contract
+```
+
+`make test` 当前只运行 Core 测试；S4 离线质量测试使用 `python -m pytest tests/acceptance`。以下全仓接口仍未实现：
+
+```bash
+make dev
 make test-security
 make eval
 make acceptance
@@ -176,13 +183,13 @@ make acceptance
 
 `make acceptance` 必须生成机器可读的证据清单和人类可读报告；命令不存在或报告不可复现时，项目不能标记为已完成。
 
-WP-000 当前提供独立底层门禁；环境具备 `jsonschema>=4.23` 时可运行：
+底层契约门禁也可独立运行：
 
 ```bash
 python contracts/conformance/validate.py
 ```
 
-它不替代尚未实现的 `make test-contract`。
+它与 `make test-contract` 使用同一 Conformance 入口；前者便于架构期或外部解释器直接复核。
 
 ## 完成定义
 

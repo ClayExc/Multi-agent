@@ -2,11 +2,11 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：READY_ON_BASELINE_SYNC
 - 责任会话：S6-DATA
 - 评审会话：S1-ARCH、S3-PLATFORM、S4-QUALITY
 - 功能 ID：FP-SEC-002、FP-DATA-001、FP-DATA-003、FP-OPS-001
-- 依赖工作包：S2/S3/S4/S5/S6 对同一 WP-000 `content_digest` 全部 ACCEPT、实现基线激活提交；公共 Python Workspace 依赖 WP-011
+- 依赖工作包：实现基线已激活；WP-011 H1 已接受并合入；启动前同步 S1 派发的新基线
 - 目标分支：`codex/s6/wp-021-data-bootstrap`
 
 ## 目标

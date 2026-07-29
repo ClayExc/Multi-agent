@@ -89,9 +89,10 @@ CANCELLED 由用户或 S1 明确终止
 4. `[DONE]` 运行完整 Contract Conformance Gate。
 5. `[DONE]` 创建并推送实现基线激活提交 `b5caaf2448c2860cfa67d8c5a39b9cda62eca809`。
 6. `[DONE]` 从激活提交建立 S2～S6 独立 Worktree。
-7. `[REVIEW]` S5 `WP-011-a1` H1 已交接，S1 要求修复审批过期时间绑定。
-8. `[REVIEW]` S4 `WP-030-a1` 离线骨架已交接，S1 要求修复失败执行状态被提升的问题。
-9. `[DEPENDENCY_WAIT]` S2/WP-010 与 S6/WP-021 等待 S5 H1 接受；S3/WP-020 继续等待账本 Port。
+7. `[DONE]` S5 `WP-011-a1` H1 修复复审通过，合并提交 `5959820d9740f162fc3fdb0e74372bb6d0cbcc7a`。
+8. `[DONE]` S4 `WP-030-a1` 离线骨架修复复审通过，合并提交 `5cfa78b7e8d9cc1393dac4ae515ac6a9340fdf5f`。
+9. `[READY]` S2/WP-010 与 S6/WP-021 在同步最新主分支后进入实施；S5 继续 WP-011 后续范围。
+10. `[DEPENDENCY_WAIT]` S3/WP-020 等待 S6 执行账本 Port；S4 跨组件范围等待可运行切片。
 
 发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。
 

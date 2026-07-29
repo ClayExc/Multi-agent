@@ -9,7 +9,7 @@ FEATURE_IDS=FP-SEC-002,FP-DATA-001,FP-DATA-003,FP-OPS-001
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：REVIEW_ONLY
+- 契约状态：READY_ON_BASELINE_SYNC；WP-011 H1 已接受
 - 当前工作：[WP-021 Data、Migration 与 Infra 基线](../work-packages/WP-021-data-bootstrap.md)
 - 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree。
 

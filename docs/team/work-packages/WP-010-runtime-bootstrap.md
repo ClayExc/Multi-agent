@@ -2,11 +2,11 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：READY_ON_BASELINE_SYNC
 - 责任会话：S2-RUNTIME
 - 评审会话：S1-ARCH、S4-QUALITY、S5-CORE
 - 功能 ID：FP-FLOW-001、FP-FLOW-002、FP-AGT-002、FP-CTX-001
-- 依赖工作包：S2/S3/S4/S5/S6 对同一 WP-000 `content_digest` 全部 ACCEPT、实现基线激活提交；公共 Python Workspace 依赖 WP-011
+- 依赖工作包：实现基线已激活；WP-011 H1 已接受并合入；启动前同步 S1 派发的新基线
 - 目标分支：`codex/s2/wp-010-runtime-bootstrap`
 
 ## 目标

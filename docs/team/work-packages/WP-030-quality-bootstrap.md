@@ -2,13 +2,14 @@
 
 ## 元数据
 
-- 状态：REVIEW（`WP-030-a1` 离线范围 `CHANGES_REQUESTED`）
+- 状态：IN_PROGRESS（`WP-030-a1` 离线范围 `ACCEPTED_AND_MERGED`；跨组件范围等待依赖）
 - 责任会话：S4-QUALITY
 - 评审会话：S1-ARCH、S2-RUNTIME、S3-PLATFORM、S5-CORE、S6-DATA
 - 功能 ID：FP-OBS-001、FP-EVAL-001、FP-EVAL-002、FP-EVAL-003、FP-OPS-002
 - 依赖工作包：五角色同摘要 ACCEPT 与 Attestation 已完成；从实现基线激活提交创建独立 Worktree；跨组件部分依赖 WP-010/WP-011/WP-020/WP-021
 - 目标分支：`codex/s4/wp-030-quality-bootstrap`
 - S1 评审：[`WP-030-A1-S1-REVIEW.md`](../../review/WP-030-A1-S1-REVIEW.md)
+- 离线基线合并提交：`5cfa78b7e8d9cc1393dac4ae515ac6a9340fdf5f`
 
 ## 目标
 

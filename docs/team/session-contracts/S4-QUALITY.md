@@ -9,7 +9,7 @@ FEATURE_IDS=FP-OBS-001,FP-EVAL-001,FP-EVAL-002,FP-EVAL-003,FP-OPS-002
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
-- 契约状态：ACTIVE；`WP-030-a1` 离线质量骨架处于 `REVIEW / CHANGES_REQUESTED`
+- 契约状态：ACTIVE；`WP-030-a1` 离线质量骨架已 `ACCEPTED_AND_MERGED`，跨组件范围等待依赖
 - 当前工作：[WP-030 Quality、评测与证据基线](../work-packages/WP-030-quality-bootstrap.md)
 - 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
 

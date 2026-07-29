@@ -9,7 +9,7 @@ FEATURE_IDS=FP-FLOW-007,FP-FLOW-008,FP-FLOW-009,FP-APR-001
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,domain-packs/it-service/**,tests/core/**,WP-011授权共享文件
 ```
 
-- 契约状态：ACTIVE；`WP-011-a1` H1 处于 `REVIEW / CHANGES_REQUESTED`
+- 契约状态：ACTIVE；`WP-011-a1` H1 已 `ACCEPTED_AND_MERGED`，WP-011 后续范围待实施
 - 当前工作：[WP-011 Core、API 与 Python Workspace 基线](../work-packages/WP-011-core-bootstrap.md)
 - 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree。
 

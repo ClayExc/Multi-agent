@@ -2,11 +2,11 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：BLOCKED_ON_WP021_LEDGER
 - 责任会话：S3-PLATFORM
 - 评审会话：S1-ARCH、S4-QUALITY、S6-DATA
 - 功能 ID：FP-MCP-001、FP-MCP-002、FP-SEC-001、FP-SEC-004
-- 依赖工作包：S2/S3/S4/S5/S6 对同一 WP-000 `content_digest` 全部 ACCEPT、实现基线激活提交；公共 Python Workspace 依赖 WP-011
+- 依赖工作包：实现基线与 WP-011 H1 已合入；等待 WP-021 提供执行账本 Port
 - 目标分支：`codex/s3/wp-020-platform-bootstrap`
 
 ## 目标

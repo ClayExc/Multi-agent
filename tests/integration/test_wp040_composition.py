@@ -34,6 +34,7 @@ def test_candidate_is_exact_and_dependency_complete(verifier: ModuleType) -> Non
 
     assert manifest["summary"]["verdict"] == "PASS"
     assert manifest["summary"]["failed_checks"] == []
+    assert manifest["branch"] == verifier.CANDIDATE_BRANCH
     assert manifest["workspace"]["member_count"] == 9
     assert manifest["workspace"]["lock_package_count"] == 73
     assert manifest["migrations"]["head"] == "0002_checkpoint_sequence_cas"
@@ -61,6 +62,93 @@ def test_manifest_and_report_are_deterministic(
     assert first_paths[0].read_bytes() == second_paths[0].read_bytes()
     assert first_paths[1].read_bytes() == second_paths[1].read_bytes()
     assert first_paths[2:] == second_paths[2:]
+    assert first_paths[2] == (
+        "sha256:1e9140e267470a0b4404a34b07254569"
+        "875c3d8c582517599cc328ba8b5dddb1"
+    )
+    assert first_paths[3] == (
+        "sha256:533a2540a2d41264fe38bbc84c92ae5f"
+        "a9bd5f3e1292b57598139e470c4e143c"
+    )
+
+
+def test_legal_s1_final_merge_passes(verifier: ModuleType) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.S1_FINAL,
+        target_head=verifier.S1_FINAL_TEST_HEAD,
+    )
+
+    assert manifest["summary"]["verdict"] == "PASS"
+    assert manifest["validation_phase"] == "S1_FINAL"
+    assert manifest["branch"].startswith("codex/s1/")
+    assert manifest["final"]["delta_scope_violations"] == []
+    assert manifest["final"]["protected_path_mismatches"] == []
+    assert all(manifest["final"]["input_head_ancestry"].values())
+
+
+def test_s1_final_rejects_non_s1_product_path(verifier: ModuleType) -> None:
+    changes = [
+        ("M", "docs/team/CODEX_SESSIONS.md"),
+        ("M", ".gitignore"),
+        ("M", "packages/domain/src/flowpilot_domain/actions.py"),
+        ("M", "tests/acceptance/test_release_gate.py"),
+    ]
+
+    assert verifier.final_scope_violations(changes, ".idea/\n") == [
+        "M:packages/domain/src/flowpilot_domain/actions.py",
+        "M:tests/acceptance/test_release_gate.py",
+    ]
+
+
+def test_s1_final_allows_reviewed_s7_control_paths(
+    verifier: ModuleType,
+) -> None:
+    changes = [
+        ("M", "scripts/integration/verify_wp040.py"),
+        ("M", "tests/integration/test_wp040_composition.py"),
+        ("A", "tests/integration/evidence/WP-040-a3-HANDOFF.md"),
+    ]
+
+    assert verifier.final_scope_violations(changes, ".idea/\n") == []
+
+
+def test_s1_final_branch_and_ignored_cleanup_fail_closed(
+    verifier: ModuleType,
+) -> None:
+    assert verifier.is_s1_branch("master")
+    assert verifier.is_s1_branch("codex/s1/wp-040-final-gate")
+    assert not verifier.is_s1_branch(
+        "codex/s7/wp-040-integration-verification"
+    )
+    assert verifier.final_scope_violations(
+        [("M", ".idea/modules.xml")],
+        ".idea/\n",
+    ) == ["M:.idea/modules.xml"]
+
+
+def test_candidate_checkout_identity_remains_explicit(
+    verifier: ModuleType,
+) -> None:
+    assert verifier.is_candidate_branch(verifier.CANDIDATE_BRANCH)
+    assert not verifier.is_candidate_branch("master")
+    assert not verifier.is_candidate_branch("codex/s1/wp-040-final-gate")
+
+
+def test_candidate_rejects_s7_delta_outside_owner_scope(
+    verifier: ModuleType,
+) -> None:
+    violations = verifier.path_scope_violations(
+        (
+            "scripts/integration/verify_wp040.py",
+            "packages/application/src/flowpilot_application/ports.py",
+        ),
+        verifier.S7_ALLOWED_PREFIXES,
+    )
+
+    assert violations == [
+        "packages/application/src/flowpilot_application/ports.py"
+    ]
 
 
 def test_wrong_merge_topology_fails_closed(verifier: ModuleType) -> None:

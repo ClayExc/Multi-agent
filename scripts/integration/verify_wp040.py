@@ -1,10 +1,10 @@
-"""Reproduce the static composition evidence for WP-040-a1.
+"""Reproduce WP-040 candidate or S1 final static composition evidence.
 
 The verifier is deliberately read-only with respect to Git and product sources.
 It emits deterministic artifacts below ``artifacts/integration/runs`` when an
 output directory is supplied. Runtime, wheel, database, and Compose results are
-recorded separately in the S7 handoff because this script must not manufacture
-evidence for commands it did not execute.
+recorded separately in the S7 handoff. The default phase preserves WP-040-a1
+candidate output; ``S1_FINAL`` adds final-branch and invariant checks.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import sys
 import tomllib
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,9 @@ BASE_COMMIT = "55125ae3992311eab03cc888ea9c908486b4b727"
 CONTROL_HEAD = "6a16320a16fc76f2a5ffdedfc0ab893c87a636fa"
 COMMON_MERGE_BASE = "93597a5023320d48875b292dc08106f03227a3fb"
 CANDIDATE_MERGE_HEAD = "56c90b1355213357415778bda43fc3acf96aa8ed"
+S7_CANDIDATE_HEAD = "4314766c0cfb57c3332a5fc0b0c27395e93cf879"
+S1_FINAL_TEST_HEAD = "9b166f8cbc6a85fc036458c5d88caf1ec10feacf"
+CANDIDATE_BRANCH = "codex/s7/wp-040-integration-verification"
 CONTRACT_DIGEST = (
     "sha256:0a82e7f58c4223362721c95a50e9a820"
     "d714e550e72eebc7a90ab01e283100fc"
@@ -141,6 +145,45 @@ S7_ALLOWED_PREFIXES = (
     "artifacts/integration/",
 )
 
+S1_EXACT_PATHS = {
+    "AGENTS.md",
+    "README.md",
+    "STRUCTURE.md",
+    "WORKFLOW.md",
+}
+
+S1_ALLOWED_PREFIXES = (
+    "contracts/",
+    "docs/architecture/",
+    "docs/acceptance/",
+    "docs/decisions/",
+    "docs/roadmap/",
+    "docs/review/",
+    "docs/team/",
+)
+
+S1_ALLOWED_SHARED_PATHS = {".gitignore"}
+
+FINAL_PROTECTED_PATHS = (
+    ".env.example",
+    "Makefile",
+    "apps",
+    "domain-packs",
+    "infra",
+    "migrations",
+    "packages",
+    "pyproject.toml",
+    "tests/core",
+    "tests/data",
+    "tests/runtime",
+    "uv.lock",
+)
+
+
+class ValidationPhase(StrEnum):
+    S7_CANDIDATE = "S7_CANDIDATE"
+    S1_FINAL = "S1_FINAL"
+
 
 @dataclass(frozen=True)
 class CheckResult:
@@ -238,6 +281,155 @@ def is_allowed_path(path: str, allowed: Iterable[str]) -> bool:
 def changed_paths(repo: Path, base: str, head: str) -> list[str]:
     output = run_git(repo, "diff", "--name-only", base, head)
     return sorted(line for line in output.splitlines() if line)
+
+
+def changed_path_statuses(
+    repo: Path,
+    base: str,
+    head: str,
+) -> list[tuple[str, str]]:
+    output = run_git(repo, "diff", "--name-status", base, head)
+    changes: list[tuple[str, str]] = []
+    for line in output.splitlines():
+        if not line:
+            continue
+        fields = line.split("\t")
+        status = fields[0]
+        paths = fields[1:]
+        if status.startswith(("R", "C")):
+            changes.extend((status, path) for path in paths)
+        elif len(paths) == 1:
+            changes.append((status, paths[0]))
+        else:
+            raise ValueError(f"unexpected git name-status line: {line}")
+    return changes
+
+
+def commit_is_ancestor(repo: Path, ancestor: str, descendant: str) -> bool:
+    return (
+        subprocess.run(
+            (
+                "git",
+                "-C",
+                str(repo),
+                "merge-base",
+                "--is-ancestor",
+                ancestor,
+                descendant,
+            ),
+            check=False,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def resolve_commit(repo: Path, revision: str) -> str:
+    return run_git(repo, "rev-parse", f"{revision}^{{commit}}")
+
+
+def branches_containing(repo: Path, revision: str) -> list[str]:
+    output = run_git(
+        repo,
+        "for-each-ref",
+        "--format=%(refname:short)",
+        "--contains",
+        revision,
+        "refs/heads",
+    )
+    return sorted(line for line in output.splitlines() if line)
+
+
+def is_s1_branch(branch: str) -> bool:
+    return branch == "master" or branch.startswith("codex/s1/")
+
+
+def is_candidate_branch(branch: str) -> bool:
+    return branch == CANDIDATE_BRANCH
+
+
+def select_target_branch(repo: Path, target_head: str) -> str:
+    current_head = run_git(repo, "rev-parse", "HEAD")
+    current_branch = run_git(repo, "branch", "--show-current")
+    if current_head == target_head and current_branch:
+        return current_branch
+    branches = branches_containing(repo, target_head)
+    allowed = [branch for branch in branches if is_s1_branch(branch)]
+    if allowed:
+        return allowed[0]
+    return branches[0] if branches else "(detached)"
+
+
+def path_scope_violations(
+    paths: Iterable[str],
+    allowed: Iterable[str],
+) -> list[str]:
+    return sorted(path for path in paths if not is_allowed_path(path, allowed))
+
+
+def is_s1_owned_path(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized in S1_EXACT_PATHS or any(
+        normalized.startswith(prefix) for prefix in S1_ALLOWED_PREFIXES
+    )
+
+
+def final_scope_violations(
+    changes: Iterable[tuple[str, str]],
+    final_gitignore: str,
+) -> list[str]:
+    ignores_idea = any(
+        line.strip().rstrip("/") == ".idea"
+        for line in final_gitignore.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+    violations: list[str] = []
+    for status, path in changes:
+        normalized = path.replace("\\", "/")
+        if (
+            is_s1_owned_path(normalized)
+            or normalized in S1_ALLOWED_SHARED_PATHS
+            or is_allowed_path(normalized, S7_ALLOWED_PREFIXES)
+        ):
+            continue
+        if status == "D" and normalized.startswith(".idea/") and ignores_idea:
+            continue
+        violations.append(f"{status}:{normalized}")
+    return sorted(violations)
+
+
+def revision_object_id(repo: Path, revision: str, path: str) -> str:
+    completed = subprocess.run(
+        ("git", "-C", str(repo), "rev-parse", f"{revision}:{path}"),
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if completed.returncode != 0:
+        return "missing"
+    return completed.stdout.strip()
+
+
+def compare_revision_paths(
+    repo: Path,
+    base: str,
+    target: str,
+    paths: Iterable[str],
+) -> tuple[dict[str, dict[str, str]], list[str]]:
+    identities: dict[str, dict[str, str]] = {}
+    mismatches: list[str] = []
+    for path in paths:
+        base_object = revision_object_id(repo, base, path)
+        target_object = revision_object_id(repo, target, path)
+        identities[path] = {
+            "s7_candidate": base_object,
+            "final": target_object,
+        }
+        if base_object != target_object:
+            mismatches.append(path)
+    return identities, mismatches
 
 
 def git_object_exists(repo: Path, revision_path: str) -> bool:
@@ -739,19 +931,46 @@ def verify_atomic_integration(
     return record, checks
 
 
-def build_manifest(repo: Path) -> dict[str, Any]:
+def build_manifest(
+    repo: Path,
+    phase: ValidationPhase | str = ValidationPhase.S7_CANDIDATE,
+    target_head: str | None = None,
+    *,
+    enforce_checkout_identity: bool = False,
+) -> dict[str, Any]:
     repo = repo.resolve()
+    validation_phase = ValidationPhase(phase)
     checks: list[CheckResult] = []
-    head = run_git(repo, "rev-parse", "HEAD")
-    branch = run_git(repo, "branch", "--show-current")
+    checkout_head = run_git(repo, "rev-parse", "HEAD")
+    final_record: dict[str, Any] | None = None
 
-    checks.append(
-        make_check(
-            "git.branch",
-            branch == "codex/s7/wp-040-integration-verification",
-            f"branch={branch}",
+    if validation_phase is ValidationPhase.S7_CANDIDATE:
+        verified_head = S7_CANDIDATE_HEAD
+        checkout_branch = run_git(repo, "branch", "--show-current")
+        branch = (
+            checkout_branch if enforce_checkout_identity else CANDIDATE_BRANCH
         )
-    )
+        checks.append(
+            make_check(
+                "git.branch",
+                is_candidate_branch(branch),
+                f"branch={branch}",
+            )
+        )
+    else:
+        verified_head = resolve_commit(
+            repo,
+            target_head if target_head is not None else checkout_head,
+        )
+        branch = select_target_branch(repo, verified_head)
+        checks.append(
+            make_check(
+                "git.branch",
+                is_s1_branch(branch),
+                f"phase=S1_FINAL branch={branch}",
+            )
+        )
+
     checks.append(
         make_check(
             "git.unique_input_heads",
@@ -759,46 +978,196 @@ def build_manifest(repo: Path) -> dict[str, Any]:
             f"heads={len(INPUTS)} unique={len(INPUTS)}",
         )
     )
-    is_ancestor = (
-        subprocess.run(
+
+    s7_delta = changed_paths(
+        repo,
+        CANDIDATE_MERGE_HEAD,
+        S7_CANDIDATE_HEAD,
+    )
+    s7_scope_violations = path_scope_violations(
+        s7_delta,
+        S7_ALLOWED_PREFIXES,
+    )
+
+    if validation_phase is ValidationPhase.S7_CANDIDATE:
+        checks.extend(
             (
-                "git",
-                "-C",
-                str(repo),
-                "merge-base",
-                "--is-ancestor",
-                CANDIDATE_MERGE_HEAD,
-                head,
-            ),
-            check=False,
-            capture_output=True,
-        ).returncode
-        == 0
-    )
-    candidate_delta = changed_paths(repo, CANDIDATE_MERGE_HEAD, head)
-    candidate_scope_violations = [
-        path
-        for path in candidate_delta
-        if not is_allowed_path(path, S7_ALLOWED_PREFIXES)
-    ]
-    checks.extend(
-        (
-            make_check(
-                "git.candidate_ancestor",
-                is_ancestor,
-                f"candidate={CANDIDATE_MERGE_HEAD}",
-            ),
-            make_check(
-                "git.s7_delta_scope",
-                not candidate_scope_violations,
-                (
-                    "post-candidate committed paths are S7-owned; "
-                    f"violations={candidate_scope_violations or 'none'}"
+                make_check(
+                    "git.candidate_ancestor",
+                    commit_is_ancestor(
+                        repo,
+                        CANDIDATE_MERGE_HEAD,
+                        S7_CANDIDATE_HEAD,
+                    ),
+                    f"candidate={CANDIDATE_MERGE_HEAD}",
                 ),
-            ),
-            check_merge_topology(repo),
+                make_check(
+                    "git.s7_delta_scope",
+                    not s7_scope_violations,
+                    (
+                        "post-candidate committed paths are S7-owned; "
+                        f"violations={s7_scope_violations or 'none'}"
+                    ),
+                ),
+                check_merge_topology(repo),
+            )
         )
-    )
+    else:
+        final_changes = changed_path_statuses(
+            repo,
+            S7_CANDIDATE_HEAD,
+            verified_head,
+        )
+        final_gitignore = run_git(
+            repo,
+            "show",
+            f"{verified_head}:.gitignore",
+        )
+        final_violations = final_scope_violations(
+            final_changes,
+            final_gitignore,
+        )
+        protected_identities, protected_mismatches = compare_revision_paths(
+            repo,
+            S7_CANDIDATE_HEAD,
+            verified_head,
+            FINAL_PROTECTED_PATHS,
+        )
+        s7_contract_tree = revision_object_id(
+            repo,
+            S7_CANDIDATE_HEAD,
+            "contracts",
+        )
+        final_contract_tree = revision_object_id(
+            repo,
+            verified_head,
+            "contracts",
+        )
+        s7_lock_blob = revision_object_id(
+            repo,
+            S7_CANDIDATE_HEAD,
+            "uv.lock",
+        )
+        final_lock_blob = revision_object_id(
+            repo,
+            verified_head,
+            "uv.lock",
+        )
+        s7_migration_tree = revision_object_id(
+            repo,
+            S7_CANDIDATE_HEAD,
+            "migrations",
+        )
+        final_migration_tree = revision_object_id(
+            repo,
+            verified_head,
+            "migrations",
+        )
+        input_ancestry = {
+            role: commit_is_ancestor(
+                repo,
+                str(specification["head"]),
+                verified_head,
+            )
+            for role, specification in INPUTS.items()
+        }
+        idea_cleanup = sorted(
+            path
+            for status, path in final_changes
+            if status == "D" and path.replace("\\", "/").startswith(".idea/")
+        )
+        checks.extend(
+            (
+                make_check(
+                    "git.s7_head_ancestor",
+                    commit_is_ancestor(
+                        repo,
+                        S7_CANDIDATE_HEAD,
+                        verified_head,
+                    ),
+                    (
+                        f"s7_head={S7_CANDIDATE_HEAD} "
+                        f"final_head={verified_head}"
+                    ),
+                ),
+                make_check(
+                    "git.s1_final_delta_scope",
+                    not final_violations,
+                    (
+                        "final delta is S1-owned or explicitly allowed; "
+                        f"violations={final_violations or 'none'}"
+                    ),
+                ),
+                make_check(
+                    "git.s7_delta_scope",
+                    not s7_scope_violations,
+                    (
+                        "candidate-to-S7 delta is S7-owned; "
+                        f"violations={s7_scope_violations or 'none'}"
+                    ),
+                ),
+                make_check(
+                    "git.final_product_tree",
+                    not protected_mismatches,
+                    (
+                        "protected product paths unchanged; "
+                        f"mismatches={protected_mismatches or 'none'}"
+                    ),
+                ),
+                make_check(
+                    "contract.final_tree",
+                    s7_contract_tree == final_contract_tree == CONTRACT_TREE,
+                    (
+                        f"s7={s7_contract_tree} "
+                        f"final={final_contract_tree}"
+                    ),
+                ),
+                make_check(
+                    "git.final_input_heads",
+                    all(input_ancestry.values()),
+                    f"ancestry={input_ancestry}",
+                ),
+                make_check(
+                    "workspace.final_lock_blob",
+                    s7_lock_blob == final_lock_blob,
+                    f"s7={s7_lock_blob} final={final_lock_blob}",
+                ),
+                make_check(
+                    "migrations.final_tree",
+                    s7_migration_tree == final_migration_tree,
+                    (
+                        f"s7={s7_migration_tree} "
+                        f"final={final_migration_tree}"
+                    ),
+                ),
+                check_merge_topology(repo),
+            )
+        )
+        final_record = {
+            "target_head": verified_head,
+            "s7_candidate_head": S7_CANDIDATE_HEAD,
+            "delta": [
+                {"status": status, "path": path}
+                for status, path in final_changes
+            ],
+            "delta_scope_violations": final_violations,
+            "ignored_metadata_deletions": idea_cleanup,
+            "input_head_ancestry": input_ancestry,
+            "protected_path_identities": protected_identities,
+            "protected_path_mismatches": protected_mismatches,
+            "contract_tree": {
+                "s7_candidate": s7_contract_tree,
+                "final": final_contract_tree,
+            },
+            "lock_blob": {
+                "s7_candidate": s7_lock_blob,
+                "final": final_lock_blob,
+            },
+            "migration_tree": {
+                "s7_candidate": s7_migration_tree,
+                "final": final_migration_tree,
+            },
+        }
 
     inputs: dict[str, Any] = {}
     full_input_paths: dict[str, set[str]] = {}
@@ -846,7 +1215,7 @@ def build_manifest(repo: Path) -> dict[str, Any]:
     checks.extend(integration_checks)
 
     failed = [item.check_id for item in checks if item.outcome != "PASS"]
-    return {
+    manifest: dict[str, Any] = {
         "schema": "flowpilot.integration-composition-manifest.v1",
         "work_package": "WP-040",
         "attempt_id": "WP-040-a1",
@@ -876,6 +1245,17 @@ def build_manifest(repo: Path) -> dict[str, Any]:
             "verdict": "PASS" if not failed else "FAIL",
         },
     }
+    if validation_phase is ValidationPhase.S1_FINAL:
+        manifest.update(
+            {
+                "attempt_id": "WP-040-a2",
+                "risk_class": "R1",
+                "base_commit": S7_CANDIDATE_HEAD,
+                "validation_phase": validation_phase.value,
+                "final": final_record,
+            }
+        )
+    return manifest
 
 
 def canonical_manifest_bytes(manifest: dict[str, Any]) -> bytes:
@@ -892,9 +1272,24 @@ def canonical_manifest_bytes(manifest: dict[str, Any]) -> bytes:
 
 def render_report(manifest: dict[str, Any]) -> str:
     summary = manifest["summary"]
-    lines = [
-        "# WP-040-a1 Evidence Reproduction Report",
-        "",
+    final_phase = (
+        manifest.get("validation_phase") == ValidationPhase.S1_FINAL.value
+    )
+    title = (
+        "# WP-040-a2 S1 Final Evidence Reproduction Report"
+        if final_phase
+        else "# WP-040-a1 Evidence Reproduction Report"
+    )
+    lines = [title, ""]
+    if final_phase:
+        lines.extend(
+            (
+                f"- Validation phase: `{manifest['validation_phase']}`",
+                f"- Final target head: `{manifest['final']['target_head']}`",
+            )
+        )
+    lines.extend(
+        (
         f"- Verdict: `{summary['verdict']}`",
         f"- Static checks: `{summary['check_count']}`",
         f"- Failed checks: `{summary['failed_check_count']}`",
@@ -920,7 +1315,8 @@ def render_report(manifest: dict[str, Any]) -> str:
         "",
         "| Check | Outcome | Evidence |",
         "|---|---|---|",
-    ]
+        )
+    )
     for check in manifest["checks"]:
         evidence = check["evidence"].replace("|", "\\|").replace("\n", " ")
         lines.append(
@@ -968,7 +1364,7 @@ def write_artifacts(
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Verify the WP-040-a1 integration candidate",
+        description="Verify the WP-040 candidate or S1 final integration",
     )
     parser.add_argument(
         "--repo",
@@ -980,15 +1376,34 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         type=Path,
         help="write deterministic manifest and report to this directory",
     )
+    parser.add_argument(
+        "--phase",
+        choices=[phase.value for phase in ValidationPhase],
+        default=ValidationPhase.S7_CANDIDATE.value,
+        help="validation phase; defaults to the backward-compatible candidate",
+    )
+    parser.add_argument(
+        "--target-head",
+        help="S1 final revision; defaults to the selected repository HEAD",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    manifest = build_manifest(args.repo)
+    manifest = build_manifest(
+        args.repo,
+        phase=args.phase,
+        target_head=args.target_head,
+        enforce_checkout_identity=True,
+    )
+    prefix = (
+        "WP040_S1_FINAL"
+        if args.phase == ValidationPhase.S1_FINAL.value
+        else "WP040_COMPOSITION"
+    )
     print(
-        "WP040_COMPOSITION_"
-        f"{manifest['summary']['verdict']} "
+        f"{prefix}_{manifest['summary']['verdict']} "
         f"checks={manifest['summary']['check_count']} "
         f"failed={manifest['summary']['failed_check_count']}"
     )

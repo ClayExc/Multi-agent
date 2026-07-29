@@ -17,13 +17,15 @@
 
 每个会话必须在首条任务中声明且只承担一个角色：
 
-- `S1-ARCH`：架构、契约、验收与集成。本会话默认属于此角色。
-- `S2-RUNTIME`：LangGraph、Agent Runtime、Context、Model Gateway 与 Worker。
-- `S3-PLATFORM`：MCP Gateway、工具契约、安全与策略执行。
-- `S4-QUALITY`：产品体验、评测、可观测性、跨组件质量。
-- `S5-CORE`：领域、应用用例、API、IT Service Domain Pack 与公共 Python Workspace。
-- `S6-DATA`：持久化、迁移、PostgreSQL/Redis、基础设施与数据恢复。
-- `S7-INTEGRATION`：跨分支组合验证、依赖闭包、证据复算与集成故障定位。
+- `S1-ARCH-架构验收师`：架构、契约、验收与集成。本会话默认属于此角色。
+- `S2-RUNTIME-智能体编排师`：LangGraph、Agent Runtime、Context、Model Gateway 与 Worker。
+- `S3-PLATFORM-工具安全师`：MCP Gateway、工具契约、安全与策略执行。
+- `S4-QUALITY-质量体验师`：产品体验、评测、可观测性、跨组件质量。
+- `S5-CORE-领域核心师`：领域、应用用例、API、IT Service Domain Pack 与公共 Python Workspace。
+- `S6-DATA-数据可靠性师`：持久化、迁移、PostgreSQL/Redis、基础设施与数据恢复。
+- `S7-INTEGRATION-集成验证师`：跨分支组合验证、依赖闭包、证据复算与集成故障定位。
+
+`SESSION_ROLE` 仍只使用 `S1-ARCH`～`S7-INTEGRATION`；中文名是显示名，不进入分支、契约和机器证据。
 
 不得在同一工作包内自行切换角色。收到超出所有权的请求时：
 
@@ -254,6 +256,7 @@ make acceptance
 - 证据路径。
 - 接收会话需要执行的下一步。
 - Chain/Step/Attempt、交接策略和是否需要 S1。
+- 新出现且可复用的失败机理按 `LEARNING_CANDIDATE` 记录；没有新增经验时填 `none`，不得复制隐藏思考过程。
 
 不得用“应该可以”“大概通过”替代测试结果。
 

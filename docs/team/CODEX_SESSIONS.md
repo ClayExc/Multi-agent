@@ -8,13 +8,13 @@ FlowPilot 使用七个长期存在、用户可分别继续对话的顶层 Codex 
 
 ```mermaid
 flowchart LR
-    S1["S1-ARCH<br/>架构/契约/验收/集成"]
-    S5["S5-CORE<br/>Domain/Application/API/Workspace"]
-    S2["S2-RUNTIME<br/>Graph/Runtime/Context/Worker"]
-    S6["S6-DATA<br/>Persistence/Migration/Infra"]
-    S3["S3-PLATFORM<br/>MCP/Policy/Security"]
-    S4["S4-QUALITY<br/>Experience/Evals/Observability"]
-    S7["S7-INTEGRATION<br/>组合验证/依赖闭包/证据复现"]
+    S1["S1-ARCH-架构验收师<br/>架构/契约/验收/集成"]
+    S5["S5-CORE-领域核心师<br/>Domain/Application/API/Workspace"]
+    S2["S2-RUNTIME-智能体编排师<br/>Graph/Runtime/Context/Worker"]
+    S6["S6-DATA-数据可靠性师<br/>Persistence/Migration/Infra"]
+    S3["S3-PLATFORM-工具安全师<br/>MCP/Policy/Security"]
+    S4["S4-QUALITY-质量体验师<br/>Experience/Evals/Observability"]
+    S7["S7-INTEGRATION-集成验证师<br/>组合验证/依赖闭包/证据复现"]
 
     S1 -->|"公共契约与完成定义"| S2
     S1 -->|"公共契约与完成定义"| S3
@@ -44,15 +44,17 @@ flowchart LR
 
 ## 2. 七个角色
 
-| 会话 | 定位 | 独占产物 | 当前工作包 |
-|---|---|---|---|
-| S1-ARCH | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | WP-000 |
-| S2-RUNTIME | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | WP-010 |
-| S3-PLATFORM | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | WP-020 |
-| S4-QUALITY | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | WP-030 |
-| S5-CORE | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | WP-011 |
-| S6-DATA | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | WP-021 |
-| S7-INTEGRATION | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | WP-040 |
+`SESSION_ROLE` 是机器身份，不能因显示名变化而修改分支、证据或契约字段。中文名用于用户识别、任务标题和日常沟通。
+
+| 会话 | 中文显示名 | 定位 | 独占产物 | 当前工作包 |
+|---|---|---|---|---|
+| S1-ARCH | 架构验收师 | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | WP-000 |
+| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | WP-010 / WP-012 |
+| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | WP-020 |
+| S4-QUALITY | 质量体验师 | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | WP-030 |
+| S5-CORE | 领域核心师 | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | WP-011 |
+| S6-DATA | 数据可靠性师 | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | WP-021 |
+| S7-INTEGRATION | 集成验证师 | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | WP-040 |
 
 路径所有权以根目录 `AGENTS.md` 为唯一总规则；Session Contract 和 Work Package 只能进一步收紧。
 
@@ -122,13 +124,26 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 
 ## 6. 并发容量
 
-七个会话不等于所有会话必须同时写代码。S2～S6 是产品实现角色，S7 默认只读验证；人工协调阶段同时写入上限仍为 3：
+七个会话不等于七个会话必须同时写代码。S2～S6 是产品实现角色，S7 默认只读验证；人工协调阶段同时写入上限仍为 3。当前 M0 容量复核如下：
 
-1. 第一波：S5/WP-011；S4/WP-030 可并行建设离线评测与证据骨架。
-2. S1 接受 `WP-011-H1`（Python Workspace、Application/Repository Port）交接后，启动 S2/WP-010 与 S6/WP-021；若 S4 仍写入，此时正好三个并行写会话。
-3. S6 交付执行账本 Port 且 S5 Workspace 可用后启动 S3/WP-020。
-4. S4 在前置切片可运行后接入跨组件验收，S1 执行集成裁决。
-5. S7 可在任一阶段以 `READ_ONLY_PARALLEL` 复算交接；只有取得独立 Worktree、Attempt 与 S1 写指令后才计入写会话上限。
+| 会话 | 当前负载 | 判断 | 达到什么条件时拆分 |
+|---|---|---|---|
+| S1 | 中 | 可控；只做控制面、契约与最终裁决 | 连续两个迭代都需要 S1 直接修产品代码时，先收紧职责而不是扩容 |
+| S2 | 中高 | M0 可控；Graph、Runtime、Context 已形成强耦合切片 | Provider 适配、Context 优化与 Graph/Worker/Studio 同时进入实施时，拆出 LLM Runtime |
+| S3 | 中 | 当前尚未过载 | 真实企业 MCP 接入与身份、策略、凭据治理并行时，拆出独立 Security 角色 |
+| S4 | 高 | 七会话中最接近拆分阈值 | Web/Retrieval 与 Evaluation/Observability 同时进入写阶段时，优先拆出 Experience |
+| S5 | 中高 | M0 可控；Workspace 单写者会制造短时峰值 | API/Domain Pack 与 Build/依赖治理连续相互阻塞时，拆出 DevEx/Build |
+| S6 | 中高 | M0 可控；迁移、RLS、恢复门禁成本高 | 多数据库适配、生产运维和业务 Persistence 同时推进时，拆出 DBRE/Infra |
+| S7 | 中 | 职责边界合理；耗时主要来自发布门禁，不是代码范围 | 先按 FAST/STANDARD/RELEASE 分级；只有组合矩阵长期超过 5 个并发候选才拆出 Release Engineering |
+
+未来新增会话的推荐顺序是：`S8-EXPERIENCE` 从 S4 接管 Web/Retrieval；`S9-LLM-RUNTIME` 从 S2 接管 Agent Runtime/Model Gateway/Context/Provider；`S10-SECURITY` 从 S3 接管身份、策略和凭据治理。未达到触发条件时，不为“看起来对称”提前扩容。
+
+当前并行规则：
+
+1. 相互独立的产品切片最多三个 `PARALLEL` 写会话。
+2. `ORDERED` 链由生产者直接交给消费者，正常路径不逐步返回 S1。
+3. S7 的候选静态检查可 `READ_ONLY_PARALLEL`；完整发布门禁只在候选身份发生变化时运行。
+4. S1 和 S7 都不得成为每个小步骤的同步确认点。
 
 每次多会话派发必须声明调度模式：
 

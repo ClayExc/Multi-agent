@@ -4,7 +4,7 @@
 
 企业 Agent 的难点很少停留在“模型能不能答”。真正进入生产链路后，问题通常出现在检索证据、长任务恢复、并发一致性、审批重放、远程副作用、租户隔离和指标真实性上。单次修补 Prompt 往往只能遮住症状，下一次换模型、换工具或发生重试时，同一问题会以另一种形式出现。
 
-本手册供 S2～S6 在设计、开发、故障注入和交接时共同使用，记录三类内容：
+本手册供 S1～S7 在设计、开发、故障注入和交接时共同使用，记录三类内容：
 
 - 行业中反复出现、可在本项目复现的工程难题。
 - FlowPilot 用什么结构处理这些难题，以及结构成立所依赖的边界。
@@ -37,6 +37,29 @@
 | `VERIFIED` | 固定环境中由独立角色复现并有有效证据 | 已验证 |
 
 这里的等级只描述某条工程经验的成熟度。产品功能的正式状态仍以 `docs/acceptance/traceability.v1.json` 为准。
+
+### 2.1 日常学习闭环
+
+学习积累不依赖七个会话每天向 S1 发送长篇总结。责任会话只在 Handoff 中增加结构化 `LEARNING_CANDIDATE`：
+
+```text
+LEARNING_CANDIDATE=<none|短标题>
+MATURITY=<HYPOTHESIS|DESIGNED|IMPLEMENTED|VERIFIED>
+TRIGGER=<什么现象触发>
+MECHANISM=<可复核的失败机理摘要>
+STRUCTURE=<采用或建议的结构>
+EVIDENCE=<提交/测试/报告/最小复现>
+RESIDUAL_RISK=<残余风险>
+TARGET=<playbook section|ADR|work package|none>
+```
+
+规则：
+
+1. 常规做法、一次性环境噪音和没有新机理的重复故障写 `none`。
+2. 会影响契约、安全、恢复或多个会话协作方式的问题，在本轮 Handoff 提交候选，不等待集中复盘。
+3. S1 在集成或迭代结束时批量归并，去重后写入本手册；不复制聊天记录和隐藏思考。
+4. 得到独立复现后升级成熟度；推翻旧结论时保留适用条件和反例，不直接抹去历史。
+5. 已成熟的产品约束进入 ADR/契约/验收；研发协作经验进入团队协议和工作包模板。
 
 ## 3. 结构先于补丁
 
@@ -160,17 +183,56 @@ FlowPilot 固定 Dataset、Fixture、Registry 和内容 Hash，以 `all_declared
 
 评测管线本身也需要负向测试：零 Case、缺失结果、重复结果、Hash 漂移、Judge 越界、高 Judge 分覆盖确定性失败、执行失败被错误提升为通过。指标没有这些门禁，就只能视为实验输出，不能作为发布证据。
 
-## 5. S2～S6 如何使用
+### 4.11 图能运行，却变成只能猜测的黑箱
+
+**关联功能：** FP-FLOW-001、FP-FLOW-004～FP-FLOW-006、FP-OBS-001、FP-OPS-002
+
+Agent 链路出错时，如果只能看最终回答和零散日志，很难区分是路由错误、Context 裁剪、Provider 重试、Handoff 回环、Interrupt 恢复错位，还是旧 Worker 越过 Lease。把完整 State 和 Prompt 全量写日志虽然“看得见”，却又会泄露敏感数据，并把调试存储误当业务事实源。
+
+FlowPilot 让 Worker 和 Studio 使用同一个 graph factory，以稳定节点 ID、条件边和拓扑快照避免两套图漂移。Studio 只消费白名单 `debug_projection`：展示当前节点、预算、重试、Interrupt、Handoff、checkpoint sequence、`run_generation` 和 Context 层级，不展示隐藏思维链、凭据、原始附件或完整敏感资料。Studio Thread 只是开发游标，PostgreSQL Task、Checkpoint、Lease 和账本仍是事实源。
+
+验收不仅要“能打开 Studio”，还要故意制造错误路由、过期 Lease、旧 `run_generation`、重复恢复、Context 超限、Handoff 回环和敏感字段。图上路径、结构化事件和持久化事实必须互相对齐；Studio 编辑隔离状态不能改变生产事实。具体设计见 [`LANGGRAPH_STUDIO.md`](./LANGGRAPH_STUDIO.md)。
+
+### 4.12 多会话研发采用星形汇报，中心会话反而成为队列
+
+**关联功能：** FP-OPS-002
+
+**工程主题：** Multi-Agent 研发编排
+
+**证据等级：** IMPLEMENTED
+
+最初的七会话协作是星形结构：S2～S7 每完成一步都返回 S1，S1 再复制下一条指令。它的优点是控制直观，但会把中心会话变成串行消息队列；开发会话等待的不是代码依赖，而是重复授权。聊天摘要一旦遗漏 Head、Attempt 或停止条件，还会造成状态漂移。
+
+FlowPilot 后来把会话视为稳定能力所有者，把 Work Package、Git Head、Contract Digest 和 Evidence 当作任务状态。依赖明确的链路由 S1 一次性授权，生产者直接交给下一消费者；消费者校验 Head、摘要、路径和证据后继续。S7 在独立组合树执行总装验证，只有异常或最终裁决返回 S1。这是从“星形图聊天编程”转向 Symphony 式工作编排：中心保留架构、安全和发布权，但不参与每次正常状态转换。
+
+这次 WP-040 还暴露了新的边界：S7 候选分支的身份/路径校验不能原样套用到 S1 最终合并分支。正确做法是分开验证 candidate phase 与 final phase，并证明 S1 控制面增量没有改写产品树。第一次发现这类组合问题会慢，因为需要建立失败模型和验证器；后续相同候选只运行 FAST final gate，不重复完整 Compose 发布演练。
+
+这种协作与产品 Agent 面临的是同一类问题：
+
+| 研发协作问题 | 产品 Agent 对应问题 | 采用的结构 |
+|---|---|---|
+| 聊天窗口保存工作状态 | Provider Session 被误当 Checkpoint | Git/Work Package/Evidence 是事实源 |
+| 每步都回 S1 | 每节点都回中心 Router | 预授权有序链与消费者门禁 |
+| 重复派发 | 重复工具写入 | Attempt/Head 幂等身份 |
+| 会话越权改共享文件 | Agent 越权调用工具 | 路径所有权、单写者、契约优先 |
+| 最终分支规则误用候选规则 | 恢复阶段复用过期授权 | 分阶段重验身份、作用域和事实 |
+| 全量门禁每步重跑 | 所有错误都盲目全链重试 | FAST/STANDARD/RELEASE 分级与精确缓存键 |
+
+残余风险是消费者可能错误接受上游证据，或预授权范围过宽。因此 R3、契约变化、路径越权、风险升级和门禁失败必须暂停并交回 S1；`CONSUMER_ACCEPTED` 只解锁下一步，不等于批准合并。
+
+## 5. S1～S7 如何使用
 
 | 会话 | 开始工作前重点阅读 | 交接时新增的学习材料 |
 |---|---|---|
-| S2-RUNTIME | 4.2、4.3、4.4、4.9 | 图恢复轨迹、循环指纹、Context 裁剪差异、Provider 失败分类 |
+| S1-ARCH | 2.1、3、4.12 | 架构取舍、跨角色冲突、门禁模型、被推翻的假设 |
+| S2-RUNTIME | 4.2、4.3、4.4、4.9、4.11 | 图恢复轨迹、循环指纹、Context 裁剪差异、Provider 失败分类、Studio 安全投影 |
 | S3-PLATFORM | 4.5、4.6、4.7、4.8、4.9 | 策略拒绝矩阵、审批错配、工具注入、账本与审计关联 |
-| S4-QUALITY | 4.1、4.4、4.9、4.10 | 固定复现 Case、分母变化、Judge 校准、跨组件故障证据 |
+| S4-QUALITY | 4.1、4.4、4.9、4.10、4.11 | 固定复现 Case、分母变化、Judge 校准、跨组件故障证据、非黑箱负例 |
 | S5-CORE | 4.5、4.6、4.8 | 领域不变量、Command 并发、稳定错误和 API 边界反例 |
 | S6-DATA | 4.2、4.5、4.8、4.9 | RLS、事务窗口、Outbox 缺口、Lease/Fencing 和恢复证据 |
+| S7-INTEGRATION | 2.1、3、4.12 | 组合失败模型、依赖闭包、门禁耗时、证据复用与 final-phase 差异 |
 
-其他会话不直接修改本文件。新的经验候选写入当前 Handoff 的“已知问题”或 RFC，至少包含复现条件、关联功能 ID、建议责任会话和证据路径，由 S1 归并。需要改变不变量时必须新增或修改 ADR，不能只更新本手册。
+除 S1 外的会话不直接修改本文件。新的经验候选写入当前 Handoff 的 `LEARNING_CANDIDATE`；需要改变不变量时必须新增或修改 ADR，不能只更新本手册。
 
 ## 6. 新条目模板
 

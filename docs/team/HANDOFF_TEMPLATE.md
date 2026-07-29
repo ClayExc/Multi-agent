@@ -54,6 +54,21 @@
 
 - 
 
+## 学习候选
+
+没有发现新的可复用机理时填写 `LEARNING_CANDIDATE=none`，不要为凑数重复常识。
+
+```text
+LEARNING_CANDIDATE=<none|短标题>
+MATURITY=<HYPOTHESIS|DESIGNED|IMPLEMENTED|VERIFIED>
+TRIGGER=<触发现象>
+MECHANISM=<失败机理摘要>
+STRUCTURE=<采用或建议的结构>
+EVIDENCE=<提交/测试/报告/最小复现>
+RESIDUAL_RISK=<残余风险>
+TARGET=<playbook section|ADR|work package|none>
+```
+
 ## 接收会话下一步
 
 1. 

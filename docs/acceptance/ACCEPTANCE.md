@@ -449,6 +449,17 @@ Judge 失败、缺失、未校准或 Prompt Hash 漂移不能覆盖任何确定�
 - 审计下游断开时 Outbox 重投；本地 Outbox 持久化失败时写操作 fail-closed。
 - 日志和 Trace Secret Scan 结果为 0。
 
+### 16.1 LangGraph Studio 非黑箱开发门禁
+
+- 根 `langgraph.json` 可以加载稳定图 ID `flowpilot_it_service`，Studio 与 Worker 使用同一 graph factory。
+- Graph 模式可观察稳定节点、条件边、并行只读分支、追问、审批 Interrupt、Handoff、重试/补偿和终止路径。
+- 合成任务可以暂停、恢复、故障重试和从 checkpoint 重放；Studio checkpoint 能与 FlowPilot checkpoint sequence、`run_generation` 对齐。
+- Studio 展示的是白名单 `debug_projection`；Secret、PII、原始附件、完整敏感 Context 和隐藏思维链扫描结果为 0。
+- Studio Thread/Run 不参与业务 Task 终态、租户、审批、Lease、账本或恢复权威判断。
+- 默认 `studio-safe` 不连接生产 Provider、企业 MCP、生产数据库或生产凭据；`studio-integration` 也必须经过 Application Port、Gateway、策略、审批与账本。
+- Studio 的 Fork/Edit/Re-run 只能修改隔离开发数据；对生产 Profile 的状态编辑或工具绕过必须失败关闭。
+- 验收证据必须包含拓扑快照、启动 Smoke、Interrupt/Resume 轨迹、安全投影快照和负向测试；截图不能替代结构化断言。
+
 ## 17. 发布门禁
 
 核心版 `RELEASED` 需要：

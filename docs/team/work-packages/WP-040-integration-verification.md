@@ -2,13 +2,14 @@
 
 ## 元数据
 
-- 状态：`DEPENDENCY_WAIT`（`WP-040-a0` 只读组合复核完成；等待 S6→S2→S5 有序整改）
+- 状态：`S1_FINAL_GATE`（`WP-040-a1` 完整候选已通过；`a2` 只修复 final-phase Verifier）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-SEC-004、FP-DATA-001、FP-OPS-002
 - 依赖工作包：待核验交接本身；写模式另需独立 Worktree 与 S1 Attempt
 - 目标分支：`codex/s7/wp-040-integration-verification`
 - S1 评审：[`WP-040-A0-S1-REVIEW.md`](../../review/WP-040-A0-S1-REVIEW.md)
+- 门禁分级：[`INTEGRATION_GATES.md`](../INTEGRATION_GATES.md)
 
 ## 目标
 
@@ -63,7 +64,7 @@
 
 1. 建立 Base/Head、路径所有权、工作区洁净度和 Handoff 哈希复算清单。
 2. 生成显式提交组合矩阵；每个组合记录顺序与预期依赖。
-3. 复现单分支门禁，再在临时组合树运行联合门禁。
+3. 复现单分支门禁，再在临时组合树运行联合门禁；按 FAST/STANDARD/RELEASE 触发条件选择档位。
 4. 验证 root Workspace、`uv.lock`、wheel 与内部包闭包。
 5. 验证 Migration 单 Head、升级路径、Compose 依赖和恢复入口。
 6. 输出阻塞项、责任角色、最小复现和解锁条件。
@@ -78,10 +79,14 @@
 
 ## 验收命令
 
-```bash
-# WP-040 初始只读阶段先复现各交接声明的现有命令。
-# 统一 scripts/integration 入口尚未实现，不能标记为 PASS。
+```powershell
+python scripts/integration/verify_wp040.py --repo .
+python -m pytest tests/integration -q
 ```
+
+完整 Python、wheel、Compose、Migration、RLS 与恢复命令按
+[`INTEGRATION_GATES.md`](../INTEGRATION_GATES.md) 选择。相同候选已经取得
+RELEASE 证据时，S1 只增加控制面文档的最终合并使用 FAST final gate。
 
 ## 证据
 

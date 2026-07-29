@@ -21,6 +21,7 @@ flowpilot/
 ├── Makefile                          # 稳定开发命令入口
 ├── pyproject.toml                    # Python workspace、工具和公共约束
 ├── uv.lock                           # 锁定 Python 依赖
+├── langgraph.json                    # Studio/本地 Agent Server 的稳定图入口（WP-012）
 │
 ├── apps/                             # 可部署进程，仅负责装配
 │   ├── api/                          # FastAPI：认证、命令接收、查询、SSE
@@ -139,7 +140,7 @@ flowpilot/
 │   ├── acceptance/
 │   └── integration/                  # S7 组合验证生成物，默认不提交
 └── docs/
-    ├── architecture/                  # 总体、Context 与 Agent Runtime Port
+    ├── architecture/                  # 总体、Context、Runtime Port 与 Studio 非黑箱设计
     ├── acceptance/                    # 定义、机器 Traceability 与人类视图
     ├── decisions/
     ├── roadmap/

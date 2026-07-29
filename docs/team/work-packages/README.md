@@ -12,12 +12,13 @@
 | 工作包 | 责任会话 | 状态 | 依赖 | 目标 |
 |---|---|---|---|---|
 | [WP-000](./WP-000-m0-contract-freeze.md) | S1-ARCH | IN_PROGRESS | 无 | 实现基线已评审；发布级冻结等待质量资产 |
-| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | READY_ON_BASELINE_SYNC | WP-011 H1 已合入；同步新基线 | Graph/Runtime/Context/Worker 骨架 |
+| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | S1_FINAL_GATE | WP-040 原子候选已通过 S7；等待最终接收 | Graph/Runtime/Context/Worker 骨架 |
+| [WP-012](./WP-012-langgraph-studio-observability.md) | S2-RUNTIME | READY_AFTER_WP040_ACCEPTANCE | WP-010/011/021/040 | Studio 非黑箱入口、安全状态投影与恢复调试 |
 | [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | IN_PROGRESS | H1 已合入；继续 API/Domain Pack | Domain/Application/API/Python Workspace 骨架 |
 | [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | BLOCKED_ON_WP021_LEDGER | WP-011 H1 已合入；等待 WP-021 执行账本 Port | Gateway/Policy/Security 骨架 |
-| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | READY_ON_BASELINE_SYNC | WP-011 H1 已合入；同步新基线 | Persistence/Migration/RLS/Compose 骨架 |
+| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | S1_FINAL_GATE | WP-040 原子候选已通过 S7；Compose 自动应用 0002 为 P2 | Persistence/Migration/RLS/Compose 骨架 |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
-| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | DEPENDENCY_WAIT | a0 复核完成；等待 S6→S2→S5 有序整改 | 跨分支组合、依赖闭包与证据复现 |
+| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | S1_FINAL_GATE | a1 候选 36/36；a2 闭合 final-phase Verifier | 跨分支组合、依赖闭包与证据复现 |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 
@@ -31,8 +32,9 @@ rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 
 4. 第一波启动 WP-011；WP-030 可并行建设不依赖运行代码的离线校验器与证据骨架。
 5. S1 接受 `WP-011-H1`（Python Workspace、Application/Repository Port）交接后，并行启动 WP-010 与 WP-021；任何时刻最多三个写会话。
 6. WP-011 Workspace 可用且 WP-021 交付执行账本 Port 后启动 WP-020；WP-030 跨组件部分等待 WP-010/011/020/021 交接。
-7. 默认集成顺序：WP-011 → WP-010 → WP-021 → WP-020 → WP-030；每次集成后运行现有门禁。
-8. Registry、Dataset、Fixture 和 Traceability 完成后再进行发布级 `frozen` 复审。
+7. WP-010/011/021 的本轮逻辑依赖是 S5 Port → S6 Persistence → S2 Adapter → S5 Lock；因中间 Head 不构成完整 Workspace，最终以 S7 完整候选原子集成。
+8. S1 接受 WP-040 后启动 WP-012；S3/WP-020 与 S4 跨组件范围按依赖另行派发。
+9. Registry、Dataset、Fixture 和 Traceability 完成后再进行发布级 `frozen` 复审。
 
 每次向多个会话派发时必须显式标注 `PARALLEL`、`READ_ONLY_PARALLEL` 或 `ORDERED`。消息到达顺序不代表执行顺序；`ORDERED` 派发必须写明前置交付和解锁条件。WP-040 可以只读并行复核，写模式计入“最多三个写会话”上限。
 

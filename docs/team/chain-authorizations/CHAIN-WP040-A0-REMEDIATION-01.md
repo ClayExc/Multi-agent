@@ -83,6 +83,8 @@ UNLOCK_CONDITION=Step 1 is CONSUMER_READY and S2 read-only verification accepts 
 REVIEWER=S6-DATA
 NEXT_ROLE=S5-CORE
 NEXT_ATTEMPT_ID=WP-011-a3
+NEW_HEAD=c3da3118eac5ee7d57c6b333c2aac3a0f119d799
+STATUS=CONSUMER_READY
 ```
 
 实施范围：
@@ -98,6 +100,16 @@ NEXT_ATTEMPT_ID=WP-011-a3
 
 S2 完成后直接把标准链路交接发给 S5；正常结果不返回 S1。
 
+S2 交付复核：
+
+- `34bec050…c3da3118` 仅包含 S2 授权路径。
+- Runtime 43、Core 44、Data 56 个测试通过；Ruff、严格 Mypy 和
+  Contract Conformance 通过。
+- `make` 在当前 Windows 环境不存在，稳定入口记为 `ENV_BLOCKED`，由
+  S5/S7 复算。
+- `.idea/**` 已按仓库清理策略从全部 Worktree 移除，不再作为链路证据
+  或工程输入。
+
 ## Step 3：S5-CORE
 
 ```text
@@ -107,7 +119,7 @@ WORK_PACKAGE=WP-011
 ATTEMPT_ID=WP-011-a3
 RISK_CLASS=R2
 BASE_COMMIT=0be20f5b56d330f4da494ce4c3d46b183b09ae8b
-UPSTREAM_HEADS=S2-RUNTIME:<Step-2-NEW_HEAD>,S6-DATA:e41f0266e6e588417332043b68a3309b2d40bcf7
+UPSTREAM_HEADS=S2-RUNTIME:c3da3118eac5ee7d57c6b333c2aac3a0f119d799,S6-DATA:e41f0266e6e588417332043b68a3309b2d40bcf7
 WORKTREE=E:\workspace\Multi-agent-s5
 WRITE_SCOPE=pyproject.toml,uv.lock,Makefile,WP-011授权的S5独占路径
 MODE=IMPLEMENTATION
@@ -135,7 +147,7 @@ WORK_PACKAGE=WP-040
 ATTEMPT_ID=WP-040-a1
 RISK_CLASS=R2
 BASE_COMMIT=55125ae3992311eab03cc888ea9c908486b4b727
-UPSTREAM_HEADS=S2-RUNTIME:<Step-2-NEW_HEAD>,S5-CORE:<Step-3-NEW_HEAD>,S6-DATA:e41f0266e6e588417332043b68a3309b2d40bcf7
+UPSTREAM_HEADS=S2-RUNTIME:c3da3118eac5ee7d57c6b333c2aac3a0f119d799,S5-CORE:<Step-3-NEW_HEAD>,S6-DATA:e41f0266e6e588417332043b68a3309b2d40bcf7
 WORKTREE=E:\workspace\Multi-agent-s7
 WRITE_SCOPE=scripts/integration/**,tests/integration/**,artifacts/integration/**的生成器与结构
 MODE=IMPLEMENTATION

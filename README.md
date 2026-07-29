@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前仓库处于 **Architecture Baseline v1.0 + M0 实施阶段**。Python Workspace、Domain/Application Port H1 和离线质量骨架已经进入主分支；API、Worker、LangGraph、MCP Gateway、数据库基础设施和端到端业务闭环仍未实现，也没有容器镜像或实测性能报告。
+当前仓库处于 **Architecture Baseline v1.0 + M0 增量实现阶段**。Core、Runtime 与 Data 的九包组合候选已经通过 S7 总装和 S1 final gate；MCP Gateway、真实 Provider 适配、LangGraph Studio、完整 API 业务切片与端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -12,9 +12,12 @@
 | README、目标目录与模块依赖 | 已基线化 | 可使用“规划” |
 | 功能与安全验收标准 | 已定义 | 可使用“定义验收” |
 | M0 公共 JSON Schema | rc1 已拒绝；rc2 五角色同摘要 ACCEPT，本提交激活实现基线 | 可使用“rc2 实现基线已激活”，不可使用“已冻结” |
-| Python Workspace、Domain/Application Port | H1 已编码、经 S1 复审并合入主分支 | 只能描述 H1 实施里程碑，不代表 API 或业务闭环完成 |
+| Python Workspace、Domain/Application/API 骨架 | M0 九包 Workspace/Lock 已组合验证 | 可描述领域与应用端口骨架，不代表完整 API 业务闭环 |
 | 离线评测、证据与信号分流骨架 | 已编码、经 S1 复审并合入主分支 | 只能描述离线骨架，不代表 120/36 数据集或跨组件验收完成 |
-| LangGraph、Agents SDK、MCP Gateway | 未实现 | 不可使用“已实现” |
+| LangGraph/Runtime/Context/Worker 骨架 | M0 Fake Runtime、恢复端口与持久化适配已组合验证 | 可描述 M0 可恢复运行时骨架；真实 Provider 与 Studio 未完成 |
+| PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
+| OpenAI/Claude Provider、MCP Gateway/Policy | 未实现 | 不可使用“企业工具闭环已实现” |
+| 本地 Compose 集成 | S7 对精确候选验证 5 服务健康、Migration/RLS/恢复 | `0002` 自动接入仍为 P2；不能宣称发布环境完成 |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |
 | 800 条路由样本及 LoRA | 未构建 | 不可报告 Macro-F1 |
 | Token 降幅、任务成功率提升 | 未测量 | 仅作为待验证假设 |
@@ -105,6 +108,7 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | [版本化契约](./contracts/README.md) | Task/Command/Event、动作、审批、策略、工具、Context、审计和评测 JSON Schema |
 | [七 Codex 会话协作](./docs/team/CODEX_SESSIONS.md) | 七个会话的角色、目录所有权、工程约定、Worktree 与交接 |
 | [预授权链路执行约定](./docs/team/CHAIN_EXECUTION_PROTOCOL.md) | 有序工作链、消费者门禁、异常上报与最终 S7/S1 验收 |
+| [Codex 会话自动唤醒协议](./docs/team/THREAD_WAKE_PROTOCOL.md) | 会话间自动交接、去重、循环保护与最终用户门禁 |
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |

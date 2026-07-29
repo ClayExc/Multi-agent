@@ -5,20 +5,20 @@
 - 里程碑：M0 仓库与契约基线
 - 阶段状态：`IN_PROGRESS`
 - 架构责任：`S1-ARCH`
-- 发布状态：Architecture Baseline + M0 实施；H1 与离线质量骨架已合入，尚无端到端业务闭环
+- 发布状态：Architecture Baseline + M0 增量实现；Core/Runtime/Data 组合已接受，尚无 MCP/Provider/端到端业务闭环
 
 ## M0 工作包
 
 | 工作包 | 责任会话 | 状态 | 依赖 | 目标 |
 |---|---|---|---|---|
 | [WP-000](./WP-000-m0-contract-freeze.md) | S1-ARCH | IN_PROGRESS | 无 | 实现基线已评审；发布级冻结等待质量资产 |
-| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | S1_FINAL_GATE | WP-040 原子候选已通过 S7；等待最终接收 | Graph/Runtime/Context/Worker 骨架 |
+| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | ACCEPTED_M0 | WP-040/S1 final gate 通过 | Graph/Runtime/Context/Worker 骨架 |
 | [WP-012](./WP-012-langgraph-studio-observability.md) | S2-RUNTIME | READY_AFTER_WP040_ACCEPTANCE | WP-010/011/021/040 | Studio 非黑箱入口、安全状态投影与恢复调试 |
 | [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | IN_PROGRESS | H1 已合入；继续 API/Domain Pack | Domain/Application/API/Python Workspace 骨架 |
-| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | BLOCKED_ON_WP021_LEDGER | WP-011 H1 已合入；等待 WP-021 执行账本 Port | Gateway/Policy/Security 骨架 |
-| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | S1_FINAL_GATE | WP-040 原子候选已通过 S7；Compose 自动应用 0002 为 P2 | Persistence/Migration/RLS/Compose 骨架 |
+| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | READY_ON_BASELINE_SYNC | WP-021 Ledger 与 Workspace 已进入最终候选 | Gateway/Policy/Security 骨架 |
+| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | ACCEPTED_M0 | WP-040/S1 final gate 通过；Compose 自动应用 0002 为 P2 | Persistence/Migration/RLS/Compose 骨架 |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
-| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | S1_FINAL_GATE | a1 候选 36/36；a2 闭合 final-phase Verifier | 跨分支组合、依赖闭包与证据复现 |
+| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED | a1 RELEASE 候选 + a2/a3 FAST final-phase Verifier + S1 final gate | 跨分支组合、依赖闭包与证据复现 |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 

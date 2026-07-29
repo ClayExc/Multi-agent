@@ -100,10 +100,13 @@ CANCELLED 由用户或 S1 明确终止
 4. `[DONE]` 运行完整 Contract Conformance Gate。
 5. `[DONE]` 创建并推送实现基线激活提交 `b5caaf2448c2860cfa67d8c5a39b9cda62eca809`。
 6. `[DONE]` 从激活提交建立 S2～S6 独立 Worktree。
-7. `[DONE]` S5 `WP-011-a1` H1 修复复审通过，合并提交 `5959820d9740f162fc3fdb0e74372bb6d0cbcc7a`。
-8. `[DONE]` S4 `WP-030-a1` 离线骨架修复复审通过，合并提交 `5cfa78b7e8d9cc1393dac4ae515ac6a9340fdf5f`。
-9. `[READY]` S2/WP-010 与 S6/WP-021 在同步最新主分支后进入实施；S5 继续 WP-011 后续范围。
-10. `[DEPENDENCY_WAIT]` S3/WP-020 等待 S6 执行账本 Port；S4 跨组件范围等待可运行切片。
+7. `[DONE]` S5 `WP-011-a1` H1 与 S4 `WP-030-a1` 离线质量骨架完成复审并进入控制基线。
+8. `[DONE]` `S6/WP-021-a2 → S2/WP-010-a2 → S5/WP-011-a3` 按预授权链完成 Persistence、Worker Adapter 与九包 Lock 闭包。
+9. `[DONE]` S7 `WP-040-a1` 完成 36/36 候选复算、143 项产品测试、九个 Wheel 与真实 Compose；S1 final gate 为 42/42，Core/Runtime/Data/Integration 共 159 项通过。
+10. `[ACCEPTED_M0]` Core、Runtime 与 Data 原子候选已由 S1 接受；不代表 MCP、真实 Provider、业务 E2E 或发布冻结完成。
+11. `[READY]` S3/WP-020 可在同步最终主基线后接入 MCP Gateway、Policy/Security 与已存在的 Ledger Port。
+12. `[READY]` S2/WP-012 可按独立工作包建设 LangGraph Studio；依赖变化时由 S5 先行。
+13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架，跨组件验收随 S3 平台切片逐步接入。
 
 发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。
 
@@ -157,6 +160,10 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 [`CHAIN_EXECUTION_PROTOCOL.md`](./CHAIN_EXECUTION_PROTOCOL.md)
 一次性预授权。生产者直接交给下一消费者；消费者核验精确 Head、摘要、
 范围和证据后即可继续。正常链路只在 S7 最终组合门禁返回 S1。
+
+客户端支持任务间消息时，可以按
+[`THREAD_WAKE_PROTOCOL.md`](./THREAD_WAKE_PROTOCOL.md)
+自动唤醒下一消费者。最后一个 S1 必须停在用户门禁，不能自行开启下一轮。
 
 预授权不适用于 R3。契约变化、越权路径、风险升级、门禁失败或重复返修
 会暂停链路并上报 S1。

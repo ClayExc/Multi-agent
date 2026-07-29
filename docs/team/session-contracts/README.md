@@ -7,12 +7,12 @@
 | 会话 | 契约 | 当前工作包 | 当前激活状态 |
 |---|---|---|---|
 | S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | [WP-000](../work-packages/WP-000-m0-contract-freeze.md) | ACTIVE |
-| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | [WP-010](../work-packages/WP-010-runtime-bootstrap.md) | REVIEW_ONLY |
-| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | [WP-020](../work-packages/WP-020-platform-bootstrap.md) | REVIEW_ONLY |
+| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | [WP-010/WP-012](../work-packages/WP-012-langgraph-studio-observability.md) | WP010_ACCEPTED / WP012_READY |
+| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | [WP-020](../work-packages/WP-020-platform-bootstrap.md) | READY_ON_BASELINE_SYNC |
 | S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | [WP-030](../work-packages/WP-030-quality-bootstrap.md) | ACTIVE_ON_COMMIT（离线范围） |
-| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | [WP-011](../work-packages/WP-011-core-bootstrap.md) | ACTIVE_ON_COMMIT |
-| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | [WP-021](../work-packages/WP-021-data-bootstrap.md) | REVIEW_ONLY |
-| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | [WP-040](../work-packages/WP-040-integration-verification.md) | REVIEW_ONLY_PENDING_WORKTREE |
+| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | [WP-011](../work-packages/WP-011-core-bootstrap.md) | ACCEPTED_M0 |
+| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | [WP-021](../work-packages/WP-021-data-bootstrap.md) | ACCEPTED_M0 |
+| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | [WP-040](../work-packages/WP-040-integration-verification.md) | ACCEPTED / IDLE |
 
 ## 约束优先级
 
@@ -31,7 +31,7 @@
 - `BLOCKED`：存在外部前置条件，除记录阻塞信息外不能推进。
 - `HANDOFF`：实现结束，等待跨角色审查或集成。
 
-当前 Git 仓库和远端已经建立。五个实现会话已对摘要 `sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc` 全部 `ACCEPT`，S1 已写入 Review Attestation 并复跑门禁。包含本状态的提交是实现基线激活提交；从该提交创建独立 Worktree 后，S5 与 S4 离线范围可写，S2/S6/S3 继续等待各自依赖。
+当前 Git 仓库、远端和七个独立 Worktree 已建立。摘要 `sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc` 的实现基线仍有效；WP-010/011/021 已通过 S7 原子组合和 S1 final gate。S3/WP-020 与 S2/WP-012 必须从新的最终主基线启动新 Attempt，旧工作树状态不能自动视为写授权。
 
 本摘要的五角色只读复审已经完成；[rc2 五会话复审指令](../RC2_REVIEW_INSTRUCTIONS.md) 现作为历史复现入口。若被摘要覆盖的内容发生变化，全部 Review 自动失效并重新进入 `REVIEW_ONLY`。
 

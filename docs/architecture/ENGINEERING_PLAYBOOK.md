@@ -205,6 +205,8 @@ FlowPilot 让 Worker 和 Studio 使用同一个 graph factory，以稳定节点 
 
 FlowPilot 后来把会话视为稳定能力所有者，把 Work Package、Git Head、Contract Digest 和 Evidence 当作任务状态。依赖明确的链路由 S1 一次性授权，生产者直接交给下一消费者；消费者校验 Head、摘要、路径和证据后继续。S7 在独立组合树执行总装验证，只有异常或最终裁决返回 S1。这是从“星形图聊天编程”转向 Symphony 式工作编排：中心保留架构、安全和发布权，但不参与每次正常状态转换。
 
+Codex 客户端的任务唤醒可以进一步移除人工复制：生产者用结构化信封唤醒下一消费者，最后由 S7 唤醒 S1。唤醒仍不是状态提交；消息必须带幂等身份，消费者从 Git 和证据恢复，并在 S1 final 停到用户门禁。具体规则见 [`THREAD_WAKE_PROTOCOL.md`](../team/THREAD_WAKE_PROTOCOL.md)。
+
 这次 WP-040 还暴露了新的边界：S7 候选分支的身份/路径校验不能原样套用到 S1 最终合并分支。正确做法是分开验证 candidate phase 与 final phase，并证明 S1 控制面增量没有改写产品树。第一次发现这类组合问题会慢，因为需要建立失败模型和验证器；后续相同候选只运行 FAST final gate，不重复完整 Compose 发布演练。
 
 这种协作与产品 Agent 面临的是同一类问题：

@@ -2,13 +2,14 @@
 
 ## 元数据
 
-- 状态：`S1_FINAL_GATE`（`WP-040-a1` 完整候选已通过；`a2` 只修复 final-phase Verifier）
+- 状态：`ACCEPTED`（`a1` RELEASE 候选、`a2/a3` FAST Verifier 与 S1 final gate 已通过）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-SEC-004、FP-DATA-001、FP-OPS-002
 - 依赖工作包：待核验交接本身；写模式另需独立 Worktree 与 S1 Attempt
 - 目标分支：`codex/s7/wp-040-integration-verification`
 - S1 评审：[`WP-040-A0-S1-REVIEW.md`](../../review/WP-040-A0-S1-REVIEW.md)
+- S1 最终评审：[`WP-040-A1-S1-FINAL-REVIEW.md`](../../review/WP-040-A1-S1-FINAL-REVIEW.md)
 - 门禁分级：[`INTEGRATION_GATES.md`](../INTEGRATION_GATES.md)
 
 ## 目标

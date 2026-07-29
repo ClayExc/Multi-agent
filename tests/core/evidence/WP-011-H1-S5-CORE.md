@@ -10,9 +10,24 @@
 - 功能 ID：FP-FLOW-007、FP-FLOW-008、FP-FLOW-009、FP-APR-001
 - 分支：`codex/s5/wp-011-core-bootstrap`
 - 基线提交：`b5caaf2448c2860cfa67d8c5a39b9cda62eca809`
+- Control Plane 提交：`4322d1778583df71bc861817547b9c0b2ead0ccb`
 - H1 实现提交：`ce5600c77da9b0dc2a2062bebd5d7098b439bef0`
+- H1 修复提交：`c4e33590caa23d60b8a10342b80502b60517018b`
 - ContractSet 摘要：`sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
-- 状态：WP-011-H1 完成；WP-011 部分完成，等待 S1 验收
+- 状态：`S1-WP011-H1-001` 已修复；等待 S1 复审
+
+## S1 修复记录
+
+- 阻断项：`S1-WP011-H1-001`
+- 失败机理：Approval 单独保存的 `expires_at` 未与其绑定的
+  PlannedAction 过期时间进行跨对象比较。
+- 修复：`Approval.assert_action_binding()` 分别将 Approval 与
+  PlannedAction 的 `expires_at` 规范化为 UTC，再进行确定性相等比较。
+- 独立负例：只延后 Approval 的 `expires_at`，其余 Tenant、Task、
+  Requester、Action ID、Action Digest、Tool Schema Hash 和 Policy Version
+  保持一致；结果稳定返回 `APPROVAL_BINDING_MISMATCH`。
+- 等价时区正例：Approval 使用 `+02:00` 表示与 PlannedAction 相同的时刻，
+  规范化后绑定通过。
 
 ## 完成内容
 
@@ -23,7 +38,8 @@
 - 按公共 v1 契约实现 Task、TaskCommand、SecurityContextRef、
   PlannedAction 和 Approval 的不可变值对象、严格字段边界和稳定领域错误。
 - 使用 RFC 8785 + SHA-256 重算 Command/PlannedAction 摘要，并确定性校验
-  Tenant、Subject、Purpose、工具 Schema、策略版本和职责分离绑定。
+  Tenant、Subject、Purpose、工具 Schema、策略版本、规范化过期时间和职责
+  分离绑定。
 - 实现 Application Command Intake，以及 S2 消费的 `ExecutionPort` 和
   S6 消费的 Repository、Command Inbox、Unit-of-Work Port。
 - 固定 Intake 顺序为：摘要/安全绑定 → 幂等键 → command_id → 任务版本 →
@@ -65,7 +81,7 @@
 | 命令 | 结果 | 证据 |
 |---|---|---|
 | `make bootstrap` | PASS | Python 3.12.11；Resolved 21 / Audited 20 packages |
-| `make test` | PASS | 21 collected，21 passed in 0.38s |
+| `make test` | PASS | 22 collected，22 passed in 0.64s |
 | `make test-contract` | PASS | `CONTRACT_CONFORMANCE_OK`：20 schemas、35 cases、19 mutation cases、43 semantic cases、5 audit-chain cases、21 manifest cases、52 features |
 | `ruff check --no-cache packages/domain packages/application tests/core` | PASS | `All checks passed!` |
 | `mypy packages/domain/src packages/application/src` | PASS | 15 source files，0 issues |
@@ -78,8 +94,8 @@
 
 - 已验证负向路径：错误摘要、同幂等键不同摘要、陈旧版本、版本槽位冲突、
   非法状态转换、无效 Execution Receipt、Runtime 失败恢复、跨租户 Task
-  绑定、Tenant/Purpose 错配、审批人等于请求者、动作参数篡改、授权字段
-  注入和非字符串引用。
+  绑定、Tenant/Purpose 错配、审批人等于请求者、Approval 过期时间单字段
+  错配、动作参数篡改、授权字段注入和非字符串引用。
 - Domain 框架依赖由 AST 测试阻断；测试覆盖的禁止根包括 FastAPI、
   LangGraph、SQLAlchemy、Redis、MCP 和 Provider SDK。
 - 外部异常只映射为稳定错误码和安全消息；测试确认原始异常中的敏感文本
@@ -99,8 +115,8 @@
 
 ## 接收会话下一步
 
-1. S1-ARCH 复核提交 `ce5600c77da9b0dc2a2062bebd5d7098b439bef0` 的
-   ContractSet 对齐、状态约束、摘要/审批绑定和 H1 范围。
+1. S1-ARCH 复核修复提交 `c4e33590caa23d60b8a10342b80502b60517018b`
+   的 UTC 过期时间绑定、单字段负例和本 HANDOFF 对应的 NEW_HEAD。
 2. S2-RUNTIME 验证并实现 `ExecutionPort.submit` 的 tenant + command_id
    幂等语义，返回绑定 Command/Tenant/Task 的 Receipt。
 3. S6-DATA 验证并实现 Task Repository、Command Inbox 和 Unit of Work，
@@ -111,4 +127,6 @@
 
 - H1 为单一实现提交，可在未合并前丢弃分支，或在合并后执行
   `git revert ce5600c77da9b0dc2a2062bebd5d7098b439bef0`。
+- 修复可独立执行
+  `git revert c4e33590caa23d60b8a10342b80502b60517018b`。
 - 本包没有数据库、契约或环境变量变化，不需要数据回滚。

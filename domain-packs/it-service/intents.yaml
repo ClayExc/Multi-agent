@@ -1,0 +1,7 @@
+schema_version: flowpilot.domain-pack.intents.v1
+intents:
+  - id: vpn_support
+    description: Request help with corporate VPN access or connectivity.
+    allowed_command_types:
+      - task.create.v1
+      - task.message.submit.v1

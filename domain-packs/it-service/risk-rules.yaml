@@ -1,0 +1,5 @@
+schema_version: flowpilot.domain-pack.risk-rules.v1
+rules:
+  - id: vpn_support_default
+    intent_id: vpn_support
+    risk_level: low

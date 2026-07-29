@@ -4,7 +4,7 @@ from enum import StrEnum
 from types import TracebackType
 from typing import Protocol, Self
 
-from flowpilot_domain import TaskCommand
+from flowpilot_domain import Task, TaskCommand
 
 from .models import ExecutionReceipt, StoredCommand
 
@@ -26,6 +26,33 @@ class TaskRepositoryPort(Protocol):
 
     async def get_version(self, tenant_id: str, task_id: str) -> int | None:
         """Return the tenant-scoped task version, or None when absent."""
+
+
+class TaskQueryPort(Protocol):
+    """Tenant-scoped read boundary for the external Task projection."""
+
+    async def get(self, tenant_id: str, task_id: str) -> Task | None:
+        """Return the exact tenant/task projection, or None when absent."""
+
+
+class TaskQueryUnitOfWork(Protocol):
+    """Read transaction boundary for a tenant-scoped Task projection."""
+
+    @property
+    def tasks(self) -> TaskQueryPort: ...
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+
+class TaskQueryUnitOfWorkFactory(Protocol):
+    def __call__(self) -> TaskQueryUnitOfWork: ...
 
 
 class CommandInboxPort(Protocol):

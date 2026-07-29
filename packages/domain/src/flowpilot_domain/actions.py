@@ -84,12 +84,11 @@ class ActionResource:
                 )
 
     def to_mapping(self) -> dict[str, str | None]:
-        result: dict[str, str | None] = {"type": self.type}
-        if self.id is not None:
-            result["id"] = self.id
-        if self.owner_id is not None:
-            result["owner_id"] = self.owner_id
-        return result
+        return {
+            "type": self.type,
+            "id": self.id,
+            "owner_id": self.owner_id,
+        }
 
 
 @dataclass(frozen=True, slots=True)

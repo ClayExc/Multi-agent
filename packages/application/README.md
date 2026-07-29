@@ -1,8 +1,8 @@
 # flowpilot-application
 
-Application use cases and versioned internal ports. The package depends only on
-`flowpilot-domain` and Python protocols. S2 implements `ExecutionPort`; S6
-implements `TaskRepositoryPort`, `CommandInboxPort`, and `UnitOfWork`.
+Application use cases, validated declarative Domain Pack loading, and versioned
+internal ports. S2 implements `ExecutionPort`; S6 implements
+`TaskRepositoryPort`, `TaskQueryPort`, `CommandInboxPort`, and `UnitOfWork`.
 
 Adapters must map provider, queue, and database failures to the stable errors
 defined here without exposing raw exception text.
@@ -20,3 +20,17 @@ defined here without exposing raw exception text.
 - Runtime dispatch happens after the accepted command commits. If dispatch
   fails, replaying the same command retries the idempotent Execution Port; a
   persisted receipt suppresses further dispatch.
+- `TaskQueryPort` must scope every lookup by `(tenant_id, task_id)` and must
+  never return a projection for a different tenant or task.
+- `TaskQueryService` opens a read Unit of Work for each lookup so tenant
+  binding, transaction cleanup, and connection lifecycle remain adapter-owned.
+- Domain Packs are data-only directories. Loading uses bounded files, exact
+  fields, path containment, and a safe YAML loader that rejects aliases; no
+  module is imported from a pack.
+
+## Dependency record
+
+| Dependency | Use | License | Alternative | Attack surface and control |
+| --- | --- | --- | --- | --- |
+| PyYAML | Parse declarative Domain Pack YAML | MIT | JSON-only packs or a bespoke parser | Parser resource and object-construction risks are bounded by file-size limits, exact schemas, `SafeLoader`, and rejection of aliases |
+| types-PyYAML (development) | Strict Mypy coverage for PyYAML | Apache-2.0 | Local protocol stubs | Build-time only; excluded from production wheels |

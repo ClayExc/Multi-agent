@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from typing import Self
 
 import pytest
 from flowpilot_application import (
@@ -9,12 +10,37 @@ from flowpilot_application import (
     CommandIntakeService,
     ErrorCode,
     ExecutionDisposition,
+    TaskQueryService,
 )
 from flowpilot_application.testing import (
     FakeExecutionPort,
     FakeUnitOfWorkFactory,
 )
 from flowpilot_domain import TaskCommand
+
+
+class FailingTaskQueryUnitOfWork:
+    tasks: Self
+
+    async def __aenter__(self) -> Self:
+        self.tasks = self
+        return self
+
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _traceback: object,
+    ) -> None:
+        return None
+
+    async def get(self, _tenant_id: str, _task_id: str) -> None:
+        raise RuntimeError("database password=never expose")
+
+
+class FailingTaskQueryUnitOfWorkFactory:
+    def __call__(self) -> FailingTaskQueryUnitOfWork:
+        return FailingTaskQueryUnitOfWork()
 
 
 def run(coroutine: object) -> object:
@@ -195,3 +221,14 @@ def test_invalid_execution_receipt_fails_closed(
         run(service.accept(command_factory()))
 
     assert captured.value.code is ErrorCode.EXECUTION_PROTOCOL_ERROR
+
+
+def test_task_query_repository_failure_is_stable_and_sanitized() -> None:
+    service = TaskQueryService(FailingTaskQueryUnitOfWorkFactory())
+
+    with pytest.raises(ApplicationError) as captured:
+        run(service.get("tenant-a", "task_12345678"))
+
+    assert captured.value.code is ErrorCode.REPOSITORY_UNAVAILABLE
+    assert captured.value.retryable is True
+    assert "password" not in captured.value.safe_message

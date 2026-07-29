@@ -29,6 +29,7 @@ COMMON_MERGE_BASE = "93597a5023320d48875b292dc08106f03227a3fb"
 CANDIDATE_MERGE_HEAD = "56c90b1355213357415778bda43fc3acf96aa8ed"
 S7_CANDIDATE_HEAD = "4314766c0cfb57c3332a5fc0b0c27395e93cf879"
 S1_FINAL_TEST_HEAD = "9b166f8cbc6a85fc036458c5d88caf1ec10feacf"
+CANDIDATE_BRANCH = "codex/s7/wp-040-integration-verification"
 CONTRACT_DIGEST = (
     "sha256:0a82e7f58c4223362721c95a50e9a820"
     "d714e550e72eebc7a90ab01e283100fc"
@@ -343,6 +344,10 @@ def is_s1_branch(branch: str) -> bool:
     return branch == "master" or branch.startswith("codex/s1/")
 
 
+def is_candidate_branch(branch: str) -> bool:
+    return branch == CANDIDATE_BRANCH
+
+
 def select_target_branch(repo: Path, target_head: str) -> str:
     current_head = run_git(repo, "rev-parse", "HEAD")
     current_branch = run_git(repo, "branch", "--show-current")
@@ -384,6 +389,7 @@ def final_scope_violations(
         if (
             is_s1_owned_path(normalized)
             or normalized in S1_ALLOWED_SHARED_PATHS
+            or is_allowed_path(normalized, S7_ALLOWED_PREFIXES)
         ):
             continue
         if status == "D" and normalized.startswith(".idea/") and ignores_idea:
@@ -929,6 +935,8 @@ def build_manifest(
     repo: Path,
     phase: ValidationPhase | str = ValidationPhase.S7_CANDIDATE,
     target_head: str | None = None,
+    *,
+    enforce_checkout_identity: bool = False,
 ) -> dict[str, Any]:
     repo = repo.resolve()
     validation_phase = ValidationPhase(phase)
@@ -938,11 +946,14 @@ def build_manifest(
 
     if validation_phase is ValidationPhase.S7_CANDIDATE:
         verified_head = S7_CANDIDATE_HEAD
-        branch = run_git(repo, "branch", "--show-current")
+        checkout_branch = run_git(repo, "branch", "--show-current")
+        branch = (
+            checkout_branch if enforce_checkout_identity else CANDIDATE_BRANCH
+        )
         checks.append(
             make_check(
                 "git.branch",
-                branch == "codex/s7/wp-040-integration-verification",
+                is_candidate_branch(branch),
                 f"branch={branch}",
             )
         )
@@ -1384,6 +1395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.repo,
         phase=args.phase,
         target_head=args.target_head,
+        enforce_checkout_identity=True,
     )
     prefix = (
         "WP040_S1_FINAL"

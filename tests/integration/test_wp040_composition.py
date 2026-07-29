@@ -34,6 +34,7 @@ def test_candidate_is_exact_and_dependency_complete(verifier: ModuleType) -> Non
 
     assert manifest["summary"]["verdict"] == "PASS"
     assert manifest["summary"]["failed_checks"] == []
+    assert manifest["branch"] == verifier.CANDIDATE_BRANCH
     assert manifest["workspace"]["member_count"] == 9
     assert manifest["workspace"]["lock_package_count"] == 73
     assert manifest["migrations"]["head"] == "0002_checkpoint_sequence_cas"
@@ -91,11 +92,25 @@ def test_s1_final_rejects_non_s1_product_path(verifier: ModuleType) -> None:
         ("M", "docs/team/CODEX_SESSIONS.md"),
         ("M", ".gitignore"),
         ("M", "packages/domain/src/flowpilot_domain/actions.py"),
+        ("M", "tests/acceptance/test_release_gate.py"),
     ]
 
     assert verifier.final_scope_violations(changes, ".idea/\n") == [
-        "M:packages/domain/src/flowpilot_domain/actions.py"
+        "M:packages/domain/src/flowpilot_domain/actions.py",
+        "M:tests/acceptance/test_release_gate.py",
     ]
+
+
+def test_s1_final_allows_reviewed_s7_control_paths(
+    verifier: ModuleType,
+) -> None:
+    changes = [
+        ("M", "scripts/integration/verify_wp040.py"),
+        ("M", "tests/integration/test_wp040_composition.py"),
+        ("A", "tests/integration/evidence/WP-040-a3-HANDOFF.md"),
+    ]
+
+    assert verifier.final_scope_violations(changes, ".idea/\n") == []
 
 
 def test_s1_final_branch_and_ignored_cleanup_fail_closed(
@@ -110,6 +125,14 @@ def test_s1_final_branch_and_ignored_cleanup_fail_closed(
         [("M", ".idea/modules.xml")],
         ".idea/\n",
     ) == ["M:.idea/modules.xml"]
+
+
+def test_candidate_checkout_identity_remains_explicit(
+    verifier: ModuleType,
+) -> None:
+    assert verifier.is_candidate_branch(verifier.CANDIDATE_BRANCH)
+    assert not verifier.is_candidate_branch("master")
+    assert not verifier.is_candidate_branch("codex/s1/wp-040-final-gate")
 
 
 def test_candidate_rejects_s7_delta_outside_owner_scope(

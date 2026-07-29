@@ -23,7 +23,47 @@ VALUES (
     'RUNNABLE',
     1,
     0,
-    '{"tenant_id":"tenant-a","task_id":"task_rls_a12345678","version":1,"run_generation":0}'::jsonb,
+    $json${
+      "task_id": "task_rls_a12345678",
+      "thread_id": "thread_rls_a12345678",
+      "tenant_id": "tenant-a",
+      "status": "RUNNABLE",
+      "version": 1,
+      "run_generation": 0,
+      "purpose": "it_support",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_rls_a12345678",
+        "context_ref": "security-context://tenant-a/rls-a",
+        "context_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "tenant_id": "tenant-a",
+        "subject_id": "user-123",
+        "subject_type": "user",
+        "purpose": "it_support",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "confidential",
+        "issued_at": "2026-07-28T08:00:00Z",
+        "expires_at": "2026-07-28T09:00:00Z"
+      },
+      "release": {
+        "graph_version": "graph-v1",
+        "domain_pack_version": "it-service-v1",
+        "context_policy_version": "ctx-policy-v1",
+        "policy_version": "policy-v1",
+        "tool_schema_set": "tool-set-v1"
+      },
+      "waiting_on": null,
+      "result_ref": null,
+      "error": null,
+      "created_at": "2026-07-28T08:00:00Z",
+      "updated_at": "2026-07-28T08:00:00Z",
+      "completed_at": null
+    }$json$::jsonb,
     '2026-07-28T08:00:00Z',
     '2026-07-28T08:00:00Z'
 );
@@ -61,7 +101,47 @@ BEGIN
             'RUNNABLE',
             1,
             0,
-            '{"tenant_id":"tenant-a","task_id":"task_rls_attack1","version":1,"run_generation":0}'::jsonb,
+            $json${
+              "task_id": "task_rls_attack1",
+              "thread_id": "thread_rls_attack1",
+              "tenant_id": "tenant-a",
+              "status": "RUNNABLE",
+              "version": 1,
+              "run_generation": 0,
+              "purpose": "it_support",
+              "data_classification": "internal",
+              "security_context": {
+                "context_id": "secctx_rls_attack1",
+                "context_ref": "security-context://tenant-a/rls-attack",
+                "context_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "tenant_id": "tenant-a",
+                "subject_id": "user-123",
+                "subject_type": "user",
+                "purpose": "it_support",
+                "authentication": {
+                  "method": "oidc",
+                  "assurance_level": "substantial",
+                  "session_id_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                },
+                "delegation_id": null,
+                "data_classification_ceiling": "confidential",
+                "issued_at": "2026-07-28T08:00:00Z",
+                "expires_at": "2026-07-28T09:00:00Z"
+              },
+              "release": {
+                "graph_version": "graph-v1",
+                "domain_pack_version": "it-service-v1",
+                "context_policy_version": "ctx-policy-v1",
+                "policy_version": "policy-v1",
+                "tool_schema_set": "tool-set-v1"
+              },
+              "waiting_on": null,
+              "result_ref": null,
+              "error": null,
+              "created_at": "2026-07-28T08:00:00Z",
+              "updated_at": "2026-07-28T08:00:00Z",
+              "completed_at": null
+            }$json$::jsonb,
             '2026-07-28T08:00:00Z',
             '2026-07-28T08:00:00Z'
         );
@@ -91,7 +171,47 @@ VALUES (
     'RUNNABLE',
     1,
     0,
-    '{"tenant_id":"tenant-b","task_id":"task_rls_b12345678","version":1,"run_generation":0}'::jsonb,
+    $json${
+      "task_id": "task_rls_b12345678",
+      "thread_id": "thread_rls_b12345678",
+      "tenant_id": "tenant-b",
+      "status": "RUNNABLE",
+      "version": 1,
+      "run_generation": 0,
+      "purpose": "it_support",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_rls_b12345678",
+        "context_ref": "security-context://tenant-b/rls-b",
+        "context_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tenant_id": "tenant-b",
+        "subject_id": "user-456",
+        "subject_type": "user",
+        "purpose": "it_support",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "confidential",
+        "issued_at": "2026-07-28T08:00:00Z",
+        "expires_at": "2026-07-28T09:00:00Z"
+      },
+      "release": {
+        "graph_version": "graph-v1",
+        "domain_pack_version": "it-service-v1",
+        "context_policy_version": "ctx-policy-v1",
+        "policy_version": "policy-v1",
+        "tool_schema_set": "tool-set-v1"
+      },
+      "waiting_on": null,
+      "result_ref": null,
+      "error": null,
+      "created_at": "2026-07-28T08:00:00Z",
+      "updated_at": "2026-07-28T08:00:00Z",
+      "completed_at": null
+    }$json$::jsonb,
     '2026-07-28T08:00:00Z',
     '2026-07-28T08:00:00Z'
 );

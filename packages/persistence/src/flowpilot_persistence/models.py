@@ -14,7 +14,6 @@ from flowpilot_domain import (
     ApprovalStatus,
     DomainViolation,
     PlannedAction,
-    canonical_sha256,
 )
 
 from .errors import PersistenceError, PersistenceErrorCode
@@ -205,7 +204,7 @@ class ExecutionIntent:
             planned_domain.tenant_id != self.tenant_id
             or planned_domain.task_id != self.task_id
             or planned_domain.action_id != self.action_id
-            or canonical_sha256(planned_value) != self.action_digest
+            or planned_domain.digest() != self.action_digest
             or planned_domain.tool.name != self.tool_name
             or planned_domain.tool.schema_hash != self.tool_schema_hash
             or planned_domain.policy_version != self.policy_version

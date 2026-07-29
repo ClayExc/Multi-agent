@@ -13,6 +13,7 @@ from flowpilot_application import (
     StoredCommand,
     VersionSlotReservation,
 )
+from flowpilot_domain import Task
 
 from .errors import PersistenceError, PersistenceErrorCode
 from .models import (
@@ -64,6 +65,7 @@ _LEDGER_TRANSITIONS: dict[LedgerStatus, frozenset[LedgerStatus]] = {
 
 @dataclass(slots=True)
 class _Snapshot:
+    tasks: dict[tuple[str, str], Task] = field(default_factory=dict)
     task_versions: dict[tuple[str, str], int] = field(default_factory=dict)
     commands_by_id: dict[tuple[str, str], StoredCommand] = field(
         default_factory=dict
@@ -94,6 +96,7 @@ class _Snapshot:
 
     def clone(self) -> _Snapshot:
         return _Snapshot(
+            tasks=dict(self.tasks),
             task_versions=dict(self.task_versions),
             commands_by_id=dict(self.commands_by_id),
             command_id_by_key=dict(self.command_id_by_key),
@@ -120,6 +123,11 @@ class MemoryDatabase:
             raise ValueError("version cannot be negative")
         self.state.task_versions[(tenant_id, task_id)] = version
 
+    def seed_task(self, task: Task) -> None:
+        key = (task.tenant_id, task.task_id)
+        self.state.tasks[key] = task
+        self.state.task_versions[key] = task.version
+
 
 class MemoryTaskRepository:
     def __init__(self, snapshot: _Snapshot) -> None:
@@ -127,6 +135,17 @@ class MemoryTaskRepository:
 
     async def get_version(self, tenant_id: str, task_id: str) -> int | None:
         return self._snapshot.task_versions.get((tenant_id, task_id))
+
+    async def get(self, tenant_id: str, task_id: str) -> Task | None:
+        task = self._snapshot.tasks.get((tenant_id, task_id))
+        if task is None:
+            return None
+        if task.tenant_id != tenant_id or task.task_id != task_id:
+            raise PersistenceError(
+                PersistenceErrorCode.DRIVER_PROTOCOL,
+                "stored task projection does not match its identity",
+            )
+        return task
 
 
 class MemoryCommandInbox:

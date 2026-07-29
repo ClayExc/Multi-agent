@@ -12,6 +12,7 @@ from flowpilot_application import (
     StoredCommand,
     VersionSlotReservation,
 )
+from flowpilot_domain import DomainViolation, Task
 
 from .errors import PersistenceError, PersistenceErrorCode
 from .models import (
@@ -125,6 +126,38 @@ class PostgresTaskRepository:
             {"tenant_id": tenant_id, "task_id": task_id},
         )
         return int(row["version"]) if row is not None else None
+
+    async def get(self, tenant_id: str, task_id: str) -> Task | None:
+        await self._transaction.bind(tenant_id)
+        row = await self._transaction.connection.fetch_one(
+            """
+            SELECT tenant_id, task_id, projection
+            FROM flowpilot.tasks
+            WHERE tenant_id = %(tenant_id)s AND task_id = %(task_id)s
+            """,
+            {"tenant_id": tenant_id, "task_id": task_id},
+        )
+        if row is None:
+            return None
+        try:
+            projection = _json_object(row["projection"], "task.projection")
+            task = Task.from_mapping(projection)
+        except (DomainViolation, KeyError, TypeError, ValueError) as exc:
+            raise PersistenceError(
+                PersistenceErrorCode.DRIVER_PROTOCOL,
+                "stored task projection violates the Task v1 contract",
+            ) from exc
+        if (
+            row.get("tenant_id") != tenant_id
+            or row.get("task_id") != task_id
+            or task.tenant_id != tenant_id
+            or task.task_id != task_id
+        ):
+            raise PersistenceError(
+                PersistenceErrorCode.DRIVER_PROTOCOL,
+                "stored task projection does not match its identity",
+            )
+        return task
 
 
 class PostgresCommandInbox:

@@ -22,7 +22,7 @@ for package in ("domain", "application", "persistence"):
 
 from flowpilot_application import CommandIntakeService  # noqa: E402
 from flowpilot_application.testing import FakeExecutionPort  # noqa: E402
-from flowpilot_domain import TaskCommand, canonical_sha256  # noqa: E402
+from flowpilot_domain import PlannedAction, Task, TaskCommand  # noqa: E402
 from flowpilot_persistence import (  # noqa: E402
     CheckpointRecord,
     ExecutionIntent,
@@ -102,6 +102,31 @@ def command_fixture(suffix: str) -> TaskCommand:
     return TaskCommand.from_mapping(value)
 
 
+def runnable_task_projection(
+    task_id: str,
+    thread_id: str,
+    *,
+    version: int = 1,
+    run_generation: int = 0,
+) -> dict[str, Any]:
+    value = case_instance("task.completed.valid")
+    value.update(
+        {
+            "task_id": task_id,
+            "thread_id": thread_id,
+            "status": "RUNNABLE",
+            "version": version,
+            "run_generation": run_generation,
+            "active_run_id": None,
+            "latest_checkpoint_id": None,
+            "result_ref": None,
+            "error": None,
+            "completed_at": None,
+        }
+    )
+    return Task.from_mapping(value).to_mapping()
+
+
 async def main() -> None:
     database_url = os.environ["FLOWPILOT_TEST_DATABASE_URL"]
     suffix = uuid4().hex[:12]
@@ -159,17 +184,20 @@ async def main() -> None:
             'RUNNABLE',
             1,
             0,
-            '{
-                "tenant_id":"tenant-a",
-                "task_id":"task_12345678",
-                "version":1,
-                "run_generation":0
-            }'::jsonb,
+            %(projection)s::jsonb,
             '2026-07-28T08:00:00Z',
             '2026-07-28T08:00:00Z'
         )
         ON CONFLICT DO NOTHING
-        """
+        """,
+        {
+            "projection": json.dumps(
+                runnable_task_projection(
+                    "task_12345678",
+                    "thread_12345678",
+                )
+            ),
+        },
     )
     lease_task_id = f"task_lease{suffix}"
     lease_thread_id = f"thread_lease{suffix}"
@@ -203,17 +231,28 @@ async def main() -> None:
             "task_id": lease_task_id,
             "thread_id": lease_thread_id,
             "projection": json.dumps(
-                {
-                    "tenant_id": "tenant-a",
-                    "task_id": lease_task_id,
-                    "version": 1,
-                    "run_generation": 0,
-                }
+                runnable_task_projection(lease_task_id, lease_thread_id)
             ),
         },
     )
     await seed.commit()
     await seed.close()
+
+    async with unit_of_work() as data:
+        restored_task = await data.tasks.get("tenant-a", "task_12345678")
+        if (
+            restored_task is None
+            or restored_task.to_mapping()
+            != runnable_task_projection(
+                "task_12345678",
+                "thread_12345678",
+            )
+        ):
+            raise AssertionError("PostgreSQL Task v1 projection did not round-trip")
+
+    async with unit_of_work() as data:
+        if await data.tasks.get("tenant-b", "task_12345678") is not None:
+            raise AssertionError("cross-tenant Task query returned a projection")
 
     lease_time = datetime(2026, 7, 29, 4, 0, tzinfo=UTC)
     async with unit_of_work() as data:
@@ -302,6 +341,9 @@ async def main() -> None:
     action_expiry = datetime.fromisoformat(
         planned_action["expires_at"].replace("Z", "+00:00")
     )
+    action_digest = PlannedAction.from_mapping(planned_action).digest()
+    policy_decision["action"]["action_digest"] = action_digest
+    approval["action_digest"] = action_digest
     ledger_intent = ExecutionIntent(
         tool_execution_id=f"tex_{suffix}",
         request_id=f"treq_{suffix}",
@@ -313,7 +355,7 @@ async def main() -> None:
             + hashlib.sha256(f"ledger:{suffix}".encode("ascii")).hexdigest()
         ),
         action_id=planned_action["action_id"],
-        action_digest=canonical_sha256(planned_action),
+        action_digest=action_digest,
         planned_action=planned_action,
         planned_action_expires_at=action_expiry,
         policy_decision_id=policy_decision["decision_id"],

@@ -1,0 +1,119 @@
+name: flowpilot-m0-data
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flowpilot}
+      POSTGRES_USER: ${POSTGRES_USER:-flowpilot_migrator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../migrations/0001_persistence_baseline.sql:/docker-entrypoint-initdb.d/001-persistence-baseline.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks:
+      - data-plane
+
+  redis:
+    image: redis:7.4.2-alpine
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --requirepass
+      - ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$${REDIS_PASSWORD}" --no-auth-warning ping | grep PONG
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    networks:
+      - coordination
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1.4
+    command:
+      - start-dev
+      - --health-enabled=true
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-flowpilot-local-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8081}:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/keycloak/bin/kc.sh show-config >/dev/null
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 25s
+    networks:
+      - control-plane
+
+  opa:
+    image: openpolicyagent/opa:1.0.1
+    command:
+      - run
+      - --server
+      - --config-file=/config/config.yaml
+    ports:
+      - "127.0.0.1:${OPA_PORT:-8181}:8181"
+    volumes:
+      - ../opa/config.yaml:/config/config.yaml:ro
+    healthcheck:
+      test:
+        - CMD
+        - /opa
+        - eval
+        - "true"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - control-plane
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command:
+      - --config=/etc/otelcol-contrib/config.yaml
+    ports:
+      - "127.0.0.1:${OTEL_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${OTEL_HTTP_PORT:-4318}:4318"
+    volumes:
+      - ../otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    healthcheck:
+      test:
+        - CMD
+        - /otelcol-contrib
+        - --version
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - control-plane
+
+volumes:
+  postgres-data:
+
+networks:
+  data-plane: {}
+  coordination: {}
+  control-plane: {}

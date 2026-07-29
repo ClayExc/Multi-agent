@@ -1,0 +1,4 @@
+schema_version: flowpilot.domain-pack.required-fields.v1
+required_fields:
+  vpn_support:
+    - environment

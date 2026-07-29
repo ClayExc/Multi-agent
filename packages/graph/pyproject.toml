@@ -1,0 +1,23 @@
+[project]
+name = "flowpilot-graph"
+version = "0.1.0"
+description = "FlowPilot deterministic graph and recovery boundary"
+requires-python = ">=3.12"
+dependencies = [
+    "flowpilot-agent-runtime",
+    "flowpilot-context",
+    "flowpilot-domain",
+    "langgraph>=1.2,<2",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowpilot_graph"]
+
+[tool.uv.sources]
+flowpilot-agent-runtime = { workspace = true }
+flowpilot-context = { workspace = true }
+flowpilot-domain = { workspace = true }

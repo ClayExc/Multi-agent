@@ -5,6 +5,7 @@ description = "FlowPilot application use cases and internal ports"
 requires-python = ">=3.12"
 dependencies = [
     "flowpilot-domain",
+    "PyYAML>=6.0.2,<7",
 ]
 
 [build-system]

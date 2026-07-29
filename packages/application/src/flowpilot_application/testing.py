@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, replace
 from types import TracebackType
 from typing import Self
 
-from flowpilot_domain import TaskCommand
+from flowpilot_domain import Task, TaskCommand
 
 from .models import ExecutionDisposition, ExecutionReceipt, StoredCommand
 from .ports import VersionSlotReservation
@@ -13,6 +13,7 @@ from .ports import VersionSlotReservation
 @dataclass(slots=True)
 class InMemoryStore:
     task_versions: dict[tuple[str, str], int] = field(default_factory=dict)
+    tasks_by_id: dict[tuple[str, str], Task] = field(default_factory=dict)
     commands_by_id: dict[tuple[str, str], StoredCommand] = field(
         default_factory=dict
     )
@@ -28,6 +29,9 @@ class FakeTaskRepository:
 
     async def get_version(self, tenant_id: str, task_id: str) -> int | None:
         return self._store.task_versions.get((tenant_id, task_id))
+
+    async def get(self, tenant_id: str, task_id: str) -> Task | None:
+        return self._store.tasks_by_id.get((tenant_id, task_id))
 
 
 class FakeCommandInbox:
@@ -91,6 +95,7 @@ class FakeUnitOfWork:
     async def __aenter__(self) -> Self:
         self._working = InMemoryStore(
             task_versions=dict(self._shared.task_versions),
+            tasks_by_id=dict(self._shared.tasks_by_id),
             commands_by_id=dict(self._shared.commands_by_id),
             command_id_by_key=dict(self._shared.command_id_by_key),
             version_slots=dict(self._shared.version_slots),
@@ -108,6 +113,7 @@ class FakeUnitOfWork:
     ) -> None:
         if exc_type is None and self._committed and self._working is not None:
             self._shared.task_versions = self._working.task_versions
+            self._shared.tasks_by_id = self._working.tasks_by_id
             self._shared.commands_by_id = self._working.commands_by_id
             self._shared.command_id_by_key = self._working.command_id_by_key
             self._shared.version_slots = self._working.version_slots

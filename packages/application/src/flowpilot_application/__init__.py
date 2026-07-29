@@ -1,3 +1,12 @@
+from .domain_packs import (
+    DomainIntent,
+    DomainPackDefinition,
+    DomainPackFixture,
+    DomainPackManifest,
+    DomainPackRegistry,
+    DomainRiskRule,
+    load_domain_pack,
+)
 from .errors import ApplicationError, ErrorCode
 from .models import (
     APPLICATION_PORT_VERSION,
@@ -9,12 +18,15 @@ from .models import (
 from .ports import (
     CommandInboxPort,
     ExecutionPort,
+    TaskQueryPort,
+    TaskQueryUnitOfWork,
+    TaskQueryUnitOfWorkFactory,
     TaskRepositoryPort,
     UnitOfWork,
     UnitOfWorkFactory,
     VersionSlotReservation,
 )
-from .services import CommandIntakeService
+from .services import CommandIntakeService, TaskQueryService
 
 __all__ = [
     "APPLICATION_PORT_VERSION",
@@ -22,13 +34,24 @@ __all__ = [
     "CommandAcceptance",
     "CommandInboxPort",
     "CommandIntakeService",
+    "DomainIntent",
+    "DomainPackDefinition",
+    "DomainPackFixture",
+    "DomainPackManifest",
+    "DomainPackRegistry",
+    "DomainRiskRule",
     "ErrorCode",
     "ExecutionDisposition",
     "ExecutionPort",
     "ExecutionReceipt",
     "StoredCommand",
+    "TaskQueryPort",
+    "TaskQueryService",
+    "TaskQueryUnitOfWork",
+    "TaskQueryUnitOfWorkFactory",
     "TaskRepositoryPort",
     "UnitOfWork",
     "UnitOfWorkFactory",
     "VersionSlotReservation",
+    "load_domain_pack",
 ]

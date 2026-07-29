@@ -200,6 +200,7 @@ async def main() -> None:
         },
     )
     lease_task_id = f"task_lease{suffix}"
+    decoy_task_id = f"task_decoy{suffix}"
     lease_thread_id = f"thread_lease{suffix}"
     await seed.execute(
         """
@@ -235,6 +236,40 @@ async def main() -> None:
             ),
         },
     )
+    await seed.execute(
+        """
+        INSERT INTO flowpilot.tasks (
+            tenant_id,
+            task_id,
+            thread_id,
+            status,
+            version,
+            run_generation,
+            projection,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            'tenant-a',
+            %(task_id)s,
+            %(thread_id)s,
+            'RUNNABLE',
+            1,
+            0,
+            %(projection)s::jsonb,
+            '2026-07-29T04:00:00Z',
+            '2026-07-29T04:00:00Z'
+        )
+        ON CONFLICT DO NOTHING
+        """,
+        {
+            "task_id": decoy_task_id,
+            "thread_id": lease_thread_id,
+            "projection": json.dumps(
+                runnable_task_projection(decoy_task_id, lease_thread_id)
+            ),
+        },
+    )
     await seed.commit()
     await seed.close()
 
@@ -256,6 +291,46 @@ async def main() -> None:
 
     lease_time = datetime(2026, 7, 29, 4, 0, tzinfo=UTC)
     async with unit_of_work() as data:
+        decoy_fence = await data.leases.acquire(
+            "tenant-a",
+            decoy_task_id,
+            "worker-decoy",
+            now=lease_time,
+            ttl=timedelta(minutes=2),
+        )
+        decoy_checkpoint = await data.checkpoints.put(
+            CheckpointRecord(
+                checkpoint_id=f"cp_decoy{suffix}",
+                tenant_id="tenant-a",
+                task_id=decoy_task_id,
+                thread_id=lease_thread_id,
+                run_generation=decoy_fence.run_generation,
+                checkpoint_sequence=0,
+                graph_version="graph-v1",
+                state={"current_step": "decoy"},
+                security_context_ref="security-context://tenant-a/adapter",
+                security_context_hash="sha256:" + "a" * 64,
+                created_at=lease_time,
+            ),
+            decoy_fence,
+            expected_sequence=0,
+        )
+        await data.commit()
+
+    first_candidate = CheckpointRecord(
+        checkpoint_id=f"cp_first{suffix}",
+        tenant_id="tenant-a",
+        task_id=lease_task_id,
+        thread_id=lease_thread_id,
+        run_generation=1,
+        checkpoint_sequence=0,
+        graph_version="graph-v1",
+        state={"current_step": "plan"},
+        security_context_ref="security-context://tenant-a/adapter",
+        security_context_hash="sha256:" + "a" * 64,
+        created_at=lease_time,
+    )
+    async with unit_of_work() as data:
         first_fence = await data.leases.acquire(
             "tenant-a",
             lease_task_id,
@@ -263,22 +338,72 @@ async def main() -> None:
             now=lease_time,
             ttl=timedelta(seconds=30),
         )
-        await data.checkpoints.put(
-            CheckpointRecord(
-                checkpoint_id=f"cp_first{suffix}",
-                tenant_id="tenant-a",
-                task_id=lease_task_id,
-                thread_id=lease_thread_id,
-                run_generation=first_fence.run_generation,
-                graph_version="graph-v1",
-                state={"current_step": "plan"},
-                security_context_ref="security-context://tenant-a/adapter",
-                security_context_hash="sha256:" + "a" * 64,
-                created_at=lease_time,
-            ),
+        if first_fence.run_generation != first_candidate.run_generation:
+            raise AssertionError("first lease generation is not deterministic")
+        first_checkpoint = await data.checkpoints.put(
+            first_candidate,
             first_fence,
+            expected_sequence=0,
         )
+        replayed_checkpoint = await data.checkpoints.put(
+            first_candidate,
+            first_fence,
+            expected_sequence=0,
+        )
+        if (
+            first_checkpoint.checkpoint_sequence != 1
+            or replayed_checkpoint != first_checkpoint
+        ):
+            raise AssertionError("first checkpoint or safe replay violated CAS")
         await data.commit()
+
+    async with unit_of_work() as data:
+        try:
+            await data.checkpoints.put(
+                CheckpointRecord(
+                    checkpoint_id=f"cp_casconflict{suffix}",
+                    tenant_id="tenant-a",
+                    task_id=lease_task_id,
+                    thread_id=lease_thread_id,
+                    run_generation=first_fence.run_generation,
+                    checkpoint_sequence=0,
+                    graph_version="graph-v1",
+                    state={"current_step": "stale-sequence"},
+                    security_context_ref="security-context://tenant-a/adapter",
+                    security_context_hash="sha256:" + "a" * 64,
+                    created_at=lease_time + timedelta(seconds=1),
+                ),
+                first_fence,
+                expected_sequence=0,
+            )
+        except PersistenceError as exc:
+            if exc.code is not PersistenceErrorCode.VERSION_CONFLICT:
+                raise
+        else:
+            raise AssertionError("stale checkpoint sequence was accepted")
+        try:
+            await data.checkpoints.put(
+                CheckpointRecord(
+                    checkpoint_id=first_candidate.checkpoint_id,
+                    tenant_id=first_candidate.tenant_id,
+                    task_id=first_candidate.task_id,
+                    thread_id=first_candidate.thread_id,
+                    run_generation=first_candidate.run_generation,
+                    checkpoint_sequence=0,
+                    graph_version=first_candidate.graph_version,
+                    state={"current_step": "different-content"},
+                    security_context_ref=first_candidate.security_context_ref,
+                    security_context_hash=first_candidate.security_context_hash,
+                    created_at=first_candidate.created_at,
+                ),
+                first_fence,
+                expected_sequence=0,
+            )
+        except PersistenceError as exc:
+            if exc.code is not PersistenceErrorCode.CONFLICT:
+                raise
+        else:
+            raise AssertionError("checkpoint identity accepted different content")
 
     recovered_at = lease_time + timedelta(seconds=31)
     async with unit_of_work() as data:
@@ -297,6 +422,7 @@ async def main() -> None:
                     task_id=lease_task_id,
                     thread_id=lease_thread_id,
                     run_generation=first_fence.run_generation,
+                    checkpoint_sequence=1,
                     graph_version="graph-v1",
                     state={"current_step": "stale"},
                     security_context_ref="security-context://tenant-a/adapter",
@@ -304,19 +430,21 @@ async def main() -> None:
                     created_at=recovered_at,
                 ),
                 first_fence,
+                expected_sequence=1,
             )
         except PersistenceError as exc:
             if exc.code is not PersistenceErrorCode.STALE_FENCE:
                 raise
         else:
             raise AssertionError("stale worker checkpoint was accepted")
-        await data.checkpoints.put(
+        second_checkpoint = await data.checkpoints.put(
             CheckpointRecord(
                 checkpoint_id=f"cp_second{suffix}",
                 tenant_id="tenant-a",
                 task_id=lease_task_id,
                 thread_id=lease_thread_id,
                 run_generation=second_fence.run_generation,
+                checkpoint_sequence=1,
                 graph_version="graph-v1",
                 state={"current_step": "resume"},
                 security_context_ref="security-context://tenant-a/adapter",
@@ -324,16 +452,45 @@ async def main() -> None:
                 created_at=recovered_at,
             ),
             second_fence,
+            expected_sequence=1,
         )
+        if second_checkpoint.checkpoint_sequence != 2:
+            raise AssertionError("second checkpoint did not advance sequence")
         await data.commit()
 
     async with unit_of_work() as data:
         latest = await data.checkpoints.latest(
-            "tenant-a", lease_thread_id
+            "tenant-a", lease_task_id, lease_thread_id
         )
         if latest is None or latest.checkpoint_id != f"cp_second{suffix}":
             raise AssertionError("checkpoint recovery did not select the new fence")
-        await data.commit()
+        if (
+            await data.checkpoints.latest(
+                "tenant-a",
+                lease_task_id,
+                f"thread_wrong{suffix}",
+            )
+            is not None
+        ):
+            raise AssertionError("checkpoint query accepted a mismatched thread")
+        isolated_decoy = await data.checkpoints.latest(
+            "tenant-a",
+            decoy_task_id,
+            lease_thread_id,
+        )
+        if isolated_decoy != decoy_checkpoint:
+            raise AssertionError("same-thread Task checkpoint isolation failed")
+
+    async with unit_of_work() as data:
+        if (
+            await data.checkpoints.latest(
+                "tenant-b",
+                lease_task_id,
+                lease_thread_id,
+            )
+            is not None
+        ):
+            raise AssertionError("cross-tenant checkpoint query returned state")
 
     planned_action = case_instance("planned_action.server_constructed.valid")
     policy_decision = case_instance("policy.single_approval.valid")

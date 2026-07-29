@@ -497,6 +497,7 @@ class CheckpointRecord:
     task_id: str
     thread_id: str
     run_generation: int
+    checkpoint_sequence: int
     graph_version: str
     state: Mapping[str, FrozenJson]
     security_context_ref: str
@@ -516,6 +517,12 @@ class CheckpointRecord:
         require_sha256(self.security_context_hash, "security_context_hash")
         if self.run_generation < 1:
             raise ValueError("run_generation must be positive")
+        if (
+            isinstance(self.checkpoint_sequence, bool)
+            or not isinstance(self.checkpoint_sequence, int)
+            or self.checkpoint_sequence < 0
+        ):
+            raise ValueError("checkpoint_sequence must be a non-negative integer")
         state = freeze_json(self.state, "state")
         if not isinstance(state, Mapping):
             raise ValueError("state must be an object")

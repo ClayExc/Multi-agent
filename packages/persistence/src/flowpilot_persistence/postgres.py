@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime, timedelta
 from types import TracebackType
 from typing import Any, Protocol, Self
@@ -1094,8 +1095,25 @@ class PostgresCheckpointRepository:
         self._leases = leases
 
     async def put(
-        self, checkpoint: CheckpointRecord, fence: LeaseFence
+        self,
+        checkpoint: CheckpointRecord,
+        fence: LeaseFence,
+        *,
+        expected_sequence: int,
     ) -> CheckpointRecord:
+        if (
+            isinstance(expected_sequence, bool)
+            or not isinstance(expected_sequence, int)
+            or expected_sequence < 0
+        ):
+            raise ValueError(
+                "expected_sequence must be a non-negative integer"
+            )
+        if checkpoint.checkpoint_sequence != expected_sequence:
+            raise PersistenceError(
+                PersistenceErrorCode.VERSION_CONFLICT,
+                "checkpoint sequence does not match expected_sequence",
+            )
         await self._transaction.bind(checkpoint.tenant_id)
         if (
             checkpoint.tenant_id != fence.tenant_id
@@ -1106,7 +1124,86 @@ class PostgresCheckpointRepository:
                 PersistenceErrorCode.STALE_FENCE,
                 "checkpoint does not match the worker fence",
             )
-        await self._leases.assert_fence(fence, now=checkpoint.created_at)
+        fence_row = await self._transaction.connection.fetch_one(
+            """
+            SELECT lease.run_generation
+            FROM flowpilot.task_leases AS lease
+            JOIN flowpilot.tasks AS task
+              ON task.tenant_id = lease.tenant_id
+             AND task.task_id = lease.task_id
+             AND task.thread_id = %(thread_id)s
+            WHERE lease.tenant_id = %(tenant_id)s
+              AND lease.task_id = %(task_id)s
+              AND lease.holder_id = %(holder_id)s
+              AND lease.lease_token = %(lease_token)s
+              AND lease.run_generation = %(run_generation)s
+              AND lease.expires_at > %(observed_at)s
+            FOR UPDATE OF lease
+            """,
+            {
+                "tenant_id": fence.tenant_id,
+                "task_id": fence.task_id,
+                "thread_id": checkpoint.thread_id,
+                "holder_id": fence.holder_id,
+                "lease_token": fence.lease_token,
+                "run_generation": fence.run_generation,
+                "observed_at": checkpoint.created_at,
+            },
+        )
+        if fence_row is None:
+            raise PersistenceError(
+                PersistenceErrorCode.STALE_FENCE,
+                "worker fence is stale, expired, or bound to another thread",
+            )
+        stored = replace(
+            checkpoint,
+            checkpoint_sequence=expected_sequence + 1,
+        )
+        parameters = {
+            "checkpoint_id": stored.checkpoint_id,
+            "tenant_id": stored.tenant_id,
+            "task_id": stored.task_id,
+            "thread_id": stored.thread_id,
+            "run_generation": stored.run_generation,
+            "checkpoint_sequence": stored.checkpoint_sequence,
+            "expected_sequence": expected_sequence,
+            "graph_version": stored.graph_version,
+            "state": _json_dump(thaw_json(stored.state)),
+            "security_context_ref": stored.security_context_ref,
+            "security_context_hash": stored.security_context_hash,
+            "created_at": stored.created_at,
+        }
+        existing_row = await self._transaction.connection.fetch_one(
+            """
+            SELECT checkpoint_id, tenant_id, task_id, thread_id,
+                   run_generation, checkpoint_sequence, graph_version, state,
+                   security_context_ref, security_context_hash, created_at,
+                   (
+                       SELECT max(latest.checkpoint_sequence)
+                       FROM flowpilot.checkpoints AS latest
+                       WHERE latest.tenant_id = %(tenant_id)s
+                         AND latest.task_id = %(task_id)s
+                   ) AS current_sequence
+            FROM flowpilot.checkpoints
+            WHERE tenant_id = %(tenant_id)s
+              AND task_id = %(task_id)s
+              AND checkpoint_id = %(checkpoint_id)s
+            """,
+            parameters,
+        )
+        if existing_row is not None:
+            existing = _checkpoint_from_row(existing_row)
+            if existing != stored:
+                raise PersistenceError(
+                    PersistenceErrorCode.CONFLICT,
+                    "checkpoint identity is already bound to other state",
+                )
+            if int(existing_row["current_sequence"]) != stored.checkpoint_sequence:
+                raise PersistenceError(
+                    PersistenceErrorCode.VERSION_CONFLICT,
+                    "checkpoint replay is stale relative to the latest sequence",
+                )
+            return existing
         affected = await self._transaction.connection.execute(
             """
             INSERT INTO flowpilot.checkpoints (
@@ -1115,79 +1212,86 @@ class PostgresCheckpointRepository:
                 task_id,
                 thread_id,
                 run_generation,
+                checkpoint_sequence,
                 graph_version,
                 state,
                 security_context_ref,
                 security_context_hash,
                 created_at
             )
-            VALUES (
+            SELECT
                 %(checkpoint_id)s,
                 %(tenant_id)s,
                 %(task_id)s,
                 %(thread_id)s,
                 %(run_generation)s,
+                %(checkpoint_sequence)s,
                 %(graph_version)s,
                 %(state)s::jsonb,
                 %(security_context_ref)s,
                 %(security_context_hash)s,
                 %(created_at)s
-            )
+            WHERE COALESCE(
+                (
+                    SELECT max(current.checkpoint_sequence)
+                    FROM flowpilot.checkpoints AS current
+                    WHERE current.tenant_id = %(tenant_id)s
+                      AND current.task_id = %(task_id)s
+                ),
+                0
+            ) = %(expected_sequence)s
             ON CONFLICT DO NOTHING
             """,
-            {
-                "checkpoint_id": checkpoint.checkpoint_id,
-                "tenant_id": checkpoint.tenant_id,
-                "task_id": checkpoint.task_id,
-                "thread_id": checkpoint.thread_id,
-                "run_generation": checkpoint.run_generation,
-                "graph_version": checkpoint.graph_version,
-                "state": _json_dump(thaw_json(checkpoint.state)),
-                "security_context_ref": checkpoint.security_context_ref,
-                "security_context_hash": checkpoint.security_context_hash,
-                "created_at": checkpoint.created_at,
-            },
+            parameters,
         )
         if affected == 1:
-            return checkpoint
-        existing = await self.latest(checkpoint.tenant_id, checkpoint.thread_id)
-        if existing == checkpoint:
-            return existing
+            return stored
         raise PersistenceError(
-            PersistenceErrorCode.CONFLICT,
-            "checkpoint identity is already bound to other state",
+            PersistenceErrorCode.VERSION_CONFLICT,
+            "checkpoint compare-and-swap sequence does not match",
         )
 
     async def latest(
-        self, tenant_id: str, thread_id: str
+        self, tenant_id: str, task_id: str, thread_id: str
     ) -> CheckpointRecord | None:
         await self._transaction.bind(tenant_id)
         row = await self._transaction.connection.fetch_one(
             """
             SELECT checkpoint_id, tenant_id, task_id, thread_id,
-                   run_generation, graph_version, state,
+                   run_generation, checkpoint_sequence, graph_version, state,
                    security_context_ref, security_context_hash, created_at
             FROM flowpilot.checkpoints
-            WHERE tenant_id = %(tenant_id)s AND thread_id = %(thread_id)s
-            ORDER BY run_generation DESC, created_at DESC, checkpoint_id DESC
+            WHERE tenant_id = %(tenant_id)s
+              AND task_id = %(task_id)s
+              AND thread_id = %(thread_id)s
+            ORDER BY checkpoint_sequence DESC
             LIMIT 1
             """,
-            {"tenant_id": tenant_id, "thread_id": thread_id},
+            {
+                "tenant_id": tenant_id,
+                "task_id": task_id,
+                "thread_id": thread_id,
+            },
         )
         if row is None:
             return None
-        return CheckpointRecord(
-            checkpoint_id=row["checkpoint_id"],
-            tenant_id=row["tenant_id"],
-            task_id=row["task_id"],
-            thread_id=row["thread_id"],
-            run_generation=int(row["run_generation"]),
-            graph_version=row["graph_version"],
-            state=_json_object(row["state"], "checkpoint.state"),
-            security_context_ref=row["security_context_ref"],
-            security_context_hash=row["security_context_hash"],
-            created_at=row["created_at"],
-        )
+        return _checkpoint_from_row(row)
+
+
+def _checkpoint_from_row(row: Row) -> CheckpointRecord:
+    return CheckpointRecord(
+        checkpoint_id=row["checkpoint_id"],
+        tenant_id=row["tenant_id"],
+        task_id=row["task_id"],
+        thread_id=row["thread_id"],
+        run_generation=int(row["run_generation"]),
+        checkpoint_sequence=int(row["checkpoint_sequence"]),
+        graph_version=row["graph_version"],
+        state=_json_object(row["state"], "checkpoint.state"),
+        security_context_ref=row["security_context_ref"],
+        security_context_hash=row["security_context_hash"],
+        created_at=row["created_at"],
+    )
 
 
 def _event_to_mapping(event: OutboxEvent) -> dict[str, Any]:

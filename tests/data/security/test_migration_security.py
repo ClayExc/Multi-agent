@@ -6,6 +6,12 @@ ROOT = Path(__file__).resolve().parents[3]
 MIGRATION = (
     ROOT / "migrations" / "0001_persistence_baseline.sql"
 ).read_text(encoding="utf-8")
+CHECKPOINT_MIGRATION = (
+    ROOT / "migrations" / "0002_checkpoint_sequence_cas.sql"
+).read_text(encoding="utf-8")
+CHECKPOINT_DOWN = (
+    ROOT / "migrations" / "0002_checkpoint_sequence_cas.down.sql"
+).read_text(encoding="utf-8")
 
 TENANT_TABLES = {
     "tasks",
@@ -80,3 +86,39 @@ def test_real_database_verification_covers_rls_and_expiry_negative_cases() -> No
     assert "unknown execution returned directly to running" in script
     assert "unknown execution accepted not-sent retry proof" in script
     assert "WHEN foreign_key_violation" in script
+
+
+def test_checkpoint_migration_is_linear_atomic_and_repeatable() -> None:
+    assert CHECKPOINT_MIGRATION.startswith("BEGIN;\n")
+    assert CHECKPOINT_MIGRATION.rstrip().endswith("COMMIT;")
+    assert "requires 0001_persistence_baseline" in CHECKPOINT_MIGRATION
+    assert "0002_checkpoint_sequence_cas" in CHECKPOINT_MIGRATION
+    assert "ADD COLUMN IF NOT EXISTS checkpoint_sequence bigint" in (
+        CHECKPOINT_MIGRATION
+    )
+    assert "checkpoints_task_sequence_key" in CHECKPOINT_MIGRATION
+    assert "checkpoints_task_thread_fk" in CHECKPOINT_MIGRATION
+    assert "checkpoint_sequence DESC" in CHECKPOINT_MIGRATION
+
+
+def test_checkpoint_down_fails_before_lossy_thread_rollback() -> None:
+    assert CHECKPOINT_DOWN.startswith("BEGIN;\n")
+    assert CHECKPOINT_DOWN.rstrip().endswith("COMMIT;")
+    guard = CHECKPOINT_DOWN.index(
+        "cannot restore tenant/thread uniqueness while duplicate tasks exist"
+    )
+    destructive_change = CHECKPOINT_DOWN.index(
+        "DROP COLUMN IF EXISTS checkpoint_sequence"
+    )
+    assert guard < destructive_change
+
+
+def test_persistence_does_not_import_graph_package() -> None:
+    source_root = (
+        ROOT / "packages" / "persistence" / "src" / "flowpilot_persistence"
+    )
+    source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(source_root.glob("*.py"))
+    )
+    assert "flowpilot_graph" not in source

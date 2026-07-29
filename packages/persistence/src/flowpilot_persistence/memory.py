@@ -436,8 +436,25 @@ class MemoryCheckpointRepository:
         self._leases = leases
 
     async def put(
-        self, checkpoint: CheckpointRecord, fence: LeaseFence
+        self,
+        checkpoint: CheckpointRecord,
+        fence: LeaseFence,
+        *,
+        expected_sequence: int,
     ) -> CheckpointRecord:
+        if (
+            isinstance(expected_sequence, bool)
+            or not isinstance(expected_sequence, int)
+            or expected_sequence < 0
+        ):
+            raise ValueError(
+                "expected_sequence must be a non-negative integer"
+            )
+        if checkpoint.checkpoint_sequence != expected_sequence:
+            raise PersistenceError(
+                PersistenceErrorCode.VERSION_CONFLICT,
+                "checkpoint sequence does not match expected_sequence",
+            )
         if (
             checkpoint.tenant_id != fence.tenant_id
             or checkpoint.task_id != fence.task_id
@@ -448,40 +465,76 @@ class MemoryCheckpointRepository:
                 "checkpoint does not match the worker fence",
             )
         await self._leases.assert_fence(fence, now=checkpoint.created_at)
+        stored = replace(
+            checkpoint,
+            checkpoint_sequence=expected_sequence + 1,
+        )
         key = (
-            checkpoint.tenant_id,
-            checkpoint.thread_id,
-            checkpoint.checkpoint_id,
+            stored.tenant_id,
+            stored.task_id,
+            stored.checkpoint_id,
         )
         existing = self._snapshot.checkpoints.get(key)
-        if existing is not None and existing != checkpoint:
+        candidates = [
+            candidate
+            for (record_tenant, record_task, _), candidate in (
+                self._snapshot.checkpoints.items()
+            )
+            if (
+                record_tenant == stored.tenant_id
+                and record_task == stored.task_id
+            )
+        ]
+        current = (
+            max(candidates, key=lambda item: item.checkpoint_sequence)
+            if candidates
+            else None
+        )
+        current_sequence = (
+            current.checkpoint_sequence if current is not None else 0
+        )
+        if existing is not None:
+            if existing != stored:
+                raise PersistenceError(
+                    PersistenceErrorCode.CONFLICT,
+                    "checkpoint identity is already bound to other state",
+                )
+            if current_sequence != stored.checkpoint_sequence:
+                raise PersistenceError(
+                    PersistenceErrorCode.VERSION_CONFLICT,
+                    "checkpoint replay is stale relative to the latest sequence",
+                )
+            return existing
+        if current is not None and current.thread_id != stored.thread_id:
             raise PersistenceError(
                 PersistenceErrorCode.CONFLICT,
-                "checkpoint_id is immutable",
+                "checkpoint thread does not match the task history",
             )
-        self._snapshot.checkpoints[key] = checkpoint
-        return checkpoint
+        if current_sequence != expected_sequence:
+            raise PersistenceError(
+                PersistenceErrorCode.VERSION_CONFLICT,
+                "checkpoint compare-and-swap sequence does not match",
+            )
+        self._snapshot.checkpoints[key] = stored
+        return stored
 
     async def latest(
-        self, tenant_id: str, thread_id: str
+        self, tenant_id: str, task_id: str, thread_id: str
     ) -> CheckpointRecord | None:
         candidates = [
             checkpoint
-            for (record_tenant, record_thread, _), checkpoint in (
+            for (record_tenant, record_task, _), checkpoint in (
                 self._snapshot.checkpoints.items()
             )
-            if record_tenant == tenant_id and record_thread == thread_id
+            if (
+                record_tenant == tenant_id
+                and record_task == task_id
+                and checkpoint.thread_id == thread_id
+            )
         ]
         if not candidates:
             return None
-        return max(
-            candidates,
-            key=lambda item: (
-                item.run_generation,
-                item.created_at,
-                item.checkpoint_id,
-            ),
-        )
+        return max(candidates, key=lambda item: item.checkpoint_sequence)
 
 
 class MemoryOutboxRepository:

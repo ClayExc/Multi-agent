@@ -22,7 +22,7 @@ from .models import (
     OutboxEvent,
 )
 
-PERSISTENCE_PORT_VERSION = "flowpilot.persistence-ports.m0.v1"
+PERSISTENCE_PORT_VERSION = "flowpilot.persistence-ports.m0.v2"
 
 
 class ExecutionLedgerPort(Protocol):
@@ -54,11 +54,15 @@ class ExecutionLedgerPort(Protocol):
 
 class CheckpointPort(Protocol):
     async def put(
-        self, checkpoint: CheckpointRecord, fence: LeaseFence
+        self,
+        checkpoint: CheckpointRecord,
+        fence: LeaseFence,
+        *,
+        expected_sequence: int,
     ) -> CheckpointRecord: ...
 
     async def latest(
-        self, tenant_id: str, thread_id: str
+        self, tenant_id: str, task_id: str, thread_id: str
     ) -> CheckpointRecord | None: ...
 
 

@@ -17,7 +17,7 @@
 | [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | BLOCKED_ON_WP021_LEDGER | WP-011 H1 已合入；等待 WP-021 执行账本 Port | Gateway/Policy/Security 骨架 |
 | [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | READY_ON_BASELINE_SYNC | WP-011 H1 已合入；同步新基线 | Persistence/Migration/RLS/Compose 骨架 |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
-| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | READY_FOR_READ_ONLY_REVIEW | 初始只读；写模式等待独立 Worktree 与 Attempt | 跨分支组合、依赖闭包与证据复现 |
+| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | DEPENDENCY_WAIT | a0 复核完成；等待 S6→S2→S5 有序整改 | 跨分支组合、依赖闭包与证据复现 |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 

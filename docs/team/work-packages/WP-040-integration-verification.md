@@ -2,12 +2,13 @@
 
 ## 元数据
 
-- 状态：`READY_FOR_READ_ONLY_REVIEW`
+- 状态：`DEPENDENCY_WAIT`（`WP-040-a0` 只读组合复核完成；等待 S6→S2→S5 有序整改）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-SEC-004、FP-DATA-001、FP-OPS-002
 - 依赖工作包：待核验交接本身；写模式另需独立 Worktree 与 S1 Attempt
 - 目标分支：`codex/s7/wp-040-integration-verification`
+- S1 评审：[`WP-040-A0-S1-REVIEW.md`](../../review/WP-040-A0-S1-REVIEW.md)
 
 ## 目标
 

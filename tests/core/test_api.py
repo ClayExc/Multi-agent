@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import Any
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from flowpilot_api import TrustedRequestIdentity, create_app
 from flowpilot_api.testing import StaticRequestSecurity
@@ -216,11 +217,21 @@ def test_security_binding_is_verified_before_authorization(
     assert unit_of_work.store.commands_by_id == {}
 
 
+@pytest.mark.parametrize(
+    "identity_override",
+    (
+        {"tenant_id": "tenant-other"},
+        {"subject_id": "user-other"},
+        {"subject_type": ActorType.SERVICE},
+        {"purpose": "unrelated-purpose"},
+    ),
+)
 def test_trusted_identity_mismatch_fails_closed_before_authorization(
     valid_create_mapping: dict[str, Any],
+    identity_override: dict[str, object],
 ) -> None:
     client, unit_of_work, execution, security = _configured_client(valid_create_mapping)
-    security.identity = replace(security.identity, tenant_id="tenant-other")
+    security.identity = replace(security.identity, **identity_override)
 
     response = client.post("/v1/task-commands", json=valid_create_mapping)
 

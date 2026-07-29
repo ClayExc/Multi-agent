@@ -7,14 +7,45 @@ from flowpilot_domain import (
     CommandType,
     DomainErrorCode,
     DomainViolation,
+    Task,
     TaskCommand,
 )
 
 from .errors import ApplicationError, ErrorCode
 from .models import CommandAcceptance, ExecutionReceipt, StoredCommand
-from .ports import ExecutionPort, UnitOfWorkFactory, VersionSlotReservation
+from .ports import (
+    ExecutionPort,
+    TaskQueryPort,
+    UnitOfWorkFactory,
+    VersionSlotReservation,
+)
 
 Clock = Callable[[], datetime]
+
+
+class TaskQueryService:
+    """Read a tenant-scoped Task projection without mutating workflow state."""
+
+    def __init__(self, repository: TaskQueryPort) -> None:
+        self._repository = repository
+
+    async def get(self, tenant_id: str, task_id: str) -> Task:
+        try:
+            task = await self._repository.get(tenant_id, task_id)
+        except Exception as exc:
+            raise ApplicationError(
+                ErrorCode.REPOSITORY_UNAVAILABLE,
+                "task repository is unavailable",
+                retryable=True,
+            ) from exc
+        if task is None:
+            raise ApplicationError(ErrorCode.TASK_NOT_FOUND, "task was not found")
+        if task.tenant_id != tenant_id or task.task_id != task_id:
+            raise ApplicationError(
+                ErrorCode.REPOSITORY_PROTOCOL_ERROR,
+                "task repository returned a mismatched projection",
+            )
+        return task
 
 
 class CommandIntakeService:

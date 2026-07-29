@@ -4,16 +4,20 @@ version = "0.1.0"
 description = "FlowPilot internal Python workspace"
 requires-python = ">=3.12"
 dependencies = [
+    "flowpilot-api",
     "flowpilot-application",
     "flowpilot-domain",
+    "langgraph>=1.2,<2",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28,<1",
     "jsonschema>=4.23,<5",
     "mypy>=1.14,<2",
-    "pytest>=8.3,<9",
+    "pytest>=9.0.3,<10",
     "ruff>=0.9,<1",
+    "types-PyYAML>=6.0.12,<7",
 ]
 
 [tool.uv]
@@ -21,17 +25,29 @@ package = false
 
 [tool.uv.workspace]
 members = [
+    "apps/api",
+    "apps/worker",
+    "packages/agent-runtime",
     "packages/application",
+    "packages/context",
     "packages/domain",
+    "packages/graph",
+    "packages/model-gateway",
 ]
 
 [tool.uv.sources]
+flowpilot-api = { workspace = true }
+flowpilot-agent-runtime = { workspace = true }
 flowpilot-application = { workspace = true }
+flowpilot-context = { workspace = true }
 flowpilot-domain = { workspace = true }
+flowpilot-graph = { workspace = true }
+flowpilot-model-gateway = { workspace = true }
+flowpilot-worker = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers -p no:cacheprovider"
-testpaths = ["tests/core"]
+testpaths = ["tests/core", "tests/runtime"]
 
 [tool.ruff]
 line-length = 88

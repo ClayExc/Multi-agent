@@ -1,0 +1,46 @@
+{
+  "fixture_version": "flowpilot.domain-pack.fixture.v1",
+  "case_id": "vpn_create_minimal",
+  "domain_id": "it-service",
+  "expected_intent": "vpn_support",
+  "command": {
+    "command_id": "cmd_12345678",
+    "command_type": "task.create.v1",
+    "tenant_id": "tenant-a",
+    "task_id": "task_12345678",
+    "actor": {
+      "type": "user",
+      "id": "user-123"
+    },
+    "security_context": {
+      "context_id": "secctx_12345678",
+      "context_ref": "security-context://tenant-a/12345678",
+      "context_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "tenant_id": "tenant-a",
+      "subject_id": "user-123",
+      "subject_type": "user",
+      "purpose": "it_support",
+      "authentication": {
+        "method": "oidc",
+        "assurance_level": "substantial",
+        "session_id_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "delegation_id": null,
+      "data_classification_ceiling": "confidential",
+      "issued_at": "2026-07-28T08:00:00Z",
+      "expires_at": "2026-07-28T09:00:00Z"
+    },
+    "expected_task_version": null,
+    "idempotency_key": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "command_digest": "sha256:3cc7ea154b23db3e210972004c02be2eef3ca719660f19f69e84afabc6b4558c",
+    "correlation_id": "corr-12345678",
+    "payload": {
+      "initial_message_id": "msg_12345678",
+      "initial_message_ref": "message://vpn/windows-11",
+      "attachment_refs": [],
+      "channel": "web",
+      "purpose": "it_support"
+    },
+    "issued_at": "2026-07-28T08:00:00Z"
+  }
+}

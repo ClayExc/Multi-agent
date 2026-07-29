@@ -15,7 +15,7 @@
 | [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | ACCEPTED_M0 | WP-040/S1 final gate 通过 | Graph/Runtime/Context/Worker 骨架 |
 | [WP-012](./WP-012-langgraph-studio-observability.md) | S2-RUNTIME | READY_AFTER_WP040_ACCEPTANCE | WP-010/011/021/040 | Studio 非黑箱入口、安全状态投影与恢复调试 |
 | [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | IN_PROGRESS | H1 已合入；继续 API/Domain Pack | Domain/Application/API/Python Workspace 骨架 |
-| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | READY_ON_BASELINE_SYNC | WP-021 Ledger 与 Workspace 已进入最终候选 | Gateway/Policy/Security 骨架 |
+| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | READY / CHAIN_ACTIVE | WP-011/021/040 已进入 S1 接受的 M0 基线 | Gateway/Policy/Security 骨架 |
 | [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | ACCEPTED_M0 | WP-040/S1 final gate 通过；Compose 自动应用 0002 为 P2 | Persistence/Migration/RLS/Compose 骨架 |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED | a1 RELEASE 候选 + a2/a3 FAST final-phase Verifier + S1 final gate | 跨分支组合、依赖闭包与证据复现 |
@@ -35,6 +35,12 @@ rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 
 7. WP-010/011/021 的本轮逻辑依赖是 S5 Port → S6 Persistence → S2 Adapter → S5 Lock；因中间 Head 不构成完整 Workspace，最终以 S7 完整候选原子集成。
 8. S1 接受 WP-040 后启动 WP-012；S3/WP-020 与 S4 跨组件范围按依赖另行派发。
 9. Registry、Dataset、Fixture 和 Traceability 完成后再进行发布级 `frozen` 复审。
+
+当前平台纵向链采用
+[`CHAIN-M1-PLATFORM-01`](../chain-authorizations/CHAIN-M1-PLATFORM-01.md)：
+S3 实现 → S6 只读数据边界复核 → S5 Workspace/锁闭包 → S4 安全黑盒 →
+S7 集成复现 → S1 用户门禁。正常交接由消费者门禁与任务唤醒推进，不再
+逐步经过 S1。
 
 每次向多个会话派发时必须显式标注 `PARALLEL`、`READ_ONLY_PARALLEL` 或 `ORDERED`。消息到达顺序不代表执行顺序；`ORDERED` 派发必须写明前置交付和解锁条件。WP-040 可以只读并行复核，写模式计入“最多三个写会话”上限。
 

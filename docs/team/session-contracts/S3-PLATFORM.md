@@ -9,7 +9,7 @@ FEATURE_IDS=FP-MCP-001,FP-MCP-002,FP-SEC-001,FP-SEC-004
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：DEPENDENCY_WAIT；WP-011 H1 已合入，等待 WP-021 执行账本 Port
+- 契约状态：ACTIVE；M0 Workspace、WP-021 执行账本 Port 与组合基线已接受，按 `CHAIN-M1-PLATFORM-01` 执行 `WP-020-a1`
 - 当前工作：[WP-020 MCP、安全与策略基线](../work-packages/WP-020-platform-bootstrap.md)
 - 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
 
@@ -53,6 +53,8 @@ S3 不可以：
 6. 写超时进入 `UNKNOWN`，先回读/对账，不能盲重试。
 7. Token audience-bound、短时、最小 Scope，禁止透传用户 Token。
 8. Audit 与 Security Event 不采样并分流，安全拒绝使用稳定原因码，不记录明文凭据和原始 PII。
+9. Gateway 每个阶段生成可关联、可重建的结构化执行信号；调试投影采用
+   白名单字段，不能保存隐藏思维链或把 Trace 当成授权、账本与终态依据。
 
 ## 必须交付的测试
 
@@ -62,14 +64,18 @@ S3 不可以：
 - 安全：跨租户、错 audience、角色伪造、审批重放、参数篡改和工具旁路。
 - 恢复：重复 ToolRequest、写超时 `UNKNOWN` 与回读确认。
 
-## 当前审查任务
+## 当前实现任务
 
-在 `REVIEW_ONLY` 阶段只返回以下结论，不写仓库：
+按 `CHAIN-M1-PLATFORM-01` 执行 `WP-020-a1`：
 
-1. 针对 `flowpilot-m0-contracts-v1-rc2` 的精确 `content_digest`，确认 SecurityContextRef/PolicyDecision 的双主体、deny-overrides 和强类型 obligation 可 fail-closed 实现。
-2. 确认 M0 单审批、PlannedAction/ToolRequest 绑定，以及 ToolResult 的 `UNKNOWN`/对账/重试语义可实现。
-3. 确认 TaskEvent 生产者矩阵、AuditEvent 哈希链和独立 SecurityEvent 足以实现强制控制与证据分流。
-4. 结论为 `ACCEPT`、`ACCEPT_WITH_RFC` 或 `REJECT`；非 `ACCEPT` 必须说明攻击面和迁移影响。
+1. 建立 MCP Gateway、Tool Registry、Schema 白名单和稳定拒绝码。
+2. 建立双主体 SecurityContext 校验、Policy/PEP 与强类型 Obligation。
+3. 建立 Approval、PlannedAction、PolicyDecision、ToolRequest 的完整绑定。
+4. 通过 S6 Execution Ledger Port 实现幂等、`UNKNOWN`、回读与对账，不建立第二事实源。
+5. 提供只读模拟 MCP、安全 Fixture，以及正常、边界、失败、安全和恢复测试。
+6. 提供机器可读的执行时间线与脱敏调试投影，能关联请求、策略、审批、
+   账本、MCP、回读、Audit 和 Security Event。
+7. 完成后直接唤醒 S6 执行只读数据边界复核；正常路径不回传 S1。
 
 ## 完成定义
 

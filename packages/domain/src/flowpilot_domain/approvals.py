@@ -190,6 +190,12 @@ class Approval:
         )
 
     def assert_action_binding(self, action: PlannedAction) -> None:
+        approval_expires_at = ensure_utc(
+            self.expires_at, "approval.expires_at"
+        )
+        action_expires_at = ensure_utc(
+            action.expires_at, "planned_action.expires_at"
+        )
         if (
             self.tenant_id != action.tenant_id
             or self.task_id != action.task_id
@@ -198,6 +204,7 @@ class Approval:
             or self.action_digest != action.digest()
             or self.tool_schema_hash != action.tool.schema_hash
             or self.policy_version != action.policy_version
+            or approval_expires_at != action_expires_at
         ):
             raise DomainViolation(
                 DomainErrorCode.APPROVAL_BINDING_MISMATCH,

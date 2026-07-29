@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -149,7 +149,9 @@ def test_approval_binds_full_planned_action_digest() -> None:
         separation_of_duties_result=True,
         requested_at=now,
         decided_at=now + timedelta(minutes=1),
-        expires_at=now + timedelta(minutes=15),
+        expires_at=action.expires_at.astimezone(
+            timezone(timedelta(hours=2))
+        ),
     )
 
     approval.assert_action_binding(action)
@@ -164,6 +166,34 @@ def test_approval_binds_full_planned_action_digest() -> None:
     )
     with pytest.raises(DomainViolation) as captured:
         approval.assert_action_binding(tampered)
+
+    assert captured.value.code is DomainErrorCode.APPROVAL_BINDING_MISMATCH
+
+
+def test_approval_expiry_mismatch_is_rejected() -> None:
+    action = _planned_action()
+    now = datetime(2026, 7, 28, 8, tzinfo=UTC)
+    approval = Approval(
+        approval_id="apr_12345678",
+        tenant_id=action.tenant_id,
+        task_id=action.task_id,
+        requester_id=action.requester_id,
+        action_id=action.action_id,
+        action_digest=action.digest(),
+        tool_schema_hash=action.tool.schema_hash,
+        policy_decision_id="pd_12345678",
+        policy_version=action.policy_version,
+        status=ApprovalStatus.APPROVED,
+        approver_id="approver-456",
+        decision_reason="approved for incident response",
+        separation_of_duties_result=True,
+        requested_at=now,
+        decided_at=now + timedelta(minutes=1),
+        expires_at=action.expires_at + timedelta(minutes=15),
+    )
+
+    with pytest.raises(DomainViolation) as captured:
+        approval.assert_action_binding(action)
 
     assert captured.value.code is DomainErrorCode.APPROVAL_BINDING_MISMATCH
 

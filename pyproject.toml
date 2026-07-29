@@ -1,0 +1,46 @@
+[project]
+name = "flowpilot-workspace"
+version = "0.1.0"
+description = "FlowPilot internal Python workspace"
+requires-python = ">=3.12"
+dependencies = [
+    "flowpilot-application",
+    "flowpilot-domain",
+]
+
+[dependency-groups]
+dev = [
+    "jsonschema>=4.23,<5",
+    "mypy>=1.14,<2",
+    "pytest>=8.3,<9",
+    "ruff>=0.9,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+    "packages/application",
+    "packages/domain",
+]
+
+[tool.uv.sources]
+flowpilot-application = { workspace = true }
+flowpilot-domain = { workspace = true }
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers -p no:cacheprovider"
+testpaths = ["tests/core"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true

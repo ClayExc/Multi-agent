@@ -95,7 +95,8 @@ class InMemoryLeaseStore:
             task_id=task_id,
             run_id=run_id,
             run_generation=generation,
-            fencing_token=self._fencing,
+            fencing_token=f"fence_{self._fencing}",
+            acquired_at=now,
             expires_at=now + self._ttl,
         )
         self._active[key] = lease
@@ -119,7 +120,9 @@ class InMemoryLeaseStore:
         key = (tenant_id, task_id)
         current = self._active.get(key)
         if current is not None:
+            now = self._clock().astimezone(UTC)
             self._active[key] = replace(
                 current,
-                expires_at=self._clock().astimezone(UTC) - timedelta(seconds=1),
+                acquired_at=now - timedelta(seconds=2),
+                expires_at=now - timedelta(seconds=1),
             )

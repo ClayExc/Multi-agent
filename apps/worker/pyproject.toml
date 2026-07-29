@@ -7,6 +7,7 @@ dependencies = [
     "flowpilot-application",
     "flowpilot-domain",
     "flowpilot-graph",
+    "flowpilot-persistence",
 ]
 
 [build-system]
@@ -20,3 +21,4 @@ packages = ["src/flowpilot_worker"]
 flowpilot-application = { workspace = true }
 flowpilot-domain = { workspace = true }
 flowpilot-graph = { workspace = true }
+flowpilot-persistence = { workspace = true }

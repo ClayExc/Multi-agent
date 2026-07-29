@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -11,9 +12,28 @@ from typing import Any
 import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DOMAIN_SOURCE = Path(
+    os.environ.get(
+        "FLOWPILOT_DOMAIN_SRC",
+        str(REPOSITORY_ROOT / "packages" / "domain" / "src"),
+    )
+)
+APPLICATION_SOURCE = Path(
+    os.environ.get(
+        "FLOWPILOT_APPLICATION_SRC",
+        str(REPOSITORY_ROOT / "packages" / "application" / "src"),
+    )
+)
+PERSISTENCE_SOURCE = Path(
+    os.environ.get(
+        "FLOWPILOT_PERSISTENCE_SRC",
+        str(REPOSITORY_ROOT / "packages" / "persistence" / "src"),
+    )
+)
 SOURCE_ROOTS = (
-    REPOSITORY_ROOT / "packages" / "domain" / "src",
-    REPOSITORY_ROOT / "packages" / "application" / "src",
+    DOMAIN_SOURCE,
+    APPLICATION_SOURCE,
+    PERSISTENCE_SOURCE,
     REPOSITORY_ROOT / "packages" / "context" / "src",
     REPOSITORY_ROOT / "packages" / "agent-runtime" / "src",
     REPOSITORY_ROOT / "packages" / "model-gateway" / "src",
@@ -41,6 +61,7 @@ from flowpilot_context import (  # noqa: E402
 )
 from flowpilot_domain import (  # noqa: E402
     DataClassification,
+    Task,
     TaskCommand,
 )
 from flowpilot_graph import (  # noqa: E402
@@ -94,6 +115,30 @@ def command_factory() -> Callable[..., TaskCommand]:
         unsigned = TaskCommand.from_mapping(value)
         value["command_digest"] = unsigned.recompute_digest()
         return TaskCommand.from_mapping(value)
+
+    return factory
+
+
+@pytest.fixture
+def task_factory() -> Callable[..., Task]:
+    valid = _load_case("task.completed.valid")
+
+    def factory(
+        *,
+        task_id: str = "task_12345678",
+        thread_id: str = "thread_12345678",
+        tenant_id: str = "tenant-a",
+    ) -> Task:
+        value = copy.deepcopy(valid)
+        value["task_id"] = task_id
+        value["thread_id"] = thread_id
+        value["tenant_id"] = tenant_id
+        value["security_context"]["tenant_id"] = tenant_id
+        value["security_context"]["context_ref"] = (
+            f"security-context://{tenant_id}/12345678"
+        )
+        value["latest_checkpoint_id"] = f"checkpoint://{task_id}/3"
+        return Task.from_mapping(value)
 
     return factory
 

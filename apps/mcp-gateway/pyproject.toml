@@ -1,0 +1,26 @@
+[project]
+name = "flowpilot-mcp-gateway"
+version = "0.1.0"
+description = "FlowPilot deterministic MCP security enforcement gateway"
+requires-python = ">=3.12"
+dependencies = [
+    "flowpilot-domain",
+    "flowpilot-persistence",
+    "flowpilot-policy",
+    "flowpilot-security",
+    "flowpilot-tool-contracts",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowpilot_mcp_gateway"]
+
+[tool.uv.sources]
+flowpilot-domain = { workspace = true }
+flowpilot-persistence = { workspace = true }
+flowpilot-policy = { workspace = true }
+flowpilot-security = { workspace = true }
+flowpilot-tool-contracts = { workspace = true }

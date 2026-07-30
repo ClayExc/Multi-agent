@@ -1,0 +1,20 @@
+[project]
+name = "flowpilot-security"
+version = "0.1.0"
+description = "FlowPilot trusted context, workload identity, and safe projection controls"
+requires-python = ">=3.12"
+dependencies = [
+    "flowpilot-domain",
+    "flowpilot-tool-contracts",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowpilot_security"]
+
+[tool.uv.sources]
+flowpilot-domain = { workspace = true }
+flowpilot-tool-contracts = { workspace = true }

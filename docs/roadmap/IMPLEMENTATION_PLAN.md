@@ -4,6 +4,12 @@
 
 按“垂直切片”推进：每个里程碑同时包含领域规则、API、Graph、工具、数据、测试和证据。禁止先铺满所有 Agent、页面和基础设施，最后才验证闭环。
 
+> 编号说明：本路线中的 M0～M8 是产品里程碑；历史
+> `CHAIN-M1-PLATFORM-01`、`CHAIN-M2-STUDIO-01` 是工程集成增量，二者不
+> 表示产品 M1/M2 已完成。自 VPN 切片起，链 ID 使用 `P1` 等产品前缀避免
+> 混淆。当前激活链为
+> [`CHAIN-P1-VPN-READONLY-01`](../team/chain-authorizations/CHAIN-P1-VPN-READONLY-01.md)。
+
 核心路径：
 
 ```text
@@ -38,6 +44,9 @@
 - 追踪矩阵 M0 相关项可更新为 VERIFIED。
 
 ## 3. M1：VPN 确定性单 Agent 基线
+
+当前状态：`IN_PROGRESS`。第一条有序链只交付只读知识闭环；Ticket 写入、
+审批、真实 Provider、Web 和通用向量检索仍按后续里程碑推进。
 
 交付：
 
@@ -196,4 +205,3 @@
 - 新失败模式有自动化测试。
 - 新可观察行为出现在 Trace/Audit/Security Event 中。
 - 文档不声称尚未获得的数字。
-

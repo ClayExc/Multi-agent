@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前仓库处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片已集成阶段**。Core、Runtime、Data、MCP Gateway、Policy、Security 与 Studio 安全开发入口已经通过 S7 总装、S1 final gate 和用户合并门禁并进入主分支；真实 Provider 适配、`studio-integration` 可信端口、完整 API 业务切片与端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
+当前仓库处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片已集成 + 产品 P1 VPN 只读闭环已激活阶段**。Core、Runtime、Data、MCP Gateway、Policy、Security 与 Studio 安全开发入口已经通过 S7 总装、S1 final gate 和用户合并门禁并进入主分支；当前按 `S5 → S3 → S2 → S4 → S7 → S1` 实施确定性 VPN 知识闭环。真实 Provider、工单写入、`studio-integration` 可信端口、Web 与完整端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -17,6 +17,7 @@
 | LangGraph/Runtime/Context/Worker 与 Studio 安全入口 | M2 同源图工厂、真实本地 Agent Server、Interrupt/Resume 和安全投影已组合验证 | 可描述可恢复 Runtime 骨架与非黑箱开发入口；真实 Provider 和完整生产业务节点未完成 |
 | PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
 | MCP Gateway、Policy、Security 与只读模拟 MCP | M1 安全平台切片已集成 | 可描述默认拒绝、审批绑定、账本/回读与安全黑盒骨架；不代表真实企业工具闭环 |
+| VPN 确定性只读知识闭环 | P1 有序实施链已激活 | 只能描述“实施中”；通过 S7、S1 与用户门禁前不可宣称已实现 |
 | OpenAI/Claude Provider | 未实现 | 不可使用“多 Provider 已接入” |
 | 本地 Compose 集成 | S7 对精确候选验证 5 服务健康、Migration/RLS/恢复 | `0002` 自动接入仍为 P2；不能宣称发布环境完成 |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |
@@ -114,7 +115,7 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
 | [rc2 五会话复审指令](./docs/team/RC2_REVIEW_INSTRUCTIONS.md) | 绑定同一 content_digest 的 S2/S3/S4/S5/S6 可复制只读指令 |
-| [M0 工作包](./docs/team/work-packages/README.md) | WP-000/010/011/020/021/030/040 的责任、依赖、测试与集成顺序 |
+| [工作包索引](./docs/team/work-packages/README.md) | WP-000/010/011/012/020/021/030/040 的责任、当前 Attempt、依赖与集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |

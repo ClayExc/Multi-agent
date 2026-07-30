@@ -2,45 +2,50 @@
 
 ## 当前阶段
 
-- 里程碑：M0 仓库与契约基线
+- 里程碑：产品 P1 VPN 确定性只读知识闭环
 - 阶段状态：`IN_PROGRESS`
 - 架构责任：`S1-ARCH`
-- 发布状态：Architecture Baseline + M0 增量实现；Core/Runtime/Data 组合已接受，尚无 MCP/Provider/端到端业务闭环
+- 已接受基线：M0 Core/Runtime/Data、M1 Platform、M2 Studio
+- 当前有序链：[`CHAIN-P1-VPN-READONLY-01`](../chain-authorizations/CHAIN-P1-VPN-READONLY-01.md)
+- 发布状态：未发布、未 frozen；真实 Provider、写工单与完整业务 E2E 尚未完成
 
-## M0 工作包
+## 工作包状态
 
 | 工作包 | 责任会话 | 状态 | 依赖 | 目标 |
 |---|---|---|---|---|
 | [WP-000](./WP-000-m0-contract-freeze.md) | S1-ARCH | IN_PROGRESS | 无 | 实现基线已评审；发布级冻结等待质量资产 |
-| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | ACCEPTED_M0 | WP-040/S1 final gate 通过 | Graph/Runtime/Context/Worker 骨架 |
-| [WP-012](./WP-012-langgraph-studio-observability.md) | S2-RUNTIME | READY_AFTER_WP040_ACCEPTANCE | WP-010/011/021/040 | Studio 非黑箱入口、安全状态投影与恢复调试 |
-| [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | IN_PROGRESS | H1 已合入；继续 API/Domain Pack | Domain/Application/API/Python Workspace 骨架 |
-| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | READY / CHAIN_ACTIVE | WP-011/021/040 已进入 S1 接受的 M0 基线 | Gateway/Policy/Security 骨架 |
-| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | ACCEPTED_M0 | WP-040/S1 final gate 通过；Compose 自动应用 0002 为 P2 | Persistence/Migration/RLS/Compose 骨架 |
-| [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | IN_PROGRESS | 离线骨架已合入；跨组件部分仍阻塞 | 离线契约质量、评测与证据骨架 |
-| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED | a1 RELEASE 候选 + a2/a3 FAST final-phase Verifier + S1 final gate | 跨分支组合、依赖闭包与证据复现 |
+| [WP-010](./WP-010-runtime-bootstrap.md) | S2-RUNTIME | ACCEPTED_BASELINE / P1_ORDERED | P1 等待 S3 `WP-020-a2` | Graph/Runtime/Context/Worker；P1 产品图 Attempt `a3` |
+| [WP-012](./WP-012-langgraph-studio-observability.md) | S2-RUNTIME | ACCEPTED_M2 | M2 已合并 | Studio 非黑箱入口、安全状态投影与恢复调试 |
+| [WP-011](./WP-011-core-bootstrap.md) | S5-CORE | P1_ACTIVE | P1 激活提交 | Domain/Application/API/Domain Pack；P1 Attempt `a6` |
+| [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | ACCEPTED_M1 / P1_ORDERED | P1 等待 S5 `WP-011-a6` | Gateway/Policy/Security；P1 知识工具 Attempt `a2` |
+| [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | ACCEPTED_M0 | P1 不修改数据边界 | Persistence/Migration/RLS/Compose 骨架 |
+| [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | P1_ORDERED | P1 等待 S2 `WP-010-a3` | 20 条候选 Case、黑盒质量与证据 Attempt `a4` |
+| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | P1_ORDERED | P1 等待 S4 `WP-030-a4` | RELEASE 组合复现与 S1 final 输入 Attempt `a6` |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 
 rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 `flowpilot-m0-contracts-v1-rc2`。旧结论不得作为 rc2 的接受证据。
 
-## 启动与集成顺序
+## 当前启动与集成顺序
 
-1. S2、S3、S4、S5、S6 只读审查 WP-000 和 rc2 的精确 `content_digest`。
-2. S1 处理评审意见并执行契约校验；五角色对同一摘要全部 ACCEPT 后，该 candidate 成为实现基线。
-3. S1 形成激活提交；五个实现会话从该提交创建独立 Worktree 与目标分支。
-4. 第一波启动 WP-011；WP-030 可并行建设不依赖运行代码的离线校验器与证据骨架。
-5. S1 接受 `WP-011-H1`（Python Workspace、Application/Repository Port）交接后，并行启动 WP-010 与 WP-021；任何时刻最多三个写会话。
-6. WP-011 Workspace 可用且 WP-021 交付执行账本 Port 后启动 WP-020；WP-030 跨组件部分等待 WP-010/011/020/021 交接。
-7. WP-010/011/021 的本轮逻辑依赖是 S5 Port → S6 Persistence → S2 Adapter → S5 Lock；因中间 Head 不构成完整 Workspace，最终以 S7 完整候选原子集成。
-8. S1 接受 WP-040 后启动 WP-012；S3/WP-020 与 S4 跨组件范围按依赖另行派发。
-9. Registry、Dataset、Fixture 和 Traceability 完成后再进行发布级 `frozen` 复审。
+产品 P1 采用严格 `ORDERED`：
 
-当前平台纵向链采用
-[`CHAIN-M1-PLATFORM-01`](../chain-authorizations/CHAIN-M1-PLATFORM-01.md)：
-S3 实现 → S6 只读数据边界复核 → S5 Workspace/锁闭包 → S4 安全黑盒 →
-S7 集成复现 → S1 用户门禁。正常交接由消费者门禁与任务唤醒推进，不再
-逐步经过 S1。
+```text
+S5/WP-011-a6
+  -> S3/WP-020-a2
+  -> S2/WP-010-a3
+  -> S4/WP-030-a4
+  -> S7/WP-040-a6
+  -> S1 final/user gate
+```
+
+本轮只先唤醒 S5。正常交接由消费者门禁与任务唤醒推进，不逐步返回 S1；
+命中契约变化、共享文件、新依赖、S6/Migration、工具写入、风险升级或门禁
+失败时暂停。S7 因租户/ACL 检索边界变化运行一次 RELEASE 门禁。
+
+历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
+启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行
+发布级 `frozen` 复审。
 
 每次向多个会话派发时必须显式标注 `PARALLEL`、`READ_ONLY_PARALLEL` 或 `ORDERED`。消息到达顺序不代表执行顺序；`ORDERED` 派发必须写明前置交付和解锁条件。WP-040 可以只读并行复核，写模式计入“最多三个写会话”上限。
 

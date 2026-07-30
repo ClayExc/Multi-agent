@@ -68,10 +68,10 @@ S1 不可以：
 
 ## 当前交付
 
-- 发布 M0 候选契约集。
-- 取得 S2、S3、S4、S5、S6 可实现性结论。
-- 实现基线激活后开放 WP-010、WP-011、WP-020、WP-021、WP-030。
-- Git 仓库与远端已建立；五角色同摘要 ACCEPT 前不创建实现激活提交或写 Worktree。
+- 维护已接受的 M0 Core/Runtime/Data、M1 Platform 和 M2 Studio 架构事实。
+- 当前控制产品 P1 VPN 只读知识闭环的范围、顺序、停止条件与最终验收。
+- 只依据 S5/S3/S2/S4/S7 的精确 Head、Handoff 和可复现证据更新状态。
+- 真实 Provider、写工单、Web、完整 Dataset 与发布冻结仍不在当前完成声明内。
 
 ## 完成定义
 

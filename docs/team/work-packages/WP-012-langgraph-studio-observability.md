@@ -2,12 +2,17 @@
 
 ## 元数据
 
-- 状态：`READY_AFTER_WP040_ACCEPTANCE`
+- 状态：`IN_PROGRESS`
+- Attempt ID：`WP-012-a1`
+- 风险等级：`R2`
 - 责任会话：S2-RUNTIME
 - 评审会话：S1-ARCH、S4-QUALITY；开发依赖变化时增加 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-FLOW-004、FP-FLOW-005、FP-FLOW-006、FP-OBS-001、FP-OPS-002
 - 依赖工作包：WP-010、WP-011、WP-021、WP-040
-- 调度：`ORDERED`；S1 接受 WP-040 后派发，依赖锁变化由 S5 先交付
+- 调度：`ORDERED`
+- Chain ID：`CHAIN-M2-STUDIO-01`
+- 顺序：`S5-CORE → S2-RUNTIME → S4-QUALITY → S7-INTEGRATION → S1-ARCH`
+- 交接策略：消费者门禁；最终由 S7 交回 S1，并停在用户门禁
 
 ## 目标
 

@@ -103,10 +103,10 @@ CANCELLED 由用户或 S1 明确终止
 7. `[DONE]` S5 `WP-011-a1` H1 与 S4 `WP-030-a1` 离线质量骨架完成复审并进入控制基线。
 8. `[DONE]` `S6/WP-021-a2 → S2/WP-010-a2 → S5/WP-011-a3` 按预授权链完成 Persistence、Worker Adapter 与九包 Lock 闭包。
 9. `[DONE]` S7 `WP-040-a1` 完成 36/36 候选复算、143 项产品测试、九个 Wheel 与真实 Compose；S1 final gate 为 42/42，Core/Runtime/Data/Integration 共 159 项通过。
-10. `[ACCEPTED_M0]` Core、Runtime 与 Data 原子候选已由 S1 接受；不代表 MCP、真实 Provider、业务 E2E 或发布冻结完成。
-11. `[READY]` S3/WP-020 可在同步最终主基线后接入 MCP Gateway、Policy/Security 与已存在的 Ledger Port。
-12. `[READY]` S2/WP-012 可按独立工作包建设 LangGraph Studio；依赖变化时由 S5 先行。
-13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架，跨组件验收随 S3 平台切片逐步接入。
+10. `[ACCEPTED_M0]` Core、Runtime 与 Data 原子候选已由 S1 接受；不代表真实 Provider、业务 E2E 或发布冻结完成。
+11. `[MERGED_M1]` MCP Gateway、Policy、Security、只读模拟 MCP、Workspace/Lock、安全黑盒和集成证据已通过 S7、S1 与用户门禁并原子进入主分支。
+12. `[ACTIVE_M2]` `CHAIN-M2-STUDIO-01` 按 `S5 → S2 → S4 → S7 → S1` 建设 LangGraph Studio 非黑箱入口；S5 先锁定本地 Agent Server 开发依赖。
+13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架和 M1 安全黑盒，继续为 Studio 与后续产品切片增加独立验收。
 
 发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。
 
@@ -127,7 +127,7 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 
 ## 6. 并发容量
 
-七个会话不等于七个会话必须同时写代码。S2～S6 是产品实现角色，S7 默认只读验证；人工协调阶段同时写入上限仍为 3。当前 M0 容量复核如下：
+七个会话不等于七个会话必须同时写代码。S2～S6 是产品实现角色，S7 默认只读验证；人工协调阶段同时写入上限仍为 3。当前容量复核如下：
 
 | 会话 | 当前负载 | 判断 | 达到什么条件时拆分 |
 |---|---|---|---|

@@ -103,3 +103,18 @@ TARGET=ENGINEERING_PLAYBOOK.md#4.12
 主分支尚未改变，链路状态为 `PAUSED / USER_GATE_REQUIRED`。用户明确
 选择继续后，S1 才能把完整 Final 候选作为一次主分支转换，并在主分支复跑
 FAST final gate；否则保留候选分支和全部证据，不自动合并或启动下一链。
+
+## 用户门禁结果
+
+```text
+USER_DECISION=CONTINUE
+MERGED_TO_MASTER=yes
+MERGED_CANDIDATE_HEAD=1fd14a83ae775691c4516b7bde647f7672c7f624
+MERGE_MODE=FAST_FORWARD_ONLY
+POST_MERGE_FAST_GATE=37/37_PASS
+RELEASED=no
+FROZEN=no
+```
+
+该段记录用户门禁后的事实，不改写上方评审发生时的历史裁决。后续控制面
+提交可以位于候选 Head 之后，但不得改变已接受产品树的身份。

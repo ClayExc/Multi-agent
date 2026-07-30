@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：`IN_PROGRESS`
+- 状态：`ACCEPTED`（M2 候选已通过 S1 final gate，等待用户合并门禁）
 - Attempt ID：`WP-012-a1`
 - 风险等级：`R2`
 - 责任会话：S2-RUNTIME
@@ -13,6 +13,7 @@
 - Chain ID：`CHAIN-M2-STUDIO-01`
 - 顺序：`S5-CORE → S2-RUNTIME → S4-QUALITY → S7-INTEGRATION → S1-ARCH`
 - 交接策略：消费者门禁；最终由 S7 交回 S1，并停在用户门禁
+- S1 最终评审：[`WP-040-A5-S1-FINAL-REVIEW.md`](../../review/WP-040-A5-S1-FINAL-REVIEW.md)
 
 ## 目标
 

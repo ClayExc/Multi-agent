@@ -238,3 +238,161 @@ def test_digest_changes_when_lock_bytes_drift(
     drifted.write_bytes(source.read_bytes() + b"\n# drift\n")
 
     assert verifier.sha256_file(drifted) != verifier.sha256_file(source)
+
+
+def test_m1_platform_candidate_is_exact_and_dependency_complete(
+    verifier: ModuleType,
+) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.M1_PLATFORM_CANDIDATE,
+        target_head=verifier.M1_INPUT_HEAD,
+    )
+
+    assert manifest["summary"] == {
+        "check_count": 34,
+        "failed_check_count": 0,
+        "failed_checks": [],
+        "verdict": "PASS",
+    }
+    assert manifest["chain_id"] == "CHAIN-M1-PLATFORM-01"
+    assert manifest["workspace"]["member_count"] == 14
+    assert manifest["workspace"]["lock_package_count"] == 78
+    assert manifest["workspace"]["expected_wheel_count"] == 14
+    assert manifest["workspace"]["internal_dependency_violations"] == []
+    assert manifest["commands"]["make_acceptance_implemented"] is False
+    assert manifest["security"]["high_confidence_secret_findings"] == []
+
+
+def test_m1_platform_manifest_and_report_are_deterministic(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.M1_PLATFORM_CANDIDATE,
+        target_head=verifier.M1_INPUT_HEAD,
+    )
+    first = verifier.write_artifacts(manifest, tmp_path / "first")
+    second = verifier.write_artifacts(manifest, tmp_path / "second")
+
+    assert first[0].read_bytes() == second[0].read_bytes()
+    assert first[1].read_bytes() == second[1].read_bytes()
+    assert first[2:] == second[2:]
+    assert first[2] == (
+        "sha256:df72d6e13efb06bc34bedd96b14dcca6"
+        "534a20752543b649c7a53e1d880c9633"
+    )
+    assert first[3] == (
+        "sha256:7021c14b0102abac385179a2cd7d34501"
+        "1297639bf8f3f004ea6ff211b35d75a"
+    )
+
+
+def test_m1_platform_topology_and_evidence_are_closed(
+    verifier: ModuleType,
+) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.M1_PLATFORM_CANDIDATE,
+        target_head=verifier.M1_INPUT_HEAD,
+    )
+
+    assert manifest["topology"]["commit_count"] == 5
+    assert all(
+        not step["violations"]
+        for step in manifest["topology"]["steps"].values()
+    )
+    assert manifest["evidence"]["S3_HANDOFF"]["sha256"] == (
+        "sha256:3a9fae37edecce2bf2251ae0d5b35f3d"
+        "d9e79d69567cb7628aed99bcc6e0e888"
+    )
+    assert manifest["evidence"]["S5_HANDOFF"]["sha256"] == (
+        "sha256:e2bdf0c50f7a07a6ad345491abc70d7e"
+        "11e994ac696b2e4a8ace8d931489d6fc"
+    )
+    assert manifest["evidence"]["S4_HANDOFF"]["sha256"] == (
+        "sha256:42a2e3dc20751598174e5c85f959ead00"
+        "d3cf2146a82851704ced5f3e5d3a48a"
+    )
+    assert manifest["evidence"]["S4_PROOF"]["sha256"] == (
+        "sha256:bb118a6f48ef288e081d1d3c08b7f9bc"
+        "acb7d9edeb9e8d83af6e4f91150e0f67"
+    )
+
+
+def test_m1_candidate_rejects_s7_delta_outside_owner_scope(
+    verifier: ModuleType,
+) -> None:
+    violations = verifier.path_scope_violations(
+        (
+            "scripts/integration/verify_wp040.py",
+            "tests/integration/test_wp040_composition.py",
+            "packages/security/src/flowpilot_security/verifier.py",
+        ),
+        verifier.S7_ALLOWED_PREFIXES,
+    )
+
+    assert violations == [
+        "packages/security/src/flowpilot_security/verifier.py"
+    ]
+
+
+def test_m1_final_requires_reviewed_s7_head(
+    verifier: ModuleType,
+) -> None:
+    with pytest.raises(ValueError, match="--s7-head is required"):
+        verifier.build_manifest(
+            ROOT,
+            phase=verifier.ValidationPhase.M1_PLATFORM_S1_FINAL,
+            target_head=verifier.M1_INPUT_HEAD,
+        )
+
+
+def test_m1_final_scope_rejects_non_s1_non_s7_paths(
+    verifier: ModuleType,
+) -> None:
+    changes = [
+        ("M", "docs/review/WP-040-M1-S1-REVIEW.md"),
+        ("M", "scripts/integration/verify_wp040.py"),
+        ("M", "tests/integration/evidence/WP-040-a4-HANDOFF.md"),
+        ("M", "tests/acceptance/platform_security/blackbox.py"),
+        ("M", "packages/security/src/flowpilot_security/verifier.py"),
+    ]
+
+    assert verifier.final_scope_violations(changes, ".idea/\n") == [
+        "M:packages/security/src/flowpilot_security/verifier.py",
+        "M:tests/acceptance/platform_security/blackbox.py",
+    ]
+
+
+def test_m1_secret_scan_is_high_confidence_and_fails_closed(
+    verifier: ModuleType,
+) -> None:
+    samples = (
+        "-----BEGIN PRIVATE KEY-----",
+        "AKIAABCDEFGHIJKLMNOP",
+        "sk-abcdefghijklmnopqrstuvwxyz",
+        "ghp_abcdefghijklmnopqrstuvwxyz",
+    )
+
+    for sample in samples:
+        assert any(
+            pattern.search(sample)
+            for pattern in verifier.HIGH_CONFIDENCE_SECRET_PATTERNS
+        )
+    assert not any(
+        pattern.search("secret-like-placeholder")
+        for pattern in verifier.HIGH_CONFIDENCE_SECRET_PATTERNS
+    )
+
+
+def test_m1_scope_rules_do_not_allow_exact_path_prefixes(
+    verifier: ModuleType,
+) -> None:
+    violations = verifier.path_scope_violations_by_rule(
+        ("uv.lock", "uv.lock.backup"),
+        exact=("uv.lock",),
+    )
+
+    assert violations == ["uv.lock.backup"]

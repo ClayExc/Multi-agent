@@ -1,0 +1,124 @@
+{
+  "schema_version": "flowpilot.wp040a4-proof.v1",
+  "chain_id": "CHAIN-M1-PLATFORM-01",
+  "step_id": "M1-PLATFORM-05-S7",
+  "attempt_id": "WP-040-a4",
+  "session_role": "S7-INTEGRATION",
+  "input_head": "31f4b8b14150bd769910f144d9116578be6124ad",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "scope": {
+    "release_gate": true,
+    "merge_approval": false,
+    "dataset_completion_claim": false,
+    "write_paths": [
+      "scripts/integration/**",
+      "tests/integration/**"
+    ]
+  },
+  "static_reproduction": {
+    "m1_checks": "34/34",
+    "m1_manifest_sha256": "sha256:df72d6e13efb06bc34bedd96b14dcca6534a20752543b649c7a53e1d880c9633",
+    "m1_report_sha256": "sha256:7021c14b0102abac385179a2cd7d345011297639bf8f3f004ea6ff211b35d75a",
+    "m0_checks": "36/36",
+    "m0_manifest_sha256": "sha256:1e9140e267470a0b4404a34b07254569875c3d8c582517599cc328ba8b5dddb1",
+    "m0_report_sha256": "sha256:533a2540a2d41264fe38bbc84c92ae5fa9bd5f3e1292b57598139e470c4e143c",
+    "workspace_members": 14,
+    "lock_package_count": 78,
+    "lock_sha256": "sha256:5111ba07d45f7d9ad3e1440663f6da2f4cfa078c4f52032621cd8cd6b89f08f1",
+    "upstream_handoff_hashes_recomputed": true,
+    "s1_scope_amendment_recomputed": true,
+    "migration_tree_unchanged": true,
+    "compose_tree_unchanged": true,
+    "high_confidence_secret_findings": 0
+  },
+  "test_results": [
+    {
+      "command": "make bootstrap",
+      "result": "PASS",
+      "summary": "78 locked packages; 14 internal Workspace packages"
+    },
+    {
+      "command": "make test",
+      "result": "PASS",
+      "summary": "194 passed"
+    },
+    {
+      "command": "make test-contract",
+      "result": "PASS",
+      "summary": "CONTRACT_CONFORMANCE_OK; semantic_negative=43"
+    },
+    {
+      "command": "make test-security",
+      "result": "PASS",
+      "summary": "51 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "61 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/integration -q",
+      "result": "PASS",
+      "summary": "24 passed"
+    },
+    {
+      "command": "python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "2 cases; 0 findings"
+    },
+    {
+      "command": "ruff check <14 Workspace packages, Core/Runtime/Data/Platform, WP-030-a2 and WP-040-a4 paths>",
+      "result": "PASS",
+      "summary": "All checks passed"
+    },
+    {
+      "command": "mypy --strict <14 Workspace packages, platform security generator, S7 verifier>",
+      "result": "PASS",
+      "summary": "82 source files"
+    },
+    {
+      "command": "uv build --all-packages --wheel; fresh offline install and import",
+      "result": "PASS",
+      "summary": "14 wheels; WHEEL_IMPORT_OK packages=14"
+    },
+    {
+      "command": "pip-audit --path .venv/Lib/site-packages",
+      "result": "PASS",
+      "summary": "0 known vulnerabilities; 14 local packages skipped from PyPI lookup"
+    },
+    {
+      "command": "docker compose -p flowpilot-wp040-a4-20260730 up -d --wait; migration, RLS, adapter and Redis recovery; down -v",
+      "result": "PASS",
+      "summary": "5 healthy services; migration repeatable; POSTGRES_ADAPTER_OK; Redis 0->1->0 with PostgreSQL tasks 3->3; cleanup containers=0 volumes=0"
+    },
+    {
+      "command": "ruff check apps packages mcp-servers tests/... artifacts/...",
+      "result": "FAIL_NON_GATING",
+      "summary": "26 pre-existing findings in unregistered S4 evaluation/observability paths outside the M1 changed scope and 14-member Workspace"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_IMPLEMENTED",
+      "summary": "No target; exit 2; not claimed as PASS"
+    }
+  ],
+  "environment": {
+    "os": "Windows",
+    "python": "3.12.11",
+    "uv": "0.11.32",
+    "pytest": "9.1.1",
+    "make": "GNU Make 4.4.1",
+    "docker_client": "29.6.2",
+    "docker_server": "29.6.2",
+    "docker_compose": "v5.3.1",
+    "pip_audit": "2.10.1"
+  },
+  "residuals": {
+    "make_acceptance_implemented": false,
+    "dataset_120_36_complete": false,
+    "audit_security_draft_final_integrity_owned_by_trusted_sink": true,
+    "broad_s4_offline_lint_debt": 26,
+    "temporary_wheel_root_outside_repository": "C:/Users/Administrator/AppData/Local/Temp/flowpilot-wp040-a4-60fb1885e13c4cc3bb266315fdad9b73"
+  }
+}

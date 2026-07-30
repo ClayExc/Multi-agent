@@ -1,0 +1,93 @@
+{
+  "schema_version": "flowpilot.wp030a2-proof.v1",
+  "chain_id": "CHAIN-M1-PLATFORM-01",
+  "step_id": "M1-PLATFORM-04-S4",
+  "attempt_id": "WP-030-a2",
+  "session_role": "S4-QUALITY",
+  "input_head": "192ebe38df84ed9097e4045847aa991632a2ff63",
+  "implementation_head": "a27b8de946448bb027717001e8ef80b7a598f65d",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "scope": {
+    "release_gate": false,
+    "dataset_completion_claim": false,
+    "measured_quality_claim": false,
+    "write_paths": [
+      "artifacts/acceptance/generators/**",
+      "tests/acceptance/**"
+    ]
+  },
+  "coverage": {
+    "dual_principal_and_identity": true,
+    "tenant_purpose_audience_and_expiry": true,
+    "approval_binding_and_role_forgery": true,
+    "obligation_policy_and_tool_bypass": true,
+    "malicious_output_and_secret_rejection": true,
+    "duplicate_unknown_reconciliation_and_readback": true,
+    "trace_audit_security_sampling_boundary": true,
+    "timeline_reconstruction_negative_gates": true,
+    "judge_cannot_override_deterministic_failure": true
+  },
+  "test_results": [
+    {
+      "command": "python -m pytest tests/acceptance/platform_security -q",
+      "result": "PASS",
+      "summary": "33 passed"
+    },
+    {
+      "command": "python -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "61 passed"
+    },
+    {
+      "command": "make test",
+      "result": "PASS",
+      "summary": "194 passed"
+    },
+    {
+      "command": "make test-security",
+      "result": "PASS",
+      "summary": "51 passed"
+    },
+    {
+      "command": "make test-contract",
+      "result": "PASS",
+      "summary": "CONTRACT_CONFORMANCE_OK; semantic_negative=43"
+    },
+    {
+      "command": "python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "gate=pass; case_count=2; findings=0"
+    },
+    {
+      "command": "python -B contracts/conformance/validate.py",
+      "result": "ENV_BLOCKED",
+      "summary": "system Python 3.14 lacks jsonschema; the same command passed through the locked Workspace interpreter"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B contracts/conformance/validate.py",
+      "result": "PASS",
+      "summary": "CONTRACT_CONFORMANCE_OK; semantic_negative=43"
+    },
+    {
+      "command": "ruff check <WP-030-a2 files>",
+      "result": "PASS",
+      "summary": "All checks passed"
+    },
+    {
+      "command": "mypy --strict artifacts/acceptance/generators",
+      "result": "PASS",
+      "summary": "2 source files"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_RUN",
+      "summary": "target remains unimplemented and outside this Step write scope"
+    }
+  ],
+  "environment": {
+    "locked_python": "3.12.11",
+    "uv": "0.11.32",
+    "pytest": "9.1.1",
+    "make": "GNU Make 4.4.1"
+  }
+}

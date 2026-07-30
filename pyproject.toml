@@ -29,7 +29,9 @@ package = false
 [tool.uv.workspace]
 members = [
     "apps/api",
+    "apps/mcp-gateway",
     "apps/worker",
+    "mcp-servers/knowledge",
     "packages/agent-runtime",
     "packages/application",
     "packages/context",
@@ -37,6 +39,9 @@ members = [
     "packages/graph",
     "packages/model-gateway",
     "packages/persistence",
+    "packages/policy",
+    "packages/security",
+    "packages/tool-contracts",
 ]
 
 [tool.uv.sources]
@@ -46,13 +51,18 @@ flowpilot-application = { workspace = true }
 flowpilot-context = { workspace = true }
 flowpilot-domain = { workspace = true }
 flowpilot-graph = { workspace = true }
+flowpilot-mcp-gateway = { workspace = true }
+flowpilot-mcp-knowledge = { workspace = true }
 flowpilot-model-gateway = { workspace = true }
 flowpilot-persistence = { workspace = true }
+flowpilot-policy = { workspace = true }
+flowpilot-security = { workspace = true }
+flowpilot-tool-contracts = { workspace = true }
 flowpilot-worker = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers -p no:cacheprovider"
-testpaths = ["tests/core", "tests/runtime", "tests/data"]
+testpaths = ["tests/core", "tests/runtime", "tests/data", "tests/platform"]
 
 [tool.ruff]
 line-length = 88

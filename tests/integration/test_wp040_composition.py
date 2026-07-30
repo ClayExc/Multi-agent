@@ -442,6 +442,14 @@ def test_m2_studio_manifest_and_report_are_deterministic(
     assert first[0].read_bytes() == second[0].read_bytes()
     assert first[1].read_bytes() == second[1].read_bytes()
     assert first[2:] == second[2:]
+    assert first[2] == (
+        "sha256:732b971522f5bb4b4840814952efcdcea"
+        "e3ffd1bea8a1996e75edfb642e3dc84"
+    )
+    assert first[3] == (
+        "sha256:69d01b16ae97165d1c9122c9f7bc3bf"
+        "755fa31b2d1522710f71d05b1e60d17b0"
+    )
 
 
 def test_m2_studio_topology_and_evidence_are_closed(

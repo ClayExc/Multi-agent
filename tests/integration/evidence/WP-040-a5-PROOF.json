@@ -1,0 +1,158 @@
+{
+  "schema_version": "flowpilot.wp040a5-proof.v1",
+  "chain_id": "CHAIN-M2-STUDIO-01",
+  "step_id": "M2-STUDIO-04-S7",
+  "attempt_id": "WP-040-a5",
+  "session_role": "S7-INTEGRATION",
+  "input_head": "8a351326ad33db195098ffd4c2f8a4b9f6b5a598",
+  "implementation_head": "d34e1f578dff395ae3c4cc4d88c0c1fb554b57b4",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "scope": {
+    "release_gate": true,
+    "merge_approval": false,
+    "dataset_completion_claim": false,
+    "production_connection": false,
+    "write_paths": [
+      "scripts/integration/**",
+      "tests/integration/**"
+    ]
+  },
+  "static_reproduction": {
+    "m2_checks": "40/40",
+    "m2_fixed_manifest_sha256": "sha256:732b971522f5bb4b4840814952efcdceae3ffd1bea8a1996e75edfb642e3dc84",
+    "m2_fixed_report_sha256": "sha256:69d01b16ae97165d1c9122c9f7bc3bf755fa31b2d1522710f71d05b1e60d17b0",
+    "implementation_candidate_manifest_sha256": "sha256:b85df67b63a16b54de670d7861f103f8283b973f0e890e7e18a12770b5c64c90",
+    "implementation_candidate_report_sha256": "sha256:e61607c12c760fab77e1040e3f1c140f23a5f2751cf193ac6c7bec6dca353f24",
+    "m1_checks": "34/34",
+    "m0_checks": "36/36",
+    "workspace_members": 14,
+    "lock_package_count": 116,
+    "lock_sha256": "sha256:9c9ab3febad1a13571d51e567c6546f27be809f86927e03b0e64339e4ac957c2",
+    "agent_server_versions": {
+      "langgraph_api": "0.11.2",
+      "langgraph_cli": "0.4.31",
+      "langgraph_runtime_inmem": "0.31.2",
+      "langgraph_sdk": "0.4.2"
+    },
+    "upstream_handoff_hashes_recomputed": true,
+    "chain_authority_recomputed": true,
+    "runtime_topology_nodes": 14,
+    "runtime_topology_edges": 20,
+    "agent_server_topology_nodes": 16,
+    "agent_server_topology_edges": 22,
+    "migration_tree_unchanged": true,
+    "compose_tree_unchanged": true,
+    "high_confidence_secret_findings": 0
+  },
+  "test_results": [
+    {
+      "command": "uv sync --all-packages --all-groups --locked in a new UV_PROJECT_ENVIRONMENT",
+      "result": "PASS",
+      "summary": "116 locked packages; 14 internal Workspace packages; CPython 3.12.11"
+    },
+    {
+      "command": "python -B -m pytest -q",
+      "result": "PASS",
+      "summary": "213 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "65 passed; real Agent Server lifecycle included"
+    },
+    {
+      "command": "python -B -m pytest tests/integration -q",
+      "result": "PASS",
+      "summary": "32 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/platform -q",
+      "result": "PASS",
+      "summary": "51 passed"
+    },
+    {
+      "command": "python -B contracts/conformance/validate.py",
+      "result": "PASS",
+      "summary": "20 schemas; 35 cases; 43 semantic negatives; 52 features"
+    },
+    {
+      "command": "python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "2 cases; 0 findings"
+    },
+    {
+      "command": "ruff check <14 Workspace sources, affected tests, S4 Studio and S7 paths>",
+      "result": "PASS",
+      "summary": "All checks passed"
+    },
+    {
+      "command": "mypy --strict <14 Workspace sources, Acceptance generators and S7 verifier/tests>",
+      "result": "PASS",
+      "summary": "88 source files"
+    },
+    {
+      "command": "uv build --all-packages --wheel; reinstall --no-deps into the locked fresh environment; import",
+      "result": "PASS",
+      "summary": "14 wheels; LOCKED_WHEEL_IMPORT_OK packages=14"
+    },
+    {
+      "command": "pip-audit --path <fresh locked environment>/Lib/site-packages",
+      "result": "PASS",
+      "summary": "0 known vulnerabilities; 14 internal packages skipped from PyPI lookup"
+    },
+    {
+      "command": "artifacts/acceptance/generators/studio_agent_server.py in the fresh locked environment",
+      "result": "PASS",
+      "summary": "flowpilot_it_service; 16 nodes/22 edges; COMPLETED; checkpoint_sequence=4; run_generation=1; process/allocated-port/.langgraph_api residuals=0; evidence sha256:a07d782c9f2d50889b22fa4e0b1c994a09564fb94f1c1a7513ec0ea2ae0286e4"
+    },
+    {
+      "command": "PYTHONUTF8=1 langgraph --version; langgraph dev --help",
+      "result": "PASS",
+      "summary": "LangGraph CLI 0.4.31; local dev command surface available"
+    },
+    {
+      "command": "make studio-smoke with the available Windows GNU Make and absolute UV override",
+      "result": "ENV_BLOCKED",
+      "summary": "/usr/bin/bash removes drive separators from the absolute Windows UV path; the two exact locked commands passed directly"
+    },
+    {
+      "command": "docker compose up --wait; 0002 twice; RLS SQL; PostgreSQL adapter; Redis loss; down -v",
+      "result": "PASS",
+      "summary": "5 healthy services; migration repeatable; RLS PASS; POSTGRES_ADAPTER_OK; Redis 0->1->0 with PostgreSQL tasks 3->3; cleanup containers=0 volumes=0"
+    },
+    {
+      "command": "ruff check artifacts/acceptance/generators tests/acceptance",
+      "result": "INHERITED_FINDINGS",
+      "summary": "4 I001 findings in WP-030-a1 evaluation/observability tests outside the M2 changed range; affected-path Ruff passed"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_IMPLEMENTED",
+      "summary": "No target; exit 2; not claimed as PASS"
+    }
+  ],
+  "environment": {
+    "os": "Windows",
+    "python": "3.12.11",
+    "uv": "0.11.32",
+    "pytest": "9.1.1",
+    "ruff": "0.16.0",
+    "mypy": "1.20.2",
+    "make": "GNU Make 4.4.1",
+    "docker_client": "29.6.2",
+    "docker_server": "29.6.2",
+    "docker_compose": "v5.3.1",
+    "pip_audit": "2.10.1"
+  },
+  "residuals": {
+    "make_acceptance_implemented": false,
+    "dataset_120_36_complete": false,
+    "studio_integration_trusted_ports_assembled": false,
+    "s7_agent_server_process_residual": 0,
+    "s7_agent_server_allocated_port_residual": 0,
+    "s7_langgraph_api_directory_residual": 0,
+    "pre_existing_default_port_2024_listener_unchanged": true,
+    "temporary_fresh_environment": "C:/Users/Administrator/AppData/Local/Temp/flowpilot-wp040-a5-fresh-20260730",
+    "temporary_wheel_root": "C:/Users/Administrator/AppData/Local/Temp/flowpilot-wp040-a5-wheels-20260730"
+  }
+}

@@ -121,7 +121,7 @@ ATTEMPT_ID=WP-011-a4
 BASE_COMMIT=<Step-1-NEW_HEAD after ff-only>
 UPSTREAM_HEADS=S3-PLATFORM:<Step-1-NEW_HEAD>
 WORKTREE=E:\workspace\Multi-agent-s5
-WRITE_SCOPE=pyproject.toml,uv.lock,Makefile
+WRITE_SCOPE=pyproject.toml,uv.lock,Makefile,tests/core/evidence/WP-011-a4-HANDOFF.md
 MODE=IMPLEMENTATION
 UNLOCK_CONDITION=S6 consumer review ACCEPT and S5 ff-only reaches exact S3 Head
 REVIEWER=S4-QUALITY
@@ -137,6 +137,23 @@ NEXT_ATTEMPT_ID=WP-030-a2
 3. 复跑 Core、Runtime、Data、Platform、Contract、Ruff、严格 Mypy、
    Wheel 与 Secret Scan。
 4. S3 包装或实现缺陷退回 S3；S5 只修共享 Workspace、锁和命令入口。
+
+### Scope Amendment 01
+
+```text
+AMENDMENT_ID=CHAIN-M1-PLATFORM-01-S5-HANDOFF-01
+AUTHORITY=S1-ARCH
+STATUS=ACTIVE
+ATTEMPT_ID=WP-011-a4
+AUTHORIZED_PATH=tests/core/evidence/WP-011-a4-HANDOFF.md
+RISK_CLASS=R2_UNCHANGED
+PRODUCT_SCOPE=UNCHANGED
+```
+
+原 Step 只列出三个共享文件，却同时要求 S5 按 `HANDOFF_TEMPLATE.md`
+生成仓库内证据，形成控制面自相矛盾。现只增加上述 S5 自有的精确证据文件；
+不授权其他 `tests/core/**` 修改，不改变实现 Head、公共契约、数据库、Owner
+或局部返修计数。S5 在现有实现 Head 后追加 Handoff 提交并继续唤醒 S4。
 
 ## Step 4：S4-QUALITY 安全黑盒
 

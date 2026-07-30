@@ -1,0 +1,134 @@
+{
+  "edges": [
+    {
+      "conditional": false,
+      "source": "__start__",
+      "target": "prepare"
+    },
+    {
+      "conditional": false,
+      "source": "approval_interrupt",
+      "target": "run_agent"
+    },
+    {
+      "conditional": false,
+      "source": "build_context",
+      "target": "route_request"
+    },
+    {
+      "conditional": false,
+      "source": "clarification_interrupt",
+      "target": "build_context"
+    },
+    {
+      "conditional": false,
+      "source": "compensate",
+      "target": "finalize"
+    },
+    {
+      "conditional": false,
+      "source": "finalize",
+      "target": "__end__"
+    },
+    {
+      "conditional": false,
+      "source": "handoff",
+      "target": "route_request"
+    },
+    {
+      "conditional": false,
+      "source": "join_reads",
+      "target": "handoff"
+    },
+    {
+      "conditional": false,
+      "source": "knowledge_read",
+      "target": "join_reads"
+    },
+    {
+      "conditional": false,
+      "source": "prepare",
+      "target": "build_context"
+    },
+    {
+      "conditional": false,
+      "source": "retry",
+      "target": "run_agent"
+    },
+    {
+      "conditional": true,
+      "source": "route_request",
+      "target": "approval_interrupt"
+    },
+    {
+      "conditional": true,
+      "source": "route_request",
+      "target": "clarification_interrupt"
+    },
+    {
+      "conditional": true,
+      "source": "route_request",
+      "target": "finalize"
+    },
+    {
+      "conditional": true,
+      "source": "route_request",
+      "target": "knowledge_read"
+    },
+    {
+      "conditional": true,
+      "source": "route_request",
+      "target": "run_agent"
+    },
+    {
+      "conditional": true,
+      "source": "route_request",
+      "target": "service_read"
+    },
+    {
+      "conditional": true,
+      "source": "route_result",
+      "target": "compensate"
+    },
+    {
+      "conditional": true,
+      "source": "route_result",
+      "target": "finalize"
+    },
+    {
+      "conditional": true,
+      "source": "route_result",
+      "target": "retry"
+    },
+    {
+      "conditional": false,
+      "source": "run_agent",
+      "target": "route_result"
+    },
+    {
+      "conditional": false,
+      "source": "service_read",
+      "target": "join_reads"
+    }
+  ],
+  "graph_id": "flowpilot_it_service",
+  "node_ids": [
+    "__end__",
+    "__start__",
+    "approval_interrupt",
+    "build_context",
+    "clarification_interrupt",
+    "compensate",
+    "finalize",
+    "handoff",
+    "join_reads",
+    "knowledge_read",
+    "prepare",
+    "retry",
+    "route_request",
+    "route_result",
+    "run_agent",
+    "service_read"
+  ],
+  "schema_version": "flowpilot.s4-agent-server-topology-oracle.m2.v1"
+}

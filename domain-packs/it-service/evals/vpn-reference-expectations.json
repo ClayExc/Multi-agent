@@ -1,0 +1,27 @@
+{
+  "schema_version": "flowpilot.domain-pack.reference-expectations.v1",
+  "cases": [
+    {
+      "case_id": "vpn_windows_691_home",
+      "expected_citations": [
+        {
+          "source_ref": "knowledge://tenant-a/vpn-sop/windows-691/3.2#credential-check",
+          "document_version": "3.2",
+          "section": "Windows / Error 691 / Credential reset",
+          "content_hash": "sha256:cfc91ff3ba6a41fc3d7432f926c03cd6792397b2f15c72cb064dfe8e80314279"
+        }
+      ],
+      "excluded_source_refs": [
+        "knowledge://tenant-a/vpn-sop/windows-691/1.4#legacy-gateway"
+      ]
+    },
+    {
+      "case_id": "vpn_windows_691_missing_environment",
+      "expected_citations": [],
+      "excluded_source_refs": [
+        "knowledge://tenant-a/vpn-sop/windows-691/3.2#credential-check",
+        "knowledge://tenant-a/vpn-sop/windows-691/1.4#legacy-gateway"
+      ]
+    }
+  ]
+}

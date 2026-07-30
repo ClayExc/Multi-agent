@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 
 from flowpilot_domain import (
     CommandType,
+    DataClassification,
     DomainErrorCode,
     DomainViolation,
     Task,
@@ -12,15 +13,32 @@ from flowpilot_domain import (
 )
 
 from .errors import ApplicationError, ErrorCode
-from .models import CommandAcceptance, ExecutionReceipt, StoredCommand
+from .models import (
+    ArtifactWriteDisposition,
+    CommandAcceptance,
+    ExecutionReceipt,
+    RequestObservation,
+    RequestReferenceQuery,
+    ResultArtifactDraft,
+    ResultArtifactReceipt,
+    StoredCommand,
+)
 from .ports import (
     ExecutionPort,
+    RequestReferenceResolverPort,
+    ResultArtifactPort,
     TaskQueryUnitOfWorkFactory,
     UnitOfWorkFactory,
     VersionSlotReservation,
 )
 
 Clock = Callable[[], datetime]
+_CLASSIFICATION_RANK = {
+    DataClassification.PUBLIC: 0,
+    DataClassification.INTERNAL: 1,
+    DataClassification.CONFIDENTIAL: 2,
+    DataClassification.RESTRICTED: 3,
+}
 
 
 class TaskQueryService:
@@ -224,3 +242,148 @@ class CommandIntakeService:
                 "execution receipt could not be persisted",
                 retryable=True,
             ) from exc
+
+
+class RequestObservationService:
+    """Resolve opaque message references without exposing original message text."""
+
+    def __init__(
+        self,
+        *,
+        resolver: RequestReferenceResolverPort,
+        required_fields: Mapping[str, tuple[str, ...]],
+    ) -> None:
+        self._resolver = resolver
+        self._required_fields = dict(required_fields)
+
+    async def resolve(self, command: TaskCommand) -> RequestObservation:
+        query = self._query_from_command(command)
+        try:
+            resolved = await self._resolver.resolve(query)
+        except ApplicationError:
+            raise
+        except Exception as exc:
+            raise ApplicationError(
+                ErrorCode.REQUEST_REFERENCE_UNAVAILABLE,
+                "request reference resolver is unavailable",
+                retryable=True,
+            ) from exc
+        if resolved is None:
+            raise ApplicationError(
+                ErrorCode.REQUEST_REFERENCE_NOT_FOUND,
+                "request reference was not found",
+            )
+        if resolved.query != query:
+            raise ApplicationError(
+                ErrorCode.REQUEST_REFERENCE_BINDING_MISMATCH,
+                "resolved request does not match the trusted reference binding",
+            )
+        if (
+            _CLASSIFICATION_RANK[resolved.data_classification]
+            > _CLASSIFICATION_RANK[
+                command.security_context.data_classification_ceiling
+            ]
+        ):
+            raise ApplicationError(
+                ErrorCode.REQUEST_REFERENCE_BINDING_MISMATCH,
+                "resolved request exceeds the trusted classification ceiling",
+            )
+        try:
+            resolved.assert_digest()
+        except ValueError as exc:
+            raise ApplicationError(
+                ErrorCode.REQUEST_REFERENCE_TAMPERED,
+                "resolved request integrity verification failed",
+            ) from exc
+        required = self._required_fields.get(resolved.intent)
+        if required is None:
+            raise ApplicationError(
+                ErrorCode.REQUEST_REFERENCE_PROTOCOL_ERROR,
+                "resolved request references an unknown intent",
+            )
+        missing_fields = tuple(
+            field_name
+            for field_name in required
+            if field_name not in resolved.fields
+        )
+        return RequestObservation(
+            tenant_id=query.tenant_id,
+            task_id=query.task_id,
+            message_id=query.message_id,
+            observation_ref=resolved.observation_ref,
+            source_digest=resolved.source_digest,
+            intent=resolved.intent,
+            fields=resolved.fields,
+            missing_fields=missing_fields,
+            data_classification=resolved.data_classification,
+        )
+
+    @staticmethod
+    def _query_from_command(command: TaskCommand) -> RequestReferenceQuery:
+        if command.command_type is CommandType.CREATE:
+            message_id = command.payload["initial_message_id"]
+            message_ref = command.payload["initial_message_ref"]
+        elif command.command_type is CommandType.SUBMIT_MESSAGE:
+            message_id = command.payload["message_id"]
+            message_ref = command.payload["message_ref"]
+        else:
+            raise ApplicationError(
+                ErrorCode.CONTRACT_INVALID,
+                "command type does not contain a request reference",
+            )
+        if not isinstance(message_id, str) or not isinstance(message_ref, str):
+            raise ApplicationError(
+                ErrorCode.CONTRACT_INVALID,
+                "command request reference is invalid",
+            )
+        return RequestReferenceQuery(
+            tenant_id=command.tenant_id,
+            task_id=command.task_id,
+            message_id=message_id,
+            message_ref=message_ref,
+            purpose=command.security_context.purpose,
+            security_context_ref=command.security_context.context_ref,
+        )
+
+
+class ResultArtifactService:
+    """Persist result content idempotently while returning only an opaque ref."""
+
+    def __init__(self, artifacts: ResultArtifactPort) -> None:
+        self._artifacts = artifacts
+
+    async def save(self, draft: ResultArtifactDraft) -> ResultArtifactReceipt:
+        try:
+            draft.assert_digest()
+        except ValueError as exc:
+            raise ApplicationError(
+                ErrorCode.RESULT_ARTIFACT_TAMPERED,
+                "result artifact integrity verification failed",
+            ) from exc
+        try:
+            receipt = await self._artifacts.put(draft)
+        except ApplicationError:
+            raise
+        except Exception as exc:
+            raise ApplicationError(
+                ErrorCode.RESULT_ARTIFACT_UNAVAILABLE,
+                "result artifact store is unavailable",
+                retryable=True,
+            ) from exc
+        if receipt.disposition is ArtifactWriteDisposition.CONFLICT:
+            raise ApplicationError(
+                ErrorCode.RESULT_ARTIFACT_CONFLICT,
+                "result idempotency key is bound to different content",
+            )
+        if (
+            receipt.tenant_id != draft.tenant_id
+            or receipt.task_id != draft.task_id
+            or receipt.idempotency_key != draft.idempotency_key
+            or receipt.result_digest != draft.result_digest
+            or not receipt.result_ref
+        ):
+            raise ApplicationError(
+                ErrorCode.RESULT_ARTIFACT_PROTOCOL_ERROR,
+                "result artifact store returned a mismatched receipt",
+            )
+        return receipt

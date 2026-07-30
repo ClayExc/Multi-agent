@@ -24,9 +24,21 @@ defined here without exposing raw exception text.
   never return a projection for a different tenant or task.
 - `TaskQueryService` opens a read Unit of Work for each lookup so tenant
   binding, transaction cleanup, and connection lifecycle remain adapter-owned.
+- `RequestReferenceResolverPort` receives a tenant/task/message/security-context
+  binding and returns only a digest-bound, redacted observation. The
+  Application service recomputes required fields from the Domain Pack and
+  rejects tenant, purpose, classification, reference, or digest mismatches.
+- `ResultArtifactPort.put` atomically deduplicates by
+  `(tenant_id, idempotency_key)`. Same-digest replay returns the original
+  `result_ref`; a different digest conflicts. Receipts never expose result
+  content, so the public Task projection only carries `result_ref`.
+- `flowpilot.reference-ports.p1.v1` is an internal Python port version. It does
+  not widen the public `TaskCommand` or Task JSON Schema.
 - Domain Packs are data-only directories. Loading uses bounded files, exact
   fields, path containment, and a safe YAML loader that rejects aliases; no
-  module is imported from a pack.
+  module is imported from a pack. The v2 manifest additionally validates
+  synthetic request observations, knowledge samples, and per-case citation
+  expectations.
 
 ## Dependency record
 

@@ -1,13 +1,13 @@
 {
   "fixture_version": "flowpilot.domain-pack.fixture.v2",
-  "case_id": "vpn_windows_691_home",
+  "case_id": "vpn_windows_691_missing_environment",
   "domain_id": "it-service",
   "expected_intent": "vpn_support",
   "command": {
-    "command_id": "cmd_vpnhome01",
+    "command_id": "cmd_vpnmiss01",
     "command_type": "task.create.v1",
     "tenant_id": "tenant-a",
-    "task_id": "task_vpnhome01",
+    "task_id": "task_vpnmiss01",
     "actor": {
       "type": "user",
       "id": "user-123"
@@ -31,12 +31,12 @@
       "expires_at": "2026-07-28T09:00:00Z"
     },
     "expected_task_version": null,
-    "idempotency_key": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "command_digest": "sha256:56f706d0d363ca55927e3d9e3faf32750697e82db97c39feb086c229a8321913",
-    "correlation_id": "corr-12345678",
+    "idempotency_key": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "command_digest": "sha256:5ccdfcaab72fb9232ea74c613ad42146535b8b14cd07f2104d30a7c9f0da5cd0",
+    "correlation_id": "corr-vpn-missing-environment",
     "payload": {
-      "initial_message_id": "msg_vpnhome01",
-      "initial_message_ref": "message://vpn/windows-11/home",
+      "initial_message_id": "msg_vpnmiss01",
+      "initial_message_ref": "message://vpn/windows-11/missing-environment",
       "attachment_refs": [],
       "channel": "web",
       "purpose": "it_support"
@@ -46,22 +46,23 @@
   "resolved_request": {
     "query": {
       "tenant_id": "tenant-a",
-      "task_id": "task_vpnhome01",
-      "message_id": "msg_vpnhome01",
-      "message_ref": "message://vpn/windows-11/home",
+      "task_id": "task_vpnmiss01",
+      "message_id": "msg_vpnmiss01",
+      "message_ref": "message://vpn/windows-11/missing-environment",
       "purpose": "it_support",
       "security_context_ref": "security-context://tenant-a/12345678"
     },
-    "observation_ref": "observation://tenant-a/vpn_windows_691_home",
-    "source_digest": "sha256:f08c06fbc3d9d5e19f84ef6f393445b1384d93d68263b89dcec7202872e51714",
+    "observation_ref": "observation://tenant-a/vpn_windows_691_missing_environment",
+    "source_digest": "sha256:c8e53b0a69b28de32dd4d1864b57e2d3bffd5c2d61327c60936597282d8f0fc6",
     "intent": "vpn_support",
     "fields": {
       "platform": "windows_11",
-      "symptom_code": "691",
-      "environment": "home_network"
+      "symptom_code": "691"
     },
     "data_classification": "confidential",
-    "observation_digest": "sha256:e50355c12c5b994aeecdba6534c1c4799f6815fee7c6116be22f6eaaa49d093c"
+    "observation_digest": "sha256:d731a5403f0eeec109367e30e93d51b94be886c95f91d1d79e61ba2270a58d16"
   },
-  "expected_missing_fields": []
+  "expected_missing_fields": [
+    "environment"
+  ]
 }

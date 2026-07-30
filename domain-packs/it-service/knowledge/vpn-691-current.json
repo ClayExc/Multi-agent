@@ -1,0 +1,17 @@
+{
+  "knowledge_fixture_version": "flowpilot.domain-pack.knowledge-fixture.v1",
+  "source_ref": "knowledge://tenant-a/vpn-sop/windows-691/3.2#credential-check",
+  "tenant_id": "tenant-a",
+  "document_id": "vpn_691_sop",
+  "document_version": "3.2",
+  "section": "Windows / Error 691 / Credential reset",
+  "chunk_id": "credential_check",
+  "data_classification": "internal",
+  "acl_subjects": [
+    "group:vpn-users"
+  ],
+  "effective_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2027-01-01T00:00:00Z",
+  "content_summary": "For Windows VPN error 691 on a home network, verify the saved username, re-enter the password, and retry after clearing cached credentials.",
+  "content_hash": "sha256:cfc91ff3ba6a41fc3d7432f926c03cd6792397b2f15c72cb064dfe8e80314279"
+}

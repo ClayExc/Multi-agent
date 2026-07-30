@@ -1,9 +1,14 @@
-schema_version: flowpilot.domain-pack.v1
+schema_version: flowpilot.domain-pack.v2
 domain_id: it-service
-version: 0.1.0
+version: 0.2.0
 display_name: IT Service
 intents_ref: intents.yaml
 required_fields_ref: required-fields.yaml
 risk_rules_ref: risk-rules.yaml
 fixture_refs:
   - evals/minimal-vpn-request.json
+  - evals/vpn-missing-environment.json
+knowledge_refs:
+  - knowledge/vpn-691-current.json
+  - knowledge/vpn-691-expired.json
+reference_expectations_ref: evals/vpn-reference-expectations.json

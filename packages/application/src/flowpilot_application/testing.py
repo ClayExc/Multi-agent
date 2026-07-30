@@ -6,7 +6,16 @@ from typing import Self
 
 from flowpilot_domain import Task, TaskCommand
 
-from .models import ExecutionDisposition, ExecutionReceipt, StoredCommand
+from .models import (
+    ArtifactWriteDisposition,
+    ExecutionDisposition,
+    ExecutionReceipt,
+    RequestReferenceQuery,
+    ResolvedRequestReference,
+    ResultArtifactDraft,
+    ResultArtifactReceipt,
+    StoredCommand,
+)
 from .ports import VersionSlotReservation
 
 
@@ -157,3 +166,70 @@ class FakeExecutionPort:
         )
         self.receipts[key] = receipt
         return receipt
+
+
+class FakeRequestReferenceResolver:
+    def __init__(
+        self,
+        records: dict[str, ResolvedRequestReference] | None = None,
+    ) -> None:
+        self.records = records or {}
+        self.calls: list[RequestReferenceQuery] = []
+        self.failure: Exception | None = None
+
+    async def resolve(
+        self, query: RequestReferenceQuery
+    ) -> ResolvedRequestReference | None:
+        self.calls.append(query)
+        if self.failure is not None:
+            raise self.failure
+        return self.records.get(query.message_ref)
+
+
+class FakeResultArtifactPort:
+    def __init__(self) -> None:
+        self.calls: list[ResultArtifactDraft] = []
+        self.artifacts_by_ref: dict[str, ResultArtifactDraft] = {}
+        self.result_ref_by_key: dict[tuple[str, str], str] = {}
+        self.failure: Exception | None = None
+        self.invalid_receipt = False
+
+    async def put(self, draft: ResultArtifactDraft) -> ResultArtifactReceipt:
+        self.calls.append(draft)
+        if self.failure is not None:
+            raise self.failure
+        key = (draft.tenant_id, draft.idempotency_key)
+        existing_ref = self.result_ref_by_key.get(key)
+        if existing_ref is not None:
+            existing = self.artifacts_by_ref[existing_ref]
+            if existing.result_digest != draft.result_digest:
+                return ResultArtifactReceipt(
+                    tenant_id=draft.tenant_id,
+                    task_id=draft.task_id,
+                    idempotency_key=draft.idempotency_key,
+                    result_digest=draft.result_digest,
+                    disposition=ArtifactWriteDisposition.CONFLICT,
+                    result_ref=None,
+                )
+            return ResultArtifactReceipt(
+                tenant_id=draft.tenant_id,
+                task_id=draft.task_id,
+                idempotency_key=draft.idempotency_key,
+                result_digest=draft.result_digest,
+                disposition=ArtifactWriteDisposition.DUPLICATE,
+                result_ref=existing_ref,
+            )
+        suffix = draft.result_digest.removeprefix("sha256:")[:24]
+        result_ref = f"result://{draft.tenant_id}/{draft.task_id}/{suffix}"
+        self.result_ref_by_key[key] = result_ref
+        self.artifacts_by_ref[result_ref] = draft
+        return ResultArtifactReceipt(
+            tenant_id=(
+                "tenant-invalid" if self.invalid_receipt else draft.tenant_id
+            ),
+            task_id=draft.task_id,
+            idempotency_key=draft.idempotency_key,
+            result_digest=draft.result_digest,
+            disposition=ArtifactWriteDisposition.STORED,
+            result_ref=result_ref,
+        )

@@ -6,7 +6,14 @@ from typing import Protocol, Self
 
 from flowpilot_domain import Task, TaskCommand
 
-from .models import ExecutionReceipt, StoredCommand
+from .models import (
+    ExecutionReceipt,
+    RequestReferenceQuery,
+    ResolvedRequestReference,
+    ResultArtifactDraft,
+    ResultArtifactReceipt,
+    StoredCommand,
+)
 
 
 class VersionSlotReservation(StrEnum):
@@ -19,6 +26,22 @@ class ExecutionPort(Protocol):
 
     async def submit(self, command: TaskCommand) -> ExecutionReceipt:
         """Submit once by command_id, returning DUPLICATE for a safe replay."""
+
+
+class RequestReferenceResolverPort(Protocol):
+    """Resolve an opaque message reference into a trusted, redacted observation."""
+
+    async def resolve(
+        self, query: RequestReferenceQuery
+    ) -> ResolvedRequestReference | None:
+        """Return None for an unknown tenant-scoped reference."""
+
+
+class ResultArtifactPort(Protocol):
+    """Atomically save result content and return only its opaque reference."""
+
+    async def put(self, draft: ResultArtifactDraft) -> ResultArtifactReceipt:
+        """Deduplicate by tenant/idempotency key and fail on digest conflicts."""
 
 
 class TaskRepositoryPort(Protocol):

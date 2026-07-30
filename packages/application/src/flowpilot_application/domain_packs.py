@@ -4,14 +4,25 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, cast
 
 import yaml
-from flowpilot_domain import CommandType, RiskLevel, TaskCommand
+from flowpilot_domain import (
+    CommandType,
+    DataClassification,
+    RiskLevel,
+    TaskCommand,
+)
 
 from .errors import ApplicationError, ErrorCode
+from .models import (
+    RequestReferenceQuery,
+    ResolvedRequestReference,
+    ResultCitation,
+)
 
 MAX_DOMAIN_PACK_FILE_BYTES = 256 * 1024
 _DOMAIN_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -54,6 +65,8 @@ class DomainPackManifest:
     required_fields_ref: str
     risk_rules_ref: str
     fixture_refs: tuple[str, ...]
+    knowledge_refs: tuple[str, ...] = ()
+    reference_expectations_ref: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +88,31 @@ class DomainPackFixture:
     case_id: str
     expected_intent: str
     command: TaskCommand
+    resolved_request: ResolvedRequestReference | None = None
+    expected_missing_fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DomainKnowledgeSample:
+    source_ref: str
+    tenant_id: str
+    document_id: str
+    document_version: str
+    section: str
+    chunk_id: str
+    data_classification: DataClassification
+    acl_subjects: tuple[str, ...]
+    effective_at: datetime
+    expires_at: datetime | None
+    content_summary: str
+    content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class DomainReferenceExpectation:
+    case_id: str
+    expected_citations: tuple[ResultCitation, ...]
+    excluded_source_refs: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +122,8 @@ class DomainPackDefinition:
     required_fields: Mapping[str, tuple[str, ...]]
     risk_rules: tuple[DomainRiskRule, ...]
     fixtures: tuple[DomainPackFixture, ...]
+    knowledge_samples: tuple[DomainKnowledgeSample, ...] = ()
+    reference_expectations: tuple[DomainReferenceExpectation, ...] = ()
 
 
 class DomainPackRegistry:
@@ -122,20 +162,6 @@ def load_domain_pack(root: Path) -> DomainPackDefinition:
         raise _invalid_pack("domain pack root must be a directory")
 
     manifest_data = _load_yaml_mapping(resolved_root, resolved_root / "manifest.yaml")
-    _require_exact_keys(
-        manifest_data,
-        {
-            "schema_version",
-            "domain_id",
-            "version",
-            "display_name",
-            "intents_ref",
-            "required_fields_ref",
-            "risk_rules_ref",
-            "fixture_refs",
-        },
-        "manifest",
-    )
     manifest = _parse_manifest(manifest_data)
     intents = _parse_intents(_load_yaml_ref(resolved_root, manifest.intents_ref))
     intent_ids = {intent.id for intent in intents}
@@ -152,6 +178,7 @@ def load_domain_pack(root: Path) -> DomainPackDefinition:
             _load_json_ref(resolved_root, reference),
             manifest.domain_id,
             intent_ids,
+            required_fields,
         )
         for reference in manifest.fixture_refs
     )
@@ -160,17 +187,77 @@ def load_domain_pack(root: Path) -> DomainPackDefinition:
     fixture_case_ids = [fixture.case_id for fixture in fixtures]
     if len(fixture_case_ids) != len(set(fixture_case_ids)):
         raise _invalid_pack("domain pack fixture case ids must be unique")
+    knowledge_samples = tuple(
+        _parse_knowledge_sample(_load_json_ref(resolved_root, reference))
+        for reference in manifest.knowledge_refs
+    )
+    source_refs = [sample.source_ref for sample in knowledge_samples]
+    if len(source_refs) != len(set(source_refs)):
+        raise _invalid_pack("knowledge sample source refs must be unique")
+    knowledge_by_ref = {
+        sample.source_ref: sample for sample in knowledge_samples
+    }
+    reference_expectations = (
+        _parse_reference_expectations(
+            _load_json_ref(
+                resolved_root,
+                manifest.reference_expectations_ref,
+            ),
+            {fixture.case_id: fixture for fixture in fixtures},
+            knowledge_by_ref,
+        )
+        if manifest.reference_expectations_ref is not None
+        else ()
+    )
     return DomainPackDefinition(
         manifest=manifest,
         intents=intents,
         required_fields=required_fields,
         risk_rules=risk_rules,
         fixtures=fixtures,
+        knowledge_samples=knowledge_samples,
+        reference_expectations=reference_expectations,
     )
 
 
 def _parse_manifest(value: Mapping[str, Any]) -> DomainPackManifest:
-    if value["schema_version"] != "flowpilot.domain-pack.v1":
+    common_keys = {
+        "schema_version",
+        "domain_id",
+        "version",
+        "display_name",
+        "intents_ref",
+        "required_fields_ref",
+        "risk_rules_ref",
+        "fixture_refs",
+    }
+    schema_version = value.get("schema_version")
+    if schema_version == "flowpilot.domain-pack.v1":
+        _require_exact_keys(value, common_keys, "manifest")
+        knowledge_refs: tuple[str, ...] = ()
+        reference_expectations_ref = None
+    elif schema_version == "flowpilot.domain-pack.v2":
+        _require_exact_keys(
+            value,
+            common_keys | {"knowledge_refs", "reference_expectations_ref"},
+            "manifest",
+        )
+        knowledge_refs = tuple(
+            _require_ref(reference, "knowledge_refs", ".json")
+            for reference in _require_string_list(
+                value["knowledge_refs"],
+                "knowledge_refs",
+                unique=True,
+            )
+        )
+        if not knowledge_refs:
+            raise _invalid_pack("v2 domain pack must declare knowledge samples")
+        reference_expectations_ref = _require_ref(
+            value["reference_expectations_ref"],
+            "reference_expectations_ref",
+            ".json",
+        )
+    else:
         raise _invalid_pack("domain pack schema_version is unsupported")
     domain_id = _require_string(value["domain_id"], "domain_id", maximum=64)
     version = _require_string(value["version"], "version", maximum=32)
@@ -182,7 +269,7 @@ def _parse_manifest(value: Mapping[str, Any]) -> DomainPackManifest:
         value["fixture_refs"], "fixture_refs", unique=True
     )
     return DomainPackManifest(
-        schema_version="flowpilot.domain-pack.v1",
+        schema_version=cast(str, schema_version),
         domain_id=domain_id,
         version=version,
         display_name=_require_string(
@@ -197,6 +284,8 @@ def _parse_manifest(value: Mapping[str, Any]) -> DomainPackManifest:
             _require_ref(reference, "fixture_refs", ".json")
             for reference in fixture_refs
         ),
+        knowledge_refs=knowledge_refs,
+        reference_expectations_ref=reference_expectations_ref,
     )
 
 
@@ -302,14 +391,41 @@ def _parse_risk_rules(
 
 
 def _parse_fixture(
-    value: Mapping[str, Any], domain_id: str, intent_ids: set[str]
+    value: Mapping[str, Any],
+    domain_id: str,
+    intent_ids: set[str],
+    required_fields: Mapping[str, tuple[str, ...]],
 ) -> DomainPackFixture:
-    _require_exact_keys(
-        value,
-        {"fixture_version", "case_id", "domain_id", "expected_intent", "command"},
-        "fixture",
-    )
-    if value["fixture_version"] != "flowpilot.domain-pack.fixture.v1":
+    fixture_version = value.get("fixture_version")
+    common_keys = {
+        "fixture_version",
+        "case_id",
+        "domain_id",
+        "expected_intent",
+        "command",
+    }
+    if fixture_version == "flowpilot.domain-pack.fixture.v1":
+        _require_exact_keys(value, common_keys, "fixture")
+        resolved_request = None
+        expected_missing_fields: tuple[str, ...] = ()
+    elif fixture_version == "flowpilot.domain-pack.fixture.v2":
+        _require_exact_keys(
+            value,
+            common_keys | {"resolved_request", "expected_missing_fields"},
+            "fixture",
+        )
+        resolved_request = _parse_resolved_request(
+            _require_mapping(value["resolved_request"], "resolved_request")
+        )
+        expected_missing_fields = tuple(
+            _require_local_id(field, "expected_missing_fields")
+            for field in _require_string_list(
+                value["expected_missing_fields"],
+                "expected_missing_fields",
+                unique=True,
+            )
+        )
+    else:
         raise _invalid_pack("fixture_version is unsupported")
     if value["domain_id"] != domain_id:
         raise _invalid_pack("fixture domain_id does not match the manifest")
@@ -325,11 +441,297 @@ def _parse_fixture(
         command.assert_security_binding()
     except (KeyError, TypeError, ValueError) as exc:
         raise _invalid_pack("fixture command is invalid") from exc
+    if resolved_request is not None:
+        _assert_fixture_request_binding(command, resolved_request)
+        computed_missing = tuple(
+            field_name
+            for field_name in required_fields[expected_intent]
+            if field_name not in resolved_request.fields
+        )
+        if expected_missing_fields != computed_missing:
+            raise _invalid_pack(
+                "fixture expected_missing_fields do not match required fields"
+            )
     return DomainPackFixture(
         case_id=_require_local_id(value["case_id"], "fixture.case_id"),
         expected_intent=expected_intent,
         command=command,
+        resolved_request=resolved_request,
+        expected_missing_fields=expected_missing_fields,
     )
+
+
+def _parse_resolved_request(
+    value: Mapping[str, Any],
+) -> ResolvedRequestReference:
+    _require_exact_keys(
+        value,
+        {
+            "query",
+            "observation_ref",
+            "source_digest",
+            "intent",
+            "fields",
+            "data_classification",
+            "observation_digest",
+        },
+        "resolved_request",
+    )
+    query = _require_mapping(value["query"], "resolved_request.query")
+    _require_exact_keys(
+        query,
+        {
+            "tenant_id",
+            "task_id",
+            "message_id",
+            "message_ref",
+            "purpose",
+            "security_context_ref",
+        },
+        "resolved_request.query",
+    )
+    fields = _require_mapping(value["fields"], "resolved_request.fields")
+    if any(not isinstance(item, str) for item in fields.values()):
+        raise _invalid_pack("resolved request fields must be strings")
+    try:
+        resolved = ResolvedRequestReference(
+            query=RequestReferenceQuery(
+                tenant_id=query["tenant_id"],
+                task_id=query["task_id"],
+                message_id=query["message_id"],
+                message_ref=query["message_ref"],
+                purpose=query["purpose"],
+                security_context_ref=query["security_context_ref"],
+            ),
+            observation_ref=value["observation_ref"],
+            source_digest=value["source_digest"],
+            intent=value["intent"],
+            fields=cast(Mapping[str, str], fields),
+            data_classification=DataClassification(value["data_classification"]),
+            observation_digest=value["observation_digest"],
+        )
+        resolved.assert_digest()
+    except (TypeError, ValueError) as exc:
+        raise _invalid_pack("resolved request fixture is invalid") from exc
+    return resolved
+
+
+def _assert_fixture_request_binding(
+    command: TaskCommand,
+    resolved: ResolvedRequestReference,
+) -> None:
+    if command.command_type is CommandType.CREATE:
+        message_id = command.payload["initial_message_id"]
+        message_ref = command.payload["initial_message_ref"]
+    elif command.command_type is CommandType.SUBMIT_MESSAGE:
+        message_id = command.payload["message_id"]
+        message_ref = command.payload["message_ref"]
+    else:
+        raise _invalid_pack("fixture command does not contain a message reference")
+    query = resolved.query
+    if (
+        query.tenant_id != command.tenant_id
+        or query.task_id != command.task_id
+        or query.message_id != message_id
+        or query.message_ref != message_ref
+        or query.purpose != command.security_context.purpose
+        or query.security_context_ref != command.security_context.context_ref
+        or resolved.intent == ""
+    ):
+        raise _invalid_pack(
+            "resolved request does not match the fixture command binding"
+        )
+
+
+def _parse_knowledge_sample(
+    value: Mapping[str, Any],
+) -> DomainKnowledgeSample:
+    _require_exact_keys(
+        value,
+        {
+            "knowledge_fixture_version",
+            "source_ref",
+            "tenant_id",
+            "document_id",
+            "document_version",
+            "section",
+            "chunk_id",
+            "data_classification",
+            "acl_subjects",
+            "effective_at",
+            "expires_at",
+            "content_summary",
+            "content_hash",
+        },
+        "knowledge sample",
+    )
+    if value["knowledge_fixture_version"] != (
+        "flowpilot.domain-pack.knowledge-fixture.v1"
+    ):
+        raise _invalid_pack("knowledge fixture version is unsupported")
+    acl_subjects = _require_string_list(
+        value["acl_subjects"],
+        "knowledge.acl_subjects",
+        unique=True,
+    )
+    if not acl_subjects:
+        raise _invalid_pack("knowledge sample ACL must not be empty")
+    expires_at = value["expires_at"]
+    parsed_expires_at = (
+        _require_timestamp(expires_at, "knowledge.expires_at")
+        if expires_at is not None
+        else None
+    )
+    try:
+        data_classification = DataClassification(value["data_classification"])
+    except ValueError as exc:
+        raise _invalid_pack(
+            "knowledge sample data classification is invalid"
+        ) from exc
+    effective_at = _require_timestamp(
+        value["effective_at"], "knowledge.effective_at"
+    )
+    if parsed_expires_at is not None and parsed_expires_at <= effective_at:
+        raise _invalid_pack("knowledge expires_at must be after effective_at")
+    tenant_id = _require_string(
+        value["tenant_id"], "knowledge.tenant_id", maximum=128
+    )
+    source_ref = _require_string(
+        value["source_ref"], "knowledge.source_ref", maximum=512
+    )
+    if not source_ref.startswith(f"knowledge://{tenant_id}/"):
+        raise _invalid_pack(
+            "knowledge source_ref does not match the trusted tenant binding"
+        )
+    return DomainKnowledgeSample(
+        source_ref=source_ref,
+        tenant_id=tenant_id,
+        document_id=_require_local_id(
+            value["document_id"], "knowledge.document_id"
+        ),
+        document_version=_require_string(
+            value["document_version"],
+            "knowledge.document_version",
+            maximum=128,
+        ),
+        section=_require_string(
+            value["section"], "knowledge.section", maximum=256
+        ),
+        chunk_id=_require_local_id(value["chunk_id"], "knowledge.chunk_id"),
+        data_classification=data_classification,
+        acl_subjects=acl_subjects,
+        effective_at=effective_at,
+        expires_at=parsed_expires_at,
+        content_summary=_require_string(
+            value["content_summary"],
+            "knowledge.content_summary",
+            maximum=2048,
+        ),
+        content_hash=_require_sha256(
+            value["content_hash"], "knowledge.content_hash"
+        ),
+    )
+
+
+def _parse_reference_expectations(
+    value: Mapping[str, Any],
+    fixtures_by_case_id: Mapping[str, DomainPackFixture],
+    knowledge_by_ref: Mapping[str, DomainKnowledgeSample],
+) -> tuple[DomainReferenceExpectation, ...]:
+    _require_exact_keys(
+        value,
+        {"schema_version", "cases"},
+        "reference expectations",
+    )
+    if value["schema_version"] != (
+        "flowpilot.domain-pack.reference-expectations.v1"
+    ):
+        raise _invalid_pack("reference expectations version is unsupported")
+    entries = _require_mapping_list(value["cases"], "reference expectations")
+    expectations: list[DomainReferenceExpectation] = []
+    for entry in entries:
+        _require_exact_keys(
+            entry,
+            {"case_id", "expected_citations", "excluded_source_refs"},
+            "reference expectation",
+        )
+        citations = tuple(
+            _parse_citation(item)
+            for item in _require_mapping_list(
+                entry["expected_citations"],
+                "expected_citations",
+            )
+        )
+        excluded = _require_string_list(
+            entry["excluded_source_refs"],
+            "excluded_source_refs",
+            unique=True,
+        )
+        referenced = {
+            citation.source_ref for citation in citations
+        } | set(excluded)
+        if not referenced <= set(knowledge_by_ref):
+            raise _invalid_pack(
+                "reference expectation points to an unknown knowledge sample"
+            )
+        if {citation.source_ref for citation in citations} & set(excluded):
+            raise _invalid_pack(
+                "reference expectation cannot include and exclude one source"
+            )
+        for citation in citations:
+            sample = knowledge_by_ref[citation.source_ref]
+            if (
+                citation.document_version != sample.document_version
+                or citation.section != sample.section
+                or citation.content_hash != sample.content_hash
+            ):
+                raise _invalid_pack(
+                    "citation expectation does not match the knowledge sample"
+                )
+        expectations.append(
+            DomainReferenceExpectation(
+                case_id=_require_local_id(
+                    entry["case_id"], "reference expectation case_id"
+                ),
+                expected_citations=citations,
+                excluded_source_refs=excluded,
+            )
+        )
+    case_ids = [expectation.case_id for expectation in expectations]
+    if set(case_ids) != set(fixtures_by_case_id) or len(case_ids) != len(
+        set(case_ids)
+    ):
+        raise _invalid_pack(
+            "reference expectations must cover every fixture case exactly"
+        )
+    for expectation in expectations:
+        fixture = fixtures_by_case_id[expectation.case_id]
+        if not fixture.expected_missing_fields and not expectation.expected_citations:
+            raise _invalid_pack(
+                "complete request fixtures must expect at least one citation"
+            )
+        if fixture.expected_missing_fields and expectation.expected_citations:
+            raise _invalid_pack(
+                "incomplete request fixtures cannot expect result citations"
+            )
+    return tuple(expectations)
+
+
+def _parse_citation(value: Mapping[str, Any]) -> ResultCitation:
+    _require_exact_keys(
+        value,
+        {"source_ref", "document_version", "section", "content_hash"},
+        "citation",
+    )
+    try:
+        return ResultCitation(
+            source_ref=value["source_ref"],
+            document_version=value["document_version"],
+            section=value["section"],
+            content_hash=value["content_hash"],
+        )
+    except (TypeError, ValueError) as exc:
+        raise _invalid_pack("citation expectation is invalid") from exc
 
 
 def _load_yaml_ref(root: Path, reference: str) -> Mapping[str, Any]:
@@ -424,6 +826,27 @@ def _require_ref(value: Any, field: str, suffix: str) -> str:
     if path.is_absolute() or path.suffix != suffix:
         raise _invalid_pack(f"{field} must be a relative {suffix} path")
     return reference
+
+
+def _require_sha256(value: Any, field: str) -> str:
+    digest = _require_string(value, field, maximum=71)
+    if re.fullmatch(r"^sha256:[a-f0-9]{64}$", digest) is None:
+        raise _invalid_pack(f"{field} must be a lowercase sha256 digest")
+    return digest
+
+
+def _require_timestamp(value: Any, field: str) -> datetime:
+    timestamp = _require_string(value, field, maximum=64)
+    candidate = (
+        timestamp[:-1] + "+00:00" if timestamp.endswith("Z") else timestamp
+    )
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise _invalid_pack(f"{field} must be an RFC 3339 timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise _invalid_pack(f"{field} must be timezone-aware")
+    return parsed.astimezone(UTC)
 
 
 def _require_exact_keys(

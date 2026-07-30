@@ -336,3 +336,23 @@ def test_openapi_exposes_only_versioned_strict_command_variants() -> None:
     for reference in command_schema["oneOf"]:
         name = reference["$ref"].rsplit("/", maxsplit=1)[-1]
         assert schema["components"]["schemas"][name]["additionalProperties"] is False
+
+
+def test_public_api_keeps_request_and_result_content_behind_references() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    create_payload = schemas["CreateTaskPayload"]["properties"]
+    task_projection = schemas["TaskBody"]["properties"]
+
+    assert "initial_message_ref" in create_payload
+    assert {
+        "initial_message",
+        "message_text",
+        "request_observation",
+    }.isdisjoint(create_payload)
+    assert "result_ref" in task_projection
+    assert {
+        "result",
+        "answer",
+        "content",
+        "citations",
+    }.isdisjoint(task_projection)

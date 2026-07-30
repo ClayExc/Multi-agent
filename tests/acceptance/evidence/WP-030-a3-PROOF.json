@@ -1,0 +1,121 @@
+{
+  "schema_version": "flowpilot.wp030a3-proof.v1",
+  "chain_id": "CHAIN-M2-STUDIO-01",
+  "step_id": "M2-STUDIO-03-S4",
+  "attempt_id": "WP-030-a3",
+  "session_role": "S4-QUALITY",
+  "input_head": "cf5102d1ff66d3fd04362d68f48a6aba9b32acfa",
+  "implementation_head": "14d0d560864ddc903355d6d132e0afbb03442652",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "scope": {
+    "release_gate": false,
+    "dataset_completion_claim": false,
+    "measured_quality_claim": false,
+    "production_connection": false,
+    "write_paths": [
+      "artifacts/acceptance/generators/**",
+      "tests/acceptance/**"
+    ]
+  },
+  "coverage": {
+    "stable_graph_id": true,
+    "independent_topology_oracle": true,
+    "real_agent_server_api": true,
+    "clarification_interrupt_resume": true,
+    "approval_interrupt_resume": true,
+    "parallel_reads_handoff_retry": true,
+    "checkpoint_history_parent_chain": true,
+    "checkpoint_sequence_and_run_generation": true,
+    "closed_debug_projection": true,
+    "production_profile_edit_rejected": true,
+    "approval_denial_failed_closed": true,
+    "authoritative_and_sensitive_input_hidden": true,
+    "no_authoritative_write": true,
+    "business_source_fingerprint_unchanged": true,
+    "process_port_and_runtime_cleanup": true
+  },
+  "test_results": [
+    {
+      "command": "python -B -m pytest tests/acceptance/studio -q",
+      "result": "PASS",
+      "summary": "4 passed in 16.10s; real local Agent Server lifecycle included"
+    },
+    {
+      "command": "python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "65 passed in 18.51s"
+    },
+    {
+      "command": "make test",
+      "result": "PASS",
+      "summary": "213 passed in 3.71s"
+    },
+    {
+      "command": "make test-security",
+      "result": "PASS",
+      "summary": "51 passed in 0.92s"
+    },
+    {
+      "command": "make test-contract",
+      "result": "PASS",
+      "summary": "CONTRACT_CONFORMANCE_OK; semantic_negative=43"
+    },
+    {
+      "command": "python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "gate=pass; case_count=2; findings=0"
+    },
+    {
+      "command": "ruff check <WP-030-a3 files>",
+      "result": "PASS",
+      "summary": "All checks passed"
+    },
+    {
+      "command": "mypy --strict artifacts/acceptance/generators",
+      "result": "PASS",
+      "summary": "3 source files"
+    },
+    {
+      "command": "PYTHONUTF8=1 uv run --all-packages --all-groups --locked langgraph --version && langgraph dev --help",
+      "result": "PASS",
+      "summary": "LangGraph CLI 0.4.31; local dev command is available"
+    },
+    {
+      "command": "make studio-smoke",
+      "result": "ENV_BLOCKED",
+      "summary": "the available Windows GNU Make invokes /usr/bin/bash, which strips the drive separators from the absolute UV override; the two locked target commands passed directly with PYTHONUTF8=1"
+    },
+    {
+      "command": "ruff check artifacts/acceptance/generators tests/acceptance",
+      "result": "INHERITED_FINDINGS",
+      "summary": "4 I001 findings in pre-existing WP-030-a1 files outside this Attempt diff; changed-file Ruff passed"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_RUN",
+      "summary": "target remains unimplemented and Makefile is outside this Step write scope"
+    }
+  ],
+  "encoding_and_secret_gates": {
+    "changed_files_utf8": true,
+    "changed_files_lf": true,
+    "changed_files_bom": false,
+    "topology_oracle_duplicate_json_keys": false,
+    "high_confidence_secret_matches": 0
+  },
+  "cleanup": {
+    "agent_server_process_residual": 0,
+    "agent_server_listening_port_residual": 0,
+    "langgraph_api_directory_residual": 0
+  },
+  "environment": {
+    "locked_python": "3.12.11",
+    "uv": "0.11.32",
+    "pytest": "9.1.1",
+    "langgraph_cli": "0.4.31",
+    "langgraph_api": "0.11.2",
+    "langgraph_runtime_inmem": "0.31.2",
+    "langgraph_sdk": "0.4.2",
+    "make": "GNU Make 4.4.1"
+  }
+}

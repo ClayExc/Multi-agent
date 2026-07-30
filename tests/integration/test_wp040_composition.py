@@ -396,3 +396,185 @@ def test_m1_scope_rules_do_not_allow_exact_path_prefixes(
     )
 
     assert violations == ["uv.lock.backup"]
+
+
+def test_m2_studio_candidate_is_exact_and_dependency_complete(
+    verifier: ModuleType,
+) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.M2_STUDIO_CANDIDATE,
+        target_head=verifier.M2_INPUT_HEAD,
+    )
+
+    assert manifest["summary"] == {
+        "check_count": 40,
+        "failed_check_count": 0,
+        "failed_checks": [],
+        "verdict": "PASS",
+    }
+    assert manifest["chain_id"] == "CHAIN-M2-STUDIO-01"
+    assert manifest["topology"]["commit_count"] == 6
+    assert manifest["workspace"]["member_count"] == 14
+    assert manifest["workspace"]["lock_package_count"] == 116
+    assert manifest["workspace"]["expected_wheel_count"] == 14
+    assert manifest["workspace"]["agent_server_versions"] == {
+        "langgraph-api": "0.11.2",
+        "langgraph-cli": "0.4.31",
+        "langgraph-runtime-inmem": "0.31.2",
+        "langgraph-sdk": "0.4.2",
+    }
+    assert manifest["security"]["high_confidence_secret_findings"] == []
+
+
+def test_m2_studio_manifest_and_report_are_deterministic(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.M2_STUDIO_CANDIDATE,
+        target_head=verifier.M2_INPUT_HEAD,
+    )
+    first = verifier.write_artifacts(manifest, tmp_path / "first")
+    second = verifier.write_artifacts(manifest, tmp_path / "second")
+
+    assert first[0].read_bytes() == second[0].read_bytes()
+    assert first[1].read_bytes() == second[1].read_bytes()
+    assert first[2:] == second[2:]
+
+
+def test_m2_studio_topology_and_evidence_are_closed(
+    verifier: ModuleType,
+) -> None:
+    manifest = verifier.build_manifest(
+        ROOT,
+        phase=verifier.ValidationPhase.M2_STUDIO_CANDIDATE,
+        target_head=verifier.M2_INPUT_HEAD,
+    )
+
+    assert all(
+        not step["violations"]
+        for step in manifest["topology"]["steps"].values()
+    )
+    assert manifest["studio"]["runtime_topology"] == {
+        "graph_id": "flowpilot_it_service",
+        "factory_id": "flowpilot.graph.factory.v1",
+        "topology_digest": (
+            "sha256:f915742bd4c091b44364ab3073b485901338bd8c270d146"
+            "3344b9eb52a31d8c2"
+        ),
+        "node_count": 14,
+        "edge_count": 20,
+    }
+    assert manifest["studio"]["quality_topology"] == {
+        "graph_id": "flowpilot_it_service",
+        "node_count": 16,
+        "edge_count": 22,
+    }
+    assert manifest["evidence"]["S5_HANDOFF"]["sha256"] == (
+        "sha256:98e1e1e4442dfe7bdce2f309a9e516e"
+        "a223173d126680257451c17203c49e799"
+    )
+    assert manifest["evidence"]["S2_HANDOFF"]["sha256"] == (
+        "sha256:e9542a5c95592679f2e4fac29fefcd36"
+        "b97531c59b22fe99c876a6298c730ce3"
+    )
+    assert manifest["evidence"]["S4_HANDOFF"]["sha256"] == (
+        "sha256:d5ab849a707d91468c2dd5876ae69271"
+        "b518d0c26865fba2251d60dc176fa712"
+    )
+    assert manifest["evidence"]["S4_PROOF"]["sha256"] == (
+        "sha256:027346eaf7b4ec620804c7c08b39ce8b"
+        "5cfbc4616e18339cd0e9928f3b329dcd"
+    )
+    assert all(
+        value == 0
+        for value in manifest["evidence"]["S4_PROOF_SEMANTICS"][
+            "cleanup"
+        ].values()
+    )
+
+
+def test_m2_studio_wrong_linear_parent_fails_closed(
+    verifier: ModuleType,
+) -> None:
+    wrong = {
+        verifier.M2_WORKSPACE_IMPLEMENTATION_HEAD: (
+            verifier.M2_ACTIVATION_COMMIT
+        ),
+        verifier.M2_WORKSPACE_HEAD: verifier.M2_ACTIVATION_COMMIT,
+    }
+
+    _record, checks = verifier.verify_m2_topology(ROOT, wrong)
+
+    assert checks[0].check_id == "m2.git.linear_topology"
+    assert checks[0].outcome == "FAIL"
+    assert "expected=" in checks[0].evidence
+
+
+def test_m2_studio_candidate_rejects_non_s7_delta(
+    verifier: ModuleType,
+) -> None:
+    violations = verifier.path_scope_violations(
+        (
+            "scripts/integration/verify_wp040.py",
+            "apps/worker/src/flowpilot_worker/studio.py",
+        ),
+        verifier.S7_ALLOWED_PREFIXES,
+    )
+
+    assert violations == ["apps/worker/src/flowpilot_worker/studio.py"]
+
+
+def test_m2_studio_final_requires_reviewed_s7_head(
+    verifier: ModuleType,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="--s7-head is required for M2_STUDIO_S1_FINAL",
+    ):
+        verifier.build_manifest(
+            ROOT,
+            phase=verifier.ValidationPhase.M2_STUDIO_S1_FINAL,
+            target_head=verifier.M2_INPUT_HEAD,
+        )
+
+
+def test_m2_studio_final_scope_keeps_product_protected(
+    verifier: ModuleType,
+) -> None:
+    allowed = [
+        ("M", "docs/review/WP-040-A5-S1-FINAL-REVIEW.md"),
+        ("M", "scripts/integration/verify_wp040.py"),
+        ("A", "tests/integration/evidence/WP-040-a5-HANDOFF.md"),
+        ("M", ".gitignore"),
+    ]
+    forbidden = allowed + [
+        ("M", "apps/worker/src/flowpilot_worker/studio.py"),
+        ("A", "web/studio-shortcut.ts"),
+    ]
+
+    assert verifier.final_scope_violations(allowed, ".idea/\n") == []
+    assert verifier.final_scope_violations(forbidden, ".idea/\n") == [
+        "A:web/studio-shortcut.ts",
+        "M:apps/worker/src/flowpilot_worker/studio.py",
+    ]
+
+
+def test_m2_studio_static_profile_is_fail_closed(
+    verifier: ModuleType,
+) -> None:
+    studio, checks = verifier.verify_m2_studio_static(
+        ROOT,
+        verifier.M2_INPUT_HEAD,
+    )
+
+    assert all(check.outcome == "PASS" for check in checks)
+    assert studio["config"]["env"]["FLOWPILOT_STUDIO_PROFILE"] == (
+        "studio-safe"
+    )
+    assert studio["config"]["env"]["FLOWPILOT_EXTERNAL_NETWORK"] == (
+        "disabled"
+    )
+    assert "--tunnel" not in "\n".join(studio["make_surface"])

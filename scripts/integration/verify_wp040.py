@@ -261,6 +261,79 @@ M1_PRODUCT_PATHS = (
     "uv.lock",
 )
 
+M2_CHAIN_ID = "CHAIN-M2-STUDIO-01"
+M2_ACTIVATION_COMMIT = "31f244c7ab28f8c635cc973dab1f591b55105429"
+M2_WORKSPACE_IMPLEMENTATION_HEAD = (
+    "19fa132e4a9a4d1bc71d7951c5c2645af9e39e30"
+)
+M2_WORKSPACE_HEAD = "c6b250e3b3a5b7df93b60857b5ee438027ee2ff3"
+M2_RUNTIME_IMPLEMENTATION_HEAD = (
+    "de5e41b7ecc9732fccde3fe1b068f1f1fba11115"
+)
+M2_RUNTIME_HEAD = "cf5102d1ff66d3fd04362d68f48a6aba9b32acfa"
+M2_QUALITY_IMPLEMENTATION_HEAD = (
+    "14d0d560864ddc903355d6d132e0afbb03442652"
+)
+M2_INPUT_HEAD = "8a351326ad33db195098ffd4c2f8a4b9f6b5a598"
+M2_AUTHORITY_PATH = (
+    "docs/team/chain-authorizations/CHAIN-M2-STUDIO-01.md"
+)
+M2_AUTHORITY_SHA256 = (
+    "b0e5d99b0994c7b437138b7e83740c8f"
+    "0cff6c23af084c807e2dde09e326ad04"
+)
+M2_LOCK_DIGEST = (
+    "sha256:9c9ab3febad1a13571d51e567c6546f2"
+    "7be809f86927e03b0e64339e4ac957c2"
+)
+M2_EVIDENCE: dict[str, tuple[str, str, str]] = {
+    "S5_HANDOFF": (
+        M2_WORKSPACE_HEAD,
+        "tests/core/evidence/WP-011-a5-HANDOFF.md",
+        "98e1e1e4442dfe7bdce2f309a9e516ea223173d126680257451c17203c49e799",
+    ),
+    "S2_HANDOFF": (
+        M2_RUNTIME_HEAD,
+        "tests/runtime/evidence/WP-012-a1-HANDOFF.md",
+        "e9542a5c95592679f2e4fac29fefcd36b97531c59b22fe99c876a6298c730ce3",
+    ),
+    "S4_HANDOFF": (
+        M2_INPUT_HEAD,
+        "tests/acceptance/evidence/WP-030-a3-HANDOFF.md",
+        "d5ab849a707d91468c2dd5876ae69271b518d0c26865fba2251d60dc176fa712",
+    ),
+    "S4_PROOF": (
+        M2_INPUT_HEAD,
+        "tests/acceptance/evidence/WP-030-a3-PROOF.json",
+        "027346eaf7b4ec620804c7c08b39ce8b5cfbc4616e18339cd0e9928f3b329dcd",
+    ),
+}
+M2_AGENT_SERVER_VERSIONS = {
+    "langgraph-api": "0.11.2",
+    "langgraph-cli": "0.4.31",
+    "langgraph-runtime-inmem": "0.31.2",
+    "langgraph-sdk": "0.4.2",
+}
+M2_PRODUCT_PATHS = (
+    ".env.example",
+    "Makefile",
+    "apps",
+    "artifacts/acceptance",
+    "domain-packs",
+    "infra",
+    "langgraph.json",
+    "mcp-servers",
+    "migrations",
+    "packages",
+    "pyproject.toml",
+    "tests/acceptance",
+    "tests/core",
+    "tests/data",
+    "tests/platform",
+    "tests/runtime",
+    "uv.lock",
+)
+
 HIGH_CONFIDENCE_SECRET_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -274,6 +347,8 @@ class ValidationPhase(StrEnum):
     S1_FINAL = "S1_FINAL"
     M1_PLATFORM_CANDIDATE = "M1_PLATFORM_CANDIDATE"
     M1_PLATFORM_S1_FINAL = "M1_PLATFORM_S1_FINAL"
+    M2_STUDIO_CANDIDATE = "M2_STUDIO_CANDIDATE"
+    M2_STUDIO_S1_FINAL = "M2_STUDIO_S1_FINAL"
 
 
 @dataclass(frozen=True)
@@ -1866,6 +1941,902 @@ def build_m1_platform_manifest(
     return manifest
 
 
+def verify_m2_topology(
+    repo: Path,
+    expected_parents: dict[str, str] | None = None,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    parents = expected_parents or {
+        M2_WORKSPACE_IMPLEMENTATION_HEAD: M2_ACTIVATION_COMMIT,
+        M2_WORKSPACE_HEAD: M2_WORKSPACE_IMPLEMENTATION_HEAD,
+        M2_RUNTIME_IMPLEMENTATION_HEAD: M2_WORKSPACE_HEAD,
+        M2_RUNTIME_HEAD: M2_RUNTIME_IMPLEMENTATION_HEAD,
+        M2_QUALITY_IMPLEMENTATION_HEAD: M2_RUNTIME_HEAD,
+        M2_INPUT_HEAD: M2_QUALITY_IMPLEMENTATION_HEAD,
+    }
+    parent_records: dict[str, list[str]] = {}
+    parent_failures: list[str] = []
+    for head, expected_parent in parents.items():
+        actual = run_git(repo, "show", "-s", "--format=%P", head).split()
+        parent_records[head] = actual
+        if actual != [expected_parent]:
+            parent_failures.append(
+                f"{head}:parents={actual}:expected={[expected_parent]}"
+            )
+
+    step_scopes = {
+        "S5_WORKSPACE": {
+            "base": M2_ACTIVATION_COMMIT,
+            "head": M2_WORKSPACE_IMPLEMENTATION_HEAD,
+            "exact": ("Makefile", "pyproject.toml", "uv.lock"),
+            "prefixes": (),
+        },
+        "S5_HANDOFF": {
+            "base": M2_WORKSPACE_IMPLEMENTATION_HEAD,
+            "head": M2_WORKSPACE_HEAD,
+            "exact": ("tests/core/evidence/WP-011-a5-HANDOFF.md",),
+            "prefixes": (),
+        },
+        "S2_RUNTIME": {
+            "base": M2_WORKSPACE_HEAD,
+            "head": M2_RUNTIME_IMPLEMENTATION_HEAD,
+            "exact": ("langgraph.json",),
+            "prefixes": (
+                "apps/worker/",
+                "packages/graph/",
+                "tests/runtime/",
+            ),
+        },
+        "S2_HANDOFF": {
+            "base": M2_RUNTIME_IMPLEMENTATION_HEAD,
+            "head": M2_RUNTIME_HEAD,
+            "exact": ("tests/runtime/evidence/WP-012-a1-HANDOFF.md",),
+            "prefixes": (),
+        },
+        "S4_QUALITY": {
+            "base": M2_RUNTIME_HEAD,
+            "head": M2_QUALITY_IMPLEMENTATION_HEAD,
+            "exact": (),
+            "prefixes": (
+                "artifacts/acceptance/generators/",
+                "tests/acceptance/",
+            ),
+        },
+        "S4_HANDOFF": {
+            "base": M2_QUALITY_IMPLEMENTATION_HEAD,
+            "head": M2_INPUT_HEAD,
+            "exact": (
+                "tests/acceptance/evidence/WP-030-a3-HANDOFF.md",
+                "tests/acceptance/evidence/WP-030-a3-PROOF.json",
+            ),
+            "prefixes": (),
+        },
+    }
+    scope_records: dict[str, Any] = {}
+    checks = [
+        make_check(
+            "m2.git.linear_topology",
+            not parent_failures,
+            f"failures={parent_failures or 'none'}",
+        )
+    ]
+    for step, specification in step_scopes.items():
+        paths = changed_paths(
+            repo,
+            str(specification["base"]),
+            str(specification["head"]),
+        )
+        violations = path_scope_violations_by_rule(
+            paths,
+            exact=specification["exact"],
+            prefixes=specification["prefixes"],
+        )
+        scope_records[step] = {
+            "base": specification["base"],
+            "head": specification["head"],
+            "changed_paths": paths,
+            "violations": violations,
+        }
+        checks.append(
+            make_check(
+                f"m2.scope.{step.lower()}",
+                not violations,
+                f"changed={len(paths)} violations={violations or 'none'}",
+            )
+        )
+
+    commit_count = int(
+        run_git(
+            repo,
+            "rev-list",
+            "--count",
+            f"{M2_ACTIVATION_COMMIT}..{M2_INPUT_HEAD}",
+        )
+    )
+    checks.append(
+        make_check(
+            "m2.git.commit_range",
+            commit_count == 6,
+            f"commits={commit_count}",
+        )
+    )
+    return (
+        {
+            "activation_commit": M2_ACTIVATION_COMMIT,
+            "input_head": M2_INPUT_HEAD,
+            "commit_count": commit_count,
+            "parents": parent_records,
+            "steps": scope_records,
+        },
+        checks,
+    )
+
+
+def verify_m2_evidence(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
+    records: dict[str, Any] = {}
+    checks: list[CheckResult] = []
+    for evidence_id, (revision, path, expected_hash) in M2_EVIDENCE.items():
+        actual_hash = sha256_bytes(revision_file_bytes(repo, revision, path))
+        records[evidence_id] = {
+            "revision": revision,
+            "path": path,
+            "sha256": f"sha256:{actual_hash}",
+        }
+        checks.append(
+            make_check(
+                f"m2.evidence.{evidence_id.lower()}",
+                actual_hash == expected_hash,
+                f"sha256:{actual_hash}",
+            )
+        )
+
+    authority_hash = sha256_bytes(
+        revision_file_bytes(
+            repo,
+            M2_ACTIVATION_COMMIT,
+            M2_AUTHORITY_PATH,
+        )
+    )
+    authority_text = revision_file_text(
+        repo,
+        M2_ACTIVATION_COMMIT,
+        M2_AUTHORITY_PATH,
+    )
+    authority_tokens = (
+        "CHAIN_ID=CHAIN-M2-STUDIO-01",
+        "STATUS=ACTIVE",
+        "RISK_CLASS=R2",
+        "FINAL_GATE=S7-INTEGRATION->S1-ARCH",
+        "STEP_ID=M2-STUDIO-04-S7",
+        "ATTEMPT_ID=WP-040-a5",
+    )
+    authority_valid = (
+        authority_hash == M2_AUTHORITY_SHA256
+        and all(token in authority_text for token in authority_tokens)
+    )
+    checks.append(
+        make_check(
+            "m2.evidence.chain_authority",
+            authority_valid,
+            f"sha256:{authority_hash}",
+        )
+    )
+    records["CHAIN_AUTHORITY"] = {
+        "revision": M2_ACTIVATION_COMMIT,
+        "path": M2_AUTHORITY_PATH,
+        "sha256": f"sha256:{authority_hash}",
+    }
+
+    proof = load_revision_json(
+        repo,
+        M2_INPUT_HEAD,
+        "tests/acceptance/evidence/WP-030-a3-PROOF.json",
+    )
+    cleanup = proof["cleanup"]
+    proof_valid = (
+        proof["schema_version"] == "flowpilot.wp030a3-proof.v1"
+        and proof["chain_id"] == M2_CHAIN_ID
+        and proof["input_head"] == M2_RUNTIME_HEAD
+        and proof["implementation_head"] == M2_QUALITY_IMPLEMENTATION_HEAD
+        and proof["contract_content_digest"] == CONTRACT_DIGEST
+        and proof["scope"]["release_gate"] is False
+        and proof["scope"]["dataset_completion_claim"] is False
+        and proof["scope"]["measured_quality_claim"] is False
+        and proof["scope"]["production_connection"] is False
+        and all(proof["coverage"].values())
+        and all(value == 0 for value in cleanup.values())
+        and (
+            proof["encoding_and_secret_gates"][
+                "high_confidence_secret_matches"
+            ]
+            == 0
+        )
+    )
+    checks.append(
+        make_check(
+            "m2.evidence.s4_proof_semantics",
+            proof_valid,
+            (
+                f"coverage={len(proof['coverage'])} "
+                f"tests={len(proof['test_results'])} cleanup={cleanup}"
+            ),
+        )
+    )
+    records["S4_PROOF_SEMANTICS"] = {
+        "coverage": proof["coverage"],
+        "cleanup": cleanup,
+        "environment": proof["environment"],
+        "release_gate": proof["scope"]["release_gate"],
+        "dataset_completion_claim": proof["scope"][
+            "dataset_completion_claim"
+        ],
+    }
+    return records, checks
+
+
+def verify_m2_workspace(
+    repo: Path,
+    revision: str,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    root = tomllib.loads(
+        revision_file_text(repo, revision, "pyproject.toml")
+    )
+    lock_bytes = revision_file_bytes(repo, revision, "uv.lock")
+    lock = tomllib.loads(lock_bytes.decode("utf-8", errors="strict"))
+    actual_members = root["tool"]["uv"]["workspace"]["members"]
+    actual_sources = root["tool"]["uv"]["sources"]
+    expected_members = list(M1_WORKSPACE_PACKAGES)
+    expected_names = set(M1_WORKSPACE_PACKAGES.values())
+    expected_lock_members = expected_names | {"flowpilot-workspace"}
+    lock_members = set(lock["manifest"]["members"])
+    lock_packages = [package["name"] for package in lock["package"]]
+    package_versions = {
+        str(package["name"]): str(package.get("version", ""))
+        for package in lock["package"]
+    }
+    locked_agent_server_versions = {
+        package: package_versions.get(package, "missing")
+        for package in M2_AGENT_SERVER_VERSIONS
+    }
+
+    project_names: dict[str, str] = {}
+    missing_members: list[str] = []
+    internal_dependency_violations: list[str] = []
+    for member, expected_name in M1_WORKSPACE_PACKAGES.items():
+        path = f"{member}/pyproject.toml"
+        if not git_object_exists(repo, f"{revision}:{path}"):
+            missing_members.append(member)
+            continue
+        package = tomllib.loads(revision_file_text(repo, revision, path))
+        project_name = package["project"]["name"]
+        project_names[member] = project_name
+        if project_name != expected_name:
+            missing_members.append(
+                f"{member}:name={project_name}:expected={expected_name}"
+            )
+        for requirement in package["project"].get("dependencies", []):
+            match = re.match(r"([A-Za-z0-9_.-]+)", requirement)
+            if match is None:
+                internal_dependency_violations.append(
+                    f"{member}:invalid={requirement}"
+                )
+                continue
+            dependency = match.group(1).lower().replace("_", "-")
+            if (
+                dependency.startswith("flowpilot-")
+                and dependency not in expected_names
+            ):
+                internal_dependency_violations.append(
+                    f"{member}:missing={dependency}"
+                )
+
+    source_mismatches = [
+        package
+        for package in sorted(expected_names)
+        if actual_sources.get(package) != {"workspace": True}
+    ]
+    dev_dependencies = root["dependency-groups"]["dev"]
+    studio_dependency = "langgraph-cli[inmem]>=0.4.31,<0.5"
+    lock_hash = sha256_bytes(lock_bytes)
+    checks = [
+        make_check(
+            "m2.workspace.members",
+            actual_members == expected_members and not missing_members,
+            (
+                f"members={len(actual_members)} "
+                f"missing_or_mismatched={missing_members or 'none'}"
+            ),
+        ),
+        make_check(
+            "m2.workspace.sources",
+            set(actual_sources) == expected_names and not source_mismatches,
+            f"mismatches={source_mismatches or 'none'}",
+        ),
+        make_check(
+            "m2.workspace.internal_dependencies",
+            not internal_dependency_violations,
+            f"violations={internal_dependency_violations or 'none'}",
+        ),
+        make_check(
+            "m2.workspace.lock_members",
+            lock_members == expected_lock_members,
+            f"members={len(lock_members)}",
+        ),
+        make_check(
+            "m2.workspace.lock_packages",
+            len(lock_packages) == 116
+            and len(lock_packages) == len(set(lock_packages)),
+            f"packages={len(lock_packages)} unique={len(set(lock_packages))}",
+        ),
+        make_check(
+            "m2.workspace.lock_digest",
+            f"sha256:{lock_hash}" == M2_LOCK_DIGEST,
+            f"sha256:{lock_hash}",
+        ),
+        make_check(
+            "m2.workspace.studio_dependency",
+            studio_dependency in dev_dependencies
+            and locked_agent_server_versions == M2_AGENT_SERVER_VERSIONS,
+            (
+                f"declared={studio_dependency in dev_dependencies} "
+                f"versions={locked_agent_server_versions}"
+            ),
+        ),
+    ]
+    return (
+        {
+            "member_count": len(actual_members),
+            "members": actual_members,
+            "project_names": project_names,
+            "source_count": len(actual_sources),
+            "lock_member_count": len(lock_members),
+            "lock_package_count": len(lock_packages),
+            "lock_sha256": f"sha256:{lock_hash}",
+            "expected_wheel_count": len(expected_names),
+            "internal_dependency_violations": internal_dependency_violations,
+            "agent_server_versions": locked_agent_server_versions,
+        },
+        checks,
+    )
+
+
+def verify_m2_studio_static(
+    repo: Path,
+    revision: str,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    config = load_revision_json(repo, revision, "langgraph.json")
+    runtime_topology = load_revision_json(
+        repo,
+        revision,
+        "tests/runtime/snapshots/flowpilot_it_service.topology.json",
+    )
+    quality_topology = load_revision_json(
+        repo,
+        revision,
+        "tests/acceptance/studio/expected_agent_server_topology.json",
+    )
+    makefile = revision_file_text(repo, revision, "Makefile")
+    studio_source = revision_file_text(
+        repo,
+        revision,
+        "apps/worker/src/flowpilot_worker/studio.py",
+    )
+    worker_source = revision_file_text(
+        repo,
+        revision,
+        "packages/graph/src/flowpilot_graph/langgraph_runtime.py",
+    )
+    debug_source = revision_file_text(
+        repo,
+        revision,
+        "packages/graph/src/flowpilot_graph/debug.py",
+    )
+
+    graphs = config.get("graphs", {})
+    env = config.get("env", {})
+    config_valid = (
+        config.get("python_version") == "3.12"
+        and config.get("source") == {"kind": "uv", "root": "."}
+        and graphs
+        == {
+            "flowpilot_it_service": (
+                "./apps/worker/src/flowpilot_worker/studio.py:graph"
+            )
+        }
+    )
+    safe_env = (
+        env.get("FLOWPILOT_STUDIO_PROFILE") == "studio-safe"
+        and env.get("FLOWPILOT_EXTERNAL_NETWORK") == "disabled"
+        and env.get("LANGSMITH_TRACING") == "false"
+        and env.get("PYTHONDONTWRITEBYTECODE") == "1"
+        and env.get("PYTHONUTF8") == "1"
+        and not any("KEY" in key or "TOKEN" in key for key in env)
+    )
+    make_studio_lines = [
+        line
+        for line in makefile.splitlines()
+        if "langgraph" in line or line.startswith("STUDIO_")
+    ]
+    make_surface_valid = (
+        "studio:" in makefile
+        and "studio-smoke:" in makefile
+        and "--host $(STUDIO_HOST)" in makefile
+        and "STUDIO_HOST ?= 127.0.0.1" in makefile
+        and "--no-browser" in makefile
+        and "--tunnel" not in makefile
+        and "LANGSMITH_TRACING=false" in makefile
+        and "--locked langgraph" in makefile
+    )
+    shared_factory_valid = (
+        "build_flowpilot_it_service_graph" in studio_source
+        and "build_flowpilot_it_service_graph" in worker_source
+        and "GRAPH_FACTORY_DIVERGED" in revision_file_text(
+            repo,
+            revision,
+            "packages/graph/src/flowpilot_graph/factory.py",
+        )
+    )
+    runtime_nodes = runtime_topology.get("nodes", [])
+    quality_nodes = quality_topology.get("node_ids", [])
+    topology_valid = (
+        runtime_topology.get("schema") == "flowpilot.graph-topology.v1"
+        and runtime_topology.get("graph_id") == "flowpilot_it_service"
+        and runtime_topology.get("factory_id")
+        == "flowpilot.graph.factory.v1"
+        and runtime_topology.get("topology_digest")
+        == (
+            "sha256:f915742bd4c091b44364ab3073b485901338bd8c270d146"
+            "3344b9eb52a31d8c2"
+        )
+        and len(runtime_nodes) == 14
+        and len(runtime_topology.get("edges", [])) == 20
+        and quality_topology.get("schema_version")
+        == "flowpilot.s4-agent-server-topology-oracle.m2.v1"
+        and quality_topology.get("graph_id") == "flowpilot_it_service"
+        and len(quality_nodes) == 16
+        and len(quality_topology.get("edges", [])) == 22
+        and set(quality_nodes) == set(runtime_nodes) | {"__start__", "__end__"}
+    )
+    fail_closed_source = (
+        "studio-integration" in debug_source
+        and "production" in debug_source
+        and "_assert_no_production_environment" in studio_source
+        and "studio-safe refuses production credentials and endpoints"
+        in studio_source
+    )
+    checks = [
+        make_check(
+            "m2.studio.config",
+            config_valid,
+            f"graphs={graphs}",
+        ),
+        make_check(
+            "m2.studio.safe_environment",
+            safe_env,
+            f"env_keys={sorted(env)}",
+        ),
+        make_check(
+            "m2.studio.make_surface",
+            make_surface_valid,
+            f"lines={make_studio_lines}",
+        ),
+        make_check(
+            "m2.studio.shared_factory",
+            shared_factory_valid,
+            "Worker and Studio consume the same named graph factory",
+        ),
+        make_check(
+            "m2.studio.independent_topologies",
+            topology_valid,
+            (
+                f"runtime_nodes={len(runtime_nodes)} "
+                f"api_nodes={len(quality_nodes)} "
+                f"api_edges={len(quality_topology.get('edges', []))}"
+            ),
+        ),
+        make_check(
+            "m2.studio.fail_closed_profiles",
+            fail_closed_source,
+            "production environment and integration profile stay explicit",
+        ),
+    ]
+    return (
+        {
+            "config": config,
+            "runtime_topology": {
+                "graph_id": runtime_topology.get("graph_id"),
+                "factory_id": runtime_topology.get("factory_id"),
+                "topology_digest": runtime_topology.get("topology_digest"),
+                "node_count": len(runtime_nodes),
+                "edge_count": len(runtime_topology.get("edges", [])),
+            },
+            "quality_topology": {
+                "graph_id": quality_topology.get("graph_id"),
+                "node_count": len(quality_nodes),
+                "edge_count": len(quality_topology.get("edges", [])),
+            },
+            "make_surface": make_studio_lines,
+        },
+        checks,
+    )
+
+
+def verify_m2_candidate_identity(
+    repo: Path,
+    target_head: str,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    product_identities, product_mismatches = compare_revision_paths(
+        repo,
+        M2_INPUT_HEAD,
+        target_head,
+        M2_PRODUCT_PATHS,
+    )
+    contract_input = revision_object_id(repo, M2_INPUT_HEAD, "contracts")
+    contract_target = revision_object_id(repo, target_head, "contracts")
+    migration_input = revision_object_id(repo, M2_INPUT_HEAD, "migrations")
+    migration_target = revision_object_id(repo, target_head, "migrations")
+    lock_input = revision_object_id(repo, M2_INPUT_HEAD, "uv.lock")
+    lock_target = revision_object_id(repo, target_head, "uv.lock")
+    delta = changed_paths(repo, M2_INPUT_HEAD, target_head)
+    delta_violations = path_scope_violations(delta, S7_ALLOWED_PREFIXES)
+    checks = [
+        make_check(
+            "m2.git.input_ancestor",
+            commit_is_ancestor(repo, M2_INPUT_HEAD, target_head),
+            f"input={M2_INPUT_HEAD} target={target_head}",
+        ),
+        make_check(
+            "m2.git.s7_delta_scope",
+            not delta_violations,
+            f"violations={delta_violations or 'none'}",
+        ),
+        make_check(
+            "m2.git.product_tree",
+            not product_mismatches,
+            f"mismatches={product_mismatches or 'none'}",
+        ),
+        make_check(
+            "m2.contract.tree",
+            contract_input == contract_target == CONTRACT_TREE,
+            f"input={contract_input} target={contract_target}",
+        ),
+        make_check(
+            "m2.workspace.lock_blob",
+            lock_input == lock_target,
+            f"input={lock_input} target={lock_target}",
+        ),
+        make_check(
+            "m2.migrations.tree",
+            migration_input == migration_target,
+            f"input={migration_input} target={migration_target}",
+        ),
+    ]
+    return (
+        {
+            "target_head": target_head,
+            "s7_delta": delta,
+            "s7_delta_scope_violations": delta_violations,
+            "product_path_identities": product_identities,
+            "product_path_mismatches": product_mismatches,
+            "contract_tree": {
+                "input": contract_input,
+                "target": contract_target,
+            },
+            "lock_blob": {"input": lock_input, "target": lock_target},
+            "migration_tree": {
+                "input": migration_input,
+                "target": migration_target,
+            },
+        },
+        checks,
+    )
+
+
+def build_m2_studio_manifest(
+    repo: Path,
+    *,
+    phase: ValidationPhase,
+    target_head: str | None,
+    s7_head: str | None,
+    enforce_checkout_identity: bool,
+) -> dict[str, Any]:
+    repo = repo.resolve()
+    checks: list[CheckResult] = []
+    checkout_head = resolve_commit(repo, "HEAD")
+    checkout_branch = run_git(repo, "branch", "--show-current")
+    final_record: dict[str, Any] | None = None
+
+    if phase is ValidationPhase.M2_STUDIO_CANDIDATE:
+        verified_head = resolve_commit(
+            repo,
+            target_head
+            if target_head is not None
+            else (checkout_head if enforce_checkout_identity else M2_INPUT_HEAD),
+        )
+        branch = (
+            checkout_branch if enforce_checkout_identity else CANDIDATE_BRANCH
+        )
+        checks.extend(
+            (
+                make_check(
+                    "m2.git.branch",
+                    is_candidate_branch(branch),
+                    f"phase={phase.value} branch={branch}",
+                ),
+                make_check(
+                    "m2.git.worktree_clean",
+                    not enforce_checkout_identity
+                    or status_is_clean(
+                        run_git(repo, "status", "--porcelain=v1")
+                    ),
+                    "checkout cleanliness is enforced by candidate CLI",
+                ),
+            )
+        )
+        candidate, candidate_checks = verify_m2_candidate_identity(
+            repo,
+            verified_head,
+        )
+        checks.extend(candidate_checks)
+    else:
+        if s7_head is None:
+            raise ValueError("--s7-head is required for M2_STUDIO_S1_FINAL")
+        verified_s7_head = resolve_commit(repo, s7_head)
+        verified_head = resolve_commit(
+            repo,
+            target_head if target_head is not None else checkout_head,
+        )
+        branch = select_target_branch(repo, verified_head)
+        checks.append(
+            make_check(
+                "m2.git.branch",
+                is_s1_branch(branch),
+                f"phase={phase.value} branch={branch}",
+            )
+        )
+        candidate, candidate_checks = verify_m2_candidate_identity(
+            repo,
+            verified_s7_head,
+        )
+        checks.extend(candidate_checks)
+        final_changes = changed_path_statuses(
+            repo,
+            verified_s7_head,
+            verified_head,
+        )
+        final_gitignore = revision_file_text(
+            repo,
+            verified_head,
+            ".gitignore",
+        )
+        final_violations = final_scope_violations(
+            final_changes,
+            final_gitignore,
+        )
+        protected_identities, protected_mismatches = compare_revision_paths(
+            repo,
+            verified_s7_head,
+            verified_head,
+            M2_PRODUCT_PATHS,
+        )
+        input_ancestry = {
+            "S5-CORE": commit_is_ancestor(
+                repo,
+                M2_WORKSPACE_HEAD,
+                verified_head,
+            ),
+            "S2-RUNTIME": commit_is_ancestor(
+                repo,
+                M2_RUNTIME_HEAD,
+                verified_head,
+            ),
+            "S4-QUALITY": commit_is_ancestor(
+                repo,
+                M2_INPUT_HEAD,
+                verified_head,
+            ),
+        }
+        s7_ancestry = commit_is_ancestor(
+            repo,
+            verified_s7_head,
+            verified_head,
+        )
+        checks.extend(
+            (
+                make_check(
+                    "m2.git.s7_head_ancestor",
+                    s7_ancestry,
+                    (
+                        f"s7_head={verified_s7_head} "
+                        f"final_head={verified_head}"
+                    ),
+                ),
+                make_check(
+                    "m2.git.s1_final_delta_scope",
+                    not final_violations,
+                    f"violations={final_violations or 'none'}",
+                ),
+                make_check(
+                    "m2.git.final_product_tree",
+                    not protected_mismatches,
+                    f"mismatches={protected_mismatches or 'none'}",
+                ),
+                make_check(
+                    "m2.git.final_input_heads",
+                    all(input_ancestry.values()),
+                    f"ancestry={input_ancestry}",
+                ),
+            )
+        )
+        final_record = {
+            "target_head": verified_head,
+            "s7_head": verified_s7_head,
+            "s7_head_ancestor": s7_ancestry,
+            "delta": [
+                {"status": status, "path": path}
+                for status, path in final_changes
+            ],
+            "delta_scope_violations": final_violations,
+            "protected_path_identities": protected_identities,
+            "protected_path_mismatches": protected_mismatches,
+            "input_head_ancestry": input_ancestry,
+        }
+
+    topology, topology_checks = verify_m2_topology(repo)
+    evidence, evidence_checks = verify_m2_evidence(repo)
+    workspace, workspace_checks = verify_m2_workspace(repo, M2_INPUT_HEAD)
+    studio, studio_checks = verify_m2_studio_static(repo, M2_INPUT_HEAD)
+    checks.extend(topology_checks)
+    checks.extend(evidence_checks)
+    checks.extend(workspace_checks)
+    checks.extend(studio_checks)
+
+    contract_manifest = load_revision_json(
+        repo,
+        M2_INPUT_HEAD,
+        "contracts/contract-set.v1.json",
+    )
+    recomputed_contract_digest = contract_content_digest(contract_manifest)
+    activation_contract_tree = revision_object_id(
+        repo,
+        M2_ACTIVATION_COMMIT,
+        "contracts",
+    )
+    input_contract_tree = revision_object_id(
+        repo,
+        M2_INPUT_HEAD,
+        "contracts",
+    )
+    checks.extend(
+        (
+            make_check(
+                "m2.contract.content_digest",
+                recomputed_contract_digest == CONTRACT_DIGEST
+                and contract_manifest["content_digest"] == CONTRACT_DIGEST,
+                f"recomputed={recomputed_contract_digest}",
+            ),
+            make_check(
+                "m2.contract.activation_tree",
+                activation_contract_tree
+                == input_contract_tree
+                == CONTRACT_TREE,
+                (
+                    f"activation={activation_contract_tree} "
+                    f"input={input_contract_tree}"
+                ),
+            ),
+        )
+    )
+
+    changed_input_paths = changed_paths(
+        repo,
+        M2_ACTIVATION_COMMIT,
+        M2_INPUT_HEAD,
+    )
+    secret_findings = high_confidence_secret_findings(
+        repo,
+        M2_INPUT_HEAD,
+        changed_input_paths,
+    )
+    checks.append(
+        make_check(
+            "m2.security.high_confidence_secret_scan",
+            not secret_findings,
+            f"findings={secret_findings or 'none'}",
+        )
+    )
+    activation_migration_tree = revision_object_id(
+        repo,
+        M2_ACTIVATION_COMMIT,
+        "migrations",
+    )
+    input_migration_tree = revision_object_id(
+        repo,
+        M2_INPUT_HEAD,
+        "migrations",
+    )
+    activation_infra_tree = revision_object_id(
+        repo,
+        M2_ACTIVATION_COMMIT,
+        "infra",
+    )
+    input_infra_tree = revision_object_id(repo, M2_INPUT_HEAD, "infra")
+    checks.extend(
+        (
+            make_check(
+                "m2.migrations.activation_identity",
+                activation_migration_tree == input_migration_tree,
+                (
+                    f"activation={activation_migration_tree} "
+                    f"input={input_migration_tree}"
+                ),
+            ),
+            make_check(
+                "m2.compose.activation_identity",
+                activation_infra_tree == input_infra_tree,
+                (
+                    f"activation={activation_infra_tree} "
+                    f"input={input_infra_tree}"
+                ),
+            ),
+        )
+    )
+
+    failed = [check.check_id for check in checks if check.outcome != "PASS"]
+    manifest: dict[str, Any] = {
+        "schema": "flowpilot.integration-composition-manifest.m2-studio.v1",
+        "work_package": "WP-040",
+        "attempt_id": "WP-040-a5",
+        "chain_id": M2_CHAIN_ID,
+        "execution_mode": "ORDERED",
+        "risk_class": "R2",
+        "validation_phase": phase.value,
+        "base_commit": M2_INPUT_HEAD,
+        "input_heads": {
+            "S5-CORE": M2_WORKSPACE_HEAD,
+            "S2-RUNTIME": M2_RUNTIME_HEAD,
+            "S4-QUALITY": M2_INPUT_HEAD,
+        },
+        "target_head": verified_head,
+        "branch": branch,
+        "candidate": candidate,
+        "topology": topology,
+        "contract": {
+            "declared_content_digest": contract_manifest["content_digest"],
+            "recomputed_content_digest": recomputed_contract_digest,
+            "digest_profile": contract_manifest["digest_profile"],
+            "activation_tree": activation_contract_tree,
+            "input_tree": input_contract_tree,
+        },
+        "workspace": workspace,
+        "studio": studio,
+        "evidence": evidence,
+        "security": {
+            "high_confidence_secret_findings": secret_findings,
+        },
+        "migrations": {
+            "activation_tree": activation_migration_tree,
+            "input_tree": input_migration_tree,
+        },
+        "compose": {
+            "activation_tree": activation_infra_tree,
+            "input_tree": input_infra_tree,
+            "changed_since_activation": (
+                activation_infra_tree != input_infra_tree
+            ),
+        },
+        "checks": [asdict(check) for check in checks],
+        "summary": {
+            "check_count": len(checks),
+            "failed_check_count": len(failed),
+            "failed_checks": failed,
+            "verdict": "PASS" if not failed else "FAIL",
+        },
+    }
+    if final_record is not None:
+        manifest["final"] = final_record
+    return manifest
+
+
 def build_manifest(
     repo: Path,
     phase: ValidationPhase | str = ValidationPhase.S7_CANDIDATE,
@@ -1881,6 +2852,17 @@ def build_manifest(
         ValidationPhase.M1_PLATFORM_S1_FINAL,
     }:
         return build_m1_platform_manifest(
+            repo,
+            phase=validation_phase,
+            target_head=target_head,
+            s7_head=s7_head,
+            enforce_checkout_identity=enforce_checkout_identity,
+        )
+    if validation_phase in {
+        ValidationPhase.M2_STUDIO_CANDIDATE,
+        ValidationPhase.M2_STUDIO_S1_FINAL,
+    }:
+        return build_m2_studio_manifest(
             repo,
             phase=validation_phase,
             target_head=target_head,
@@ -2223,6 +3205,11 @@ def canonical_manifest_bytes(manifest: dict[str, Any]) -> bytes:
 def render_report(manifest: dict[str, Any]) -> str:
     if manifest["schema"] == "flowpilot.integration-composition-manifest.m1.v1":
         return render_m1_report(manifest)
+    if (
+        manifest["schema"]
+        == "flowpilot.integration-composition-manifest.m2-studio.v1"
+    ):
+        return render_m2_studio_report(manifest)
 
     summary = manifest["summary"]
     final_phase = (
@@ -2359,6 +3346,76 @@ def render_m1_report(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_m2_studio_report(manifest: dict[str, Any]) -> str:
+    summary = manifest["summary"]
+    final_phase = (
+        manifest["validation_phase"]
+        == ValidationPhase.M2_STUDIO_S1_FINAL.value
+    )
+    title = (
+        "# WP-040-a5 M2 Studio S1 Final Evidence Reproduction Report"
+        if final_phase
+        else "# WP-040-a5 M2 Studio Composition Report"
+    )
+    lines = [
+        title,
+        "",
+        f"- Validation phase: `{manifest['validation_phase']}`",
+        f"- Verdict: `{summary['verdict']}`",
+        f"- Static checks: `{summary['check_count']}`",
+        f"- Failed checks: `{summary['failed_check_count']}`",
+        f"- S4 input head: `{manifest['input_heads']['S4-QUALITY']}`",
+        f"- Target head: `{manifest['target_head']}`",
+        (
+            "- Contract digest: "
+            f"`{manifest['contract']['recomputed_content_digest']}`"
+        ),
+        f"- Lock digest: `{manifest['workspace']['lock_sha256']}`",
+        (
+            "- Workspace closure: "
+            f"`{manifest['workspace']['member_count']} packages / "
+            f"{manifest['workspace']['lock_package_count']} locked entries`"
+        ),
+        (
+            "- Studio API topology: "
+            f"`{manifest['studio']['quality_topology']['node_count']} nodes / "
+            f"{manifest['studio']['quality_topology']['edge_count']} edges`"
+        ),
+        "",
+        "## Static checks",
+        "",
+        "| Check | Outcome | Evidence |",
+        "|---|---|---|",
+    ]
+    for check in manifest["checks"]:
+        evidence = check["evidence"].replace("|", "\\|").replace("\n", " ")
+        lines.append(
+            f"| `{check['check_id']}` | {check['outcome']} | {evidence} |"
+        )
+    lines.extend(
+        (
+            "",
+            "## Evidence boundary",
+            "",
+            (
+                "This report reproduces the ordered S5/S2/S4 Git topology, "
+                "path ownership, ContractSet, Workspace/Lock closure, Agent "
+                "Server dependency versions, safe Studio configuration, "
+                "independent topology snapshots, upstream evidence hashes, "
+                "protected product identity, and high-confidence Secret scan."
+            ),
+            (
+                "Fresh-environment installation, Python/contract/security "
+                "tests, wheel and vulnerability checks, and the real local "
+                "Agent Server lifecycle remain command evidence in the S7 "
+                "handoff."
+            ),
+            "",
+        )
+    )
+    return "\n".join(lines)
+
+
 def write_artifacts(
     manifest: dict[str, Any],
     output_dir: Path,
@@ -2404,7 +3461,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--s7-head",
-        help="reviewed S7 head required by M1_PLATFORM_S1_FINAL",
+        help="reviewed S7 head required by an S1 final phase",
     )
     return parser.parse_args(argv)
 
@@ -2426,6 +3483,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         ValidationPhase.M1_PLATFORM_S1_FINAL.value: (
             "WP040_M1_PLATFORM_S1_FINAL"
+        ),
+        ValidationPhase.M2_STUDIO_CANDIDATE.value: (
+            "WP040_M2_STUDIO_COMPOSITION"
+        ),
+        ValidationPhase.M2_STUDIO_S1_FINAL.value: (
+            "WP040_M2_STUDIO_S1_FINAL"
         ),
     }
     prefix = prefixes[args.phase]

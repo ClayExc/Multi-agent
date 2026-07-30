@@ -4,7 +4,7 @@
 
 ```text
 CHAIN_ID=CHAIN-M1-PLATFORM-01
-STATUS=ACTIVE
+STATUS=PAUSED
 AUTHORITY=S1-ARCH
 AUTHORITY_REF=docs/team/chain-authorizations/CHAIN-M1-PLATFORM-01.md
 EXECUTION_MODE=ORDERED
@@ -15,6 +15,7 @@ USER_GATE=FINAL_S1
 CONTRACT_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc
 FINAL_GATE=S7-INTEGRATION->S1-ARCH
 MAX_LOCAL_REPAIR_ATTEMPTS=1
+PAUSE_REASON=USER_GATE_REQUIRED
 ```
 
 本链交付 FlowPilot 的最小企业工具安全纵向切片。S1 在首次唤醒信封中
@@ -239,3 +240,22 @@ S7 复算 Head、路径、Handoff Hash、ContractSet、Workspace/Lock、Wheel、
 S7 交回后，S1 独立复核不变量、范围、证据和主分支转换方案。S1 不自动
 合并，不自动启动下一链；最终只向用户报告本轮完成、问题、重大决策与
 下一步，并等待用户指令。
+
+## S1 Final Gate
+
+```text
+FINAL_GATE_STATUS=PASS_AWAITING_USER
+S7_HEAD=197a2eaafa354c590e8a130c4a1118cf0f0035d3
+S1_COMPOSITION_HEAD=edc18fe37fdfd2e971908ee7f0264a41bd2e235c
+S1_FINAL_CHECKS=37/37_PASS
+JOINT_TESTS=279_PASS
+MERGED_TO_MASTER=no
+RELEASED=no
+FROZEN=no
+USER_GATE_REQUIRED=yes
+```
+
+S1 在独立 Final Worktree 把当前控制面与完整 S7 线性候选组合为一个
+双父提交。主分支仍停留在 Scope Amendment 控制提交；本链不会在用户门禁
+前自动合并或启动下一链。正式裁决见
+[`WP-040-A4-S1-FINAL-REVIEW.md`](../../review/WP-040-A4-S1-FINAL-REVIEW.md)。

@@ -2,16 +2,19 @@
 
 FlowPilot's LangGraph topology, deterministic node kernel, and recovery ports.
 
-WP-010-a1 provides:
+WP-010 and WP-012 provide:
 
-- a `StateGraph` wrapper that is the only production cross-node router;
+- one `build_flowpilot_it_service_graph` factory shared by Worker and Studio;
+- stable topology and graph identifiers guarded by a checked-in snapshot;
 - a deterministic node kernel used by that wrapper and conformance tests;
 - minimal checkpoint serialization that excludes provider sessions and secrets;
 - lease/run-generation fencing requirements for the S6 persistence adapter;
 - explicit interrupt and retry states; and
-- deterministic parallel reducers.
+- deterministic parallel reducers; and
+- a default-deny `debug_projection` that exposes routing and recovery metadata
+  without authority objects, raw context, credentials, or provider sessions.
 
-The external `langgraph` distribution is not yet present in the shared lock.
-The exact dependency and workspace integration request is recorded with the
-WP-010 evidence. S5 must accept that request before the package can be installed
-through the root Workspace.
+The root Workspace locks LangGraph and the local Agent Server dependencies.
+`langgraph.json` exposes the stable graph ID `flowpilot_it_service` through the
+safe synthetic adapter only. Product execution continues to enter through the
+Worker and its authoritative ports.

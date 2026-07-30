@@ -1,0 +1,118 @@
+{
+  "edges": [
+    {
+      "source": "__start__",
+      "target": "prepare"
+    },
+    {
+      "source": "prepare",
+      "target": "build_context"
+    },
+    {
+      "source": "build_context",
+      "target": "route_request"
+    },
+    {
+      "condition": "clarification",
+      "source": "route_request",
+      "target": "clarification_interrupt"
+    },
+    {
+      "condition": "parallel_reads",
+      "source": "route_request",
+      "target": [
+        "knowledge_read",
+        "service_read"
+      ]
+    },
+    {
+      "condition": "approval",
+      "source": "route_request",
+      "target": "approval_interrupt"
+    },
+    {
+      "condition": "run_agent",
+      "source": "route_request",
+      "target": "run_agent"
+    },
+    {
+      "condition": "terminate",
+      "source": "route_request",
+      "target": "finalize"
+    },
+    {
+      "source": "clarification_interrupt",
+      "target": "build_context"
+    },
+    {
+      "source": [
+        "knowledge_read",
+        "service_read"
+      ],
+      "target": "join_reads"
+    },
+    {
+      "source": "join_reads",
+      "target": "handoff"
+    },
+    {
+      "source": "handoff",
+      "target": "route_request"
+    },
+    {
+      "source": "approval_interrupt",
+      "target": "run_agent"
+    },
+    {
+      "source": "run_agent",
+      "target": "route_result"
+    },
+    {
+      "condition": "retry",
+      "source": "route_result",
+      "target": "retry"
+    },
+    {
+      "condition": "compensate",
+      "source": "route_result",
+      "target": "compensate"
+    },
+    {
+      "condition": "finalize",
+      "source": "route_result",
+      "target": "finalize"
+    },
+    {
+      "source": "retry",
+      "target": "run_agent"
+    },
+    {
+      "source": "compensate",
+      "target": "finalize"
+    },
+    {
+      "source": "finalize",
+      "target": "__end__"
+    }
+  ],
+  "factory_id": "flowpilot.graph.factory.v1",
+  "graph_id": "flowpilot_it_service",
+  "nodes": [
+    "prepare",
+    "build_context",
+    "route_request",
+    "clarification_interrupt",
+    "knowledge_read",
+    "service_read",
+    "join_reads",
+    "handoff",
+    "approval_interrupt",
+    "run_agent",
+    "route_result",
+    "retry",
+    "compensate",
+    "finalize"
+  ],
+  "schema": "flowpilot.graph-topology.v1",
+  "topology_digest": "sha256:f915742bd4c091b44364ab3073b485901338bd8c270d1463344b9eb52a31d8c2"
+}

@@ -1,0 +1,17 @@
+{
+  "python_version": "3.12",
+  "source": {
+    "kind": "uv",
+    "root": "."
+  },
+  "graphs": {
+    "flowpilot_it_service": "./apps/worker/src/flowpilot_worker/studio.py:graph"
+  },
+  "env": {
+    "FLOWPILOT_STUDIO_PROFILE": "studio-safe",
+    "FLOWPILOT_EXTERNAL_NETWORK": "disabled",
+    "LANGSMITH_TRACING": "false",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONUTF8": "1"
+  }
+}

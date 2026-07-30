@@ -17,3 +17,10 @@ The queue is a signal boundary, not a business fact source. The in-memory queue
 remains a deterministic test fixture. Durable checkpoint and lease semantics
 are supplied through the S6 `DataUnitOfWork`; a durable queue signal adapter is
 still a later integration concern.
+
+For local graph inspection, `flowpilot_worker.studio` binds the same graph
+factory used by `LangGraphRuntime` to deterministic, synthetic nodes. The
+`studio-safe` profile has no business writes or external network access and
+fails closed when production credentials, endpoints, or profiles are present.
+Its state emits only a default-deny debug projection suitable for viewing
+routing, interrupts, handoff, retry, budget, and checkpoint progression.

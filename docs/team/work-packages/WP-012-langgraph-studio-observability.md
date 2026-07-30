@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：`ACCEPTED`（M2 候选已通过 S1 final gate，等待用户合并门禁）
+- 状态：`MERGED`（M2 候选已通过 S1 final gate、用户门禁和主分支 FAST 复算）
 - Attempt ID：`WP-012-a1`
 - 风险等级：`R2`
 - 责任会话：S2-RUNTIME

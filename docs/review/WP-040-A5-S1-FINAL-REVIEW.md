@@ -109,3 +109,19 @@ RLS、PostgreSQL Adapter、Redis 丢失恢复和资源清理。S1 未重复执�
 `PAUSED / USER_GATE_REQUIRED`。用户明确选择继续后，S1 才能将精确最终
 候选快进到主分支，并在主分支复跑 FAST final gate；本评审不自动合并、
 不自动启动下一条开发链。
+
+## 用户门禁结果
+
+```text
+USER_DECISION=CONTINUE
+MERGED_TO_MASTER=yes
+MERGED_CANDIDATE_HEAD=ec4fe48ed265dcdbe11b8d0aa8580dea7423ce01
+MERGE_MODE=FAST_FORWARD_ONLY
+POST_MERGE_FAST_GATE=43/43_PASS
+RELEASED=no
+FROZEN=no
+NEXT_CHAIN_STARTED=no
+```
+
+该段记录用户门禁后的事实，不改写上方评审发生时的历史裁决。后续控制面
+提交可以位于候选 Head 之后，但不得改变已接受产品树的身份。

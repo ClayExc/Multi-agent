@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前仓库处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片启动阶段**。Core、Runtime、Data、MCP Gateway、Policy 与 Security 的十四包组合候选已经通过 S7 总装、S1 final gate 和用户合并门禁并进入主分支；真实 Provider 适配、LangGraph Studio、完整 API 业务切片与端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
+当前仓库处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片已集成阶段**。Core、Runtime、Data、MCP Gateway、Policy、Security 与 Studio 安全开发入口已经通过 S7 总装、S1 final gate 和用户合并门禁并进入主分支；真实 Provider 适配、`studio-integration` 可信端口、完整 API 业务切片与端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -14,7 +14,7 @@
 | M0 公共 JSON Schema | rc1 已拒绝；rc2 五角色同摘要 ACCEPT，本提交激活实现基线 | 可使用“rc2 实现基线已激活”，不可使用“已冻结” |
 | Python Workspace、Domain/Application/API 骨架 | M0 九包 Workspace/Lock 已组合验证 | 可描述领域与应用端口骨架，不代表完整 API 业务闭环 |
 | 离线评测、证据与信号分流骨架 | 已编码、经 S1 复审并合入主分支 | 只能描述离线骨架，不代表 120/36 数据集或跨组件验收完成 |
-| LangGraph/Runtime/Context/Worker 骨架 | M0 Fake Runtime、恢复端口与持久化适配已组合验证 | 可描述 M0 可恢复运行时骨架；真实 Provider 与 Studio 未完成 |
+| LangGraph/Runtime/Context/Worker 与 Studio 安全入口 | M2 同源图工厂、真实本地 Agent Server、Interrupt/Resume 和安全投影已组合验证 | 可描述可恢复 Runtime 骨架与非黑箱开发入口；真实 Provider 和完整生产业务节点未完成 |
 | PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
 | MCP Gateway、Policy、Security 与只读模拟 MCP | M1 安全平台切片已集成 | 可描述默认拒绝、审批绑定、账本/回读与安全黑盒骨架；不代表真实企业工具闭环 |
 | OpenAI/Claude Provider | 未实现 | 不可使用“多 Provider 已接入” |
@@ -176,12 +176,14 @@ M0 Python Workspace 的依赖已经由 `uv.lock` 固定；其余技术栈仍在�
 
 ```bash
 make bootstrap
+make studio
+make studio-smoke
 make test
 make test-contract
 make test-security
 ```
 
-`make test` 当前运行 Core、Runtime、Data 与 Platform 测试；S4 离线质量测试使用 `python -m pytest tests/acceptance`。以下全仓接口仍未实现：
+`make studio` 只启动默认失败关闭的 `studio-safe` 本地 Agent Server，不启用远程 Trace、生产凭据或公网 Tunnel。`make test` 当前运行 Core、Runtime、Data 与 Platform 测试；S4 离线质量测试使用 `python -m pytest tests/acceptance`。以下全仓接口仍未实现：
 
 ```bash
 make dev

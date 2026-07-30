@@ -105,7 +105,7 @@ CANCELLED 由用户或 S1 明确终止
 9. `[DONE]` S7 `WP-040-a1` 完成 36/36 候选复算、143 项产品测试、九个 Wheel 与真实 Compose；S1 final gate 为 42/42，Core/Runtime/Data/Integration 共 159 项通过。
 10. `[ACCEPTED_M0]` Core、Runtime 与 Data 原子候选已由 S1 接受；不代表真实 Provider、业务 E2E 或发布冻结完成。
 11. `[MERGED_M1]` MCP Gateway、Policy、Security、只读模拟 MCP、Workspace/Lock、安全黑盒和集成证据已通过 S7、S1 与用户门禁并原子进入主分支。
-12. `[ACTIVE_M2]` `CHAIN-M2-STUDIO-01` 按 `S5 → S2 → S4 → S7 → S1` 建设 LangGraph Studio 非黑箱入口；S5 先锁定本地 Agent Server 开发依赖。
+12. `[MERGED_M2]` `CHAIN-M2-STUDIO-01` 已按 `S5 → S2 → S4 → S7 → S1` 完成 LangGraph Studio 非黑箱入口，并通过用户门禁原子进入主分支。
 13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架和 M1 安全黑盒，继续为 Studio 与后续产品切片增加独立验收。
 
 发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。

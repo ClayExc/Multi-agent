@@ -13,3 +13,9 @@ The package:
 - keeps stable error codes free of provider exceptions and secret material.
 
 It has no network, persistence, policy, or credential access.
+
+`flowpilot.worker-gateway.p1.v1` adds the Worker-facing `GatewayClientPort` and a
+schema-pinned deterministic read fake. Calls contain only `ToolRequest` plus
+thread/run correlation; authenticated workload and capability claims remain owned
+by the Gateway transport. The fake enforces Tool Schema Pin, result binding and
+tenant/tool/idempotency-key conflicts, and cannot execute writes.

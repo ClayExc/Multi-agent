@@ -6,6 +6,8 @@ from typing import Protocol
 
 from flowpilot_domain import SecurityContextRef
 
+_CLASSIFICATIONS = frozenset({"public", "internal", "confidential", "restricted"})
+
 
 def utc(value: datetime, field: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
@@ -60,6 +62,11 @@ class CapabilityHandle:
     audience: str
     scopes: frozenset[str]
     tenant_id: str
+    subject_id: str
+    subject_acl: frozenset[str]
+    workload_principal_ref: str
+    purpose: str
+    data_classification_ceiling: str
     action_digest: str
     issued_at: datetime
     expires_at: datetime
@@ -67,6 +74,22 @@ class CapabilityHandle:
     def __post_init__(self) -> None:
         if not self.handle_ref.startswith("capability://"):
             raise ValueError("capability handle must be opaque")
+        for field, value in (
+            ("audience", self.audience),
+            ("tenant_id", self.tenant_id),
+            ("subject_id", self.subject_id),
+            ("workload_principal_ref", self.workload_principal_ref),
+            ("purpose", self.purpose),
+            ("action_digest", self.action_digest),
+        ):
+            if not value:
+                raise ValueError(f"capability.{field} cannot be empty")
+        if not self.scopes:
+            raise ValueError("capability scopes cannot be empty")
+        if not self.subject_acl:
+            raise ValueError("capability subject ACL cannot be empty")
+        if self.data_classification_ceiling not in _CLASSIFICATIONS:
+            raise ValueError("capability classification ceiling is not supported")
         issued = utc(self.issued_at, "capability.issued_at")
         expires = utc(self.expires_at, "capability.expires_at")
         if expires <= issued:
@@ -82,6 +105,11 @@ class CredentialBrokerPort(Protocol):
         tenant_id: str,
         audience: str,
         scopes: frozenset[str],
+        subject_id: str,
+        subject_acl: frozenset[str],
+        workload_principal_ref: str,
+        purpose: str,
+        data_classification_ceiling: str,
         action_digest: str,
         ttl_seconds: int,
         now: datetime,

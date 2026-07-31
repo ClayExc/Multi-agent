@@ -125,7 +125,7 @@ class ContextSource:
         return TrustedSecurityContext(
             context=self.context,
             active=True,
-            roles=frozenset({"requester"}),
+            roles=frozenset({"requester", "group:vpn-users"}),
         )
 
 
@@ -191,6 +191,11 @@ class CredentialBroker:
         tenant_id: str,
         audience: str,
         scopes: frozenset[str],
+        subject_id: str,
+        subject_acl: frozenset[str],
+        workload_principal_ref: str,
+        purpose: str,
+        data_classification_ceiling: str,
         action_digest: str,
         ttl_seconds: int,
         now: datetime,
@@ -204,6 +209,11 @@ class CredentialBroker:
             audience=audience,
             scopes=scopes,
             tenant_id=tenant_id,
+            subject_id=subject_id,
+            subject_acl=subject_acl,
+            workload_principal_ref=workload_principal_ref,
+            purpose=purpose,
+            data_classification_ceiling=data_classification_ceiling,
             action_digest=action_digest,
             issued_at=now,
             expires_at=now + timedelta(seconds=ttl_seconds),
@@ -472,18 +482,49 @@ def make_fixture(
         adapter: KnowledgeMcpAdapter | WriteAdapter = KnowledgeMcpAdapter(
             (
                 KnowledgeRecord(
-                    TENANT,
-                    "kb-alpha-1",
-                    "Restart database service",
-                    "Use the controlled restart runbook.",
+                    tenant_id=TENANT,
+                    source_ref=(
+                        "knowledge://tenant-alpha/runbooks/database/"
+                        "1.0#controlled-restart"
+                    ),
+                    document_version="1.0",
+                    section="Restart database service",
+                    redacted_summary="Use the controlled restart runbook.",
+                    content_hash=canonical_sha256(
+                        {"content": "Use the controlled restart runbook."}
+                    ),
+                    data_classification="internal",
+                    acl_subjects=frozenset({"group:vpn-users"}),
+                    allowed_workload_principals=frozenset(
+                        {AGENT_PRINCIPAL}
+                    ),
+                    allowed_purposes=frozenset({PURPOSE}),
+                    effective_at=NOW - timedelta(days=1),
+                    expires_at=NOW + timedelta(days=1),
                 ),
                 KnowledgeRecord(
-                    OTHER_TENANT,
-                    "kb-bravo-1",
-                    "Restart payroll service",
-                    "Tenant Bravo private runbook.",
+                    tenant_id=OTHER_TENANT,
+                    source_ref=(
+                        "knowledge://tenant-bravo/runbooks/payroll/"
+                        "1.0#restart"
+                    ),
+                    document_version="1.0",
+                    section="Restart payroll service",
+                    redacted_summary="Tenant Bravo private runbook.",
+                    content_hash=canonical_sha256(
+                        {"content": "Tenant Bravo private runbook."}
+                    ),
+                    data_classification="internal",
+                    acl_subjects=frozenset({"group:vpn-users"}),
+                    allowed_workload_principals=frozenset(
+                        {AGENT_PRINCIPAL}
+                    ),
+                    allowed_purposes=frozenset({PURPOSE}),
+                    effective_at=NOW - timedelta(days=1),
+                    expires_at=NOW + timedelta(days=1),
                 ),
-            )
+            ),
+            clock=clock,
         )
     else:
         contract = WRITE_CONTRACT
@@ -630,7 +671,11 @@ def make_fixture(
                 allowed_agents=frozenset({AGENT_ID}),
                 allowed_tenants=frozenset({TENANT}),
                 allowed_purposes=frozenset({PURPOSE}),
-                credential_scopes=frozenset({"tool.invoke"}),
+                credential_scopes=(
+                    frozenset({"knowledge.search"})
+                    if operation is ToolOperation.READ
+                    else frozenset({"tool.invoke"})
+                ),
                 adapter=adapter,
             ),
         )

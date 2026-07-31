@@ -97,6 +97,7 @@ class GatewayDependencies:
 @dataclass(frozen=True, slots=True)
 class _Authorization:
     context: SecurityContextRef
+    subject_acl: frozenset[str]
     definition: ToolDefinition
     policy: PolicyDecision
     enforced_policy: EnforcedPolicy
@@ -485,6 +486,8 @@ class McpGateway:
             raise _AuthorizationRejected(context, decision, exc) from exc
         return _Authorization(
             context=context,
+            subject_acl=trusted.roles
+            | frozenset({f"subject:{context.subject_id}"}),
             definition=definition,
             policy=decision,
             enforced_policy=enforced,
@@ -516,6 +519,21 @@ class McpGateway:
                     capability=capability,
                     idempotency_key=invocation.request.idempotency_key,
                 )
+            except GatewayAdapterError as exc:
+                if exc.safe_code == "KNOWLEDGE_ACCESS_DENIED":
+                    code = GatewayReason.KNOWLEDGE_ACCESS_DENIED
+                elif exc.safe_code == "KNOWLEDGE_QUERY_REJECTED":
+                    code = GatewayReason.KNOWLEDGE_QUERY_REJECTED
+                elif exc.disposition is GatewayAdapterDisposition.REJECTED:
+                    code = GatewayReason.UPSTREAM_REJECTED
+                elif exc.disposition is GatewayAdapterDisposition.NOT_SENT:
+                    code = GatewayReason.UPSTREAM_NOT_SENT
+                else:
+                    code = GatewayReason.UPSTREAM_UNAVAILABLE
+                raise GatewayControlError(
+                    code.value,
+                    "read tool invocation was rejected",
+                ) from exc
             except Exception as exc:
                 raise GatewayControlError(
                     GatewayReason.UPSTREAM_UNAVAILABLE.value,
@@ -1214,6 +1232,13 @@ class McpGateway:
                 tenant_id=authorization.context.tenant_id,
                 audience=authorization.definition.audience,
                 scopes=authorization.definition.credential_scopes,
+                subject_id=authorization.context.subject_id,
+                subject_acl=authorization.subject_acl,
+                workload_principal_ref=invocation.workload.principal_ref,
+                purpose=authorization.context.purpose,
+                data_classification_ceiling=(
+                    invocation.request.planned_action.data_classification.value
+                ),
                 action_digest=invocation.request.action_digest,
                 ttl_seconds=ttl_seconds,
                 now=now,
@@ -1229,6 +1254,17 @@ class McpGateway:
             handle.tenant_id != authorization.context.tenant_id
             or handle.audience != authorization.definition.audience
             or handle.scopes != authorization.definition.credential_scopes
+            or handle.subject_id != authorization.context.subject_id
+            or handle.subject_acl != authorization.subject_acl
+            or (
+                handle.workload_principal_ref
+                != invocation.workload.principal_ref
+            )
+            or handle.purpose != authorization.context.purpose
+            or (
+                handle.data_classification_ceiling
+                != invocation.request.planned_action.data_classification.value
+            )
             or handle.action_digest != invocation.request.action_digest
             or now < handle.issued_at
             or now >= handle.expires_at

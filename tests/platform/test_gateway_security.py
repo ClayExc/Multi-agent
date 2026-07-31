@@ -50,7 +50,12 @@ async def test_read_tool_is_tenant_filtered_and_observable() -> None:
     assert execution.result.data["returned_count"] == 1
     records = execution.result.data["records"]
     assert isinstance(records, tuple)
-    assert records[0]["record_id"] == "kb-alpha-1"
+    assert records[0]["source_ref"] == (
+        "knowledge://tenant-alpha/runbooks/database/"
+        "1.0#controlled-restart"
+    )
+    assert records[0]["classification"] == "internal"
+    assert "acl_subjects" not in records[0]
     assert fixture.adapter.invocation_count == 1
     assert await ledger_record(fixture, execution.result.execution_id) is None
     assert len(fixture.signals.audits) == 1

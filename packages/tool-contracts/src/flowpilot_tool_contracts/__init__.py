@@ -1,4 +1,12 @@
 from .errors import ToolContractError, ToolContractErrorCode
+from .gateway import (
+    WORKER_GATEWAY_PORT_VERSION,
+    DeterministicGatewayClientFake,
+    GatewayCall,
+    GatewayClientPort,
+    GatewayPortError,
+    GatewayPortErrorCode,
+)
 from .models import (
     AgentPrincipal,
     Reconciliation,
@@ -24,6 +32,11 @@ TOOL_CONTRACT_ADAPTER_VERSION = "flowpilot.tool-contracts.m0.v1"
 __all__ = [
     "AgentPrincipal",
     "FrozenJson",
+    "DeterministicGatewayClientFake",
+    "GatewayCall",
+    "GatewayClientPort",
+    "GatewayPortError",
+    "GatewayPortErrorCode",
     "JsonValue",
     "Reconciliation",
     "RetryBasis",
@@ -31,6 +44,7 @@ __all__ = [
     "ToolContractError",
     "ToolContractErrorCode",
     "TOOL_CONTRACT_ADAPTER_VERSION",
+    "WORKER_GATEWAY_PORT_VERSION",
     "ToolRequest",
     "ToolResult",
     "ToolResultStatus",

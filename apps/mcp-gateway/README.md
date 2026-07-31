@@ -12,6 +12,12 @@ The M0 Gateway is the only business-tool entry point. It:
   Audit/Security signals;
 - exposes only a whitelist debug projection.
 
+For P1 read-only knowledge access, the short-lived internal capability also binds
+the trusted user subject/ACL memberships, authenticated workload principal,
+tenant, Purpose, Scope and classification ceiling. The Knowledge MCP applies
+those attributes before forming candidates; model arguments cannot supply or
+override them.
+
 The package contains no upstream enterprise client, production credential, or
 private persistence implementation. Tool adapters, identity/policy sources,
 credential broker, and signal sinks are injected Ports.

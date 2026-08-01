@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：USER_GATE（S7 RELEASE 与 S1 FAST final PASS）
+- 状态：DONE（已通过 S7 RELEASE、S1 FAST final、用户门禁与主分支复验）
 - Flow Lite Goal：`g1`（用户于 `2026-08-01T09:19:07Z` 批准）
 - 风险等级：R2
 - 责任会话：S6-DATA、S2-RUNTIME

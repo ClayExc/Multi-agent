@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前已合并 **Architecture Baseline v1.0、M1 平台、M2 Studio 与 P1 VPN 只读闭环**。P2 持久化恢复候选已通过 S7 RELEASE 与 S1 FAST final，等待用户合并门禁；真实 Provider、安全工单写入、Web、第二业务场景与 120+36 冻结评测仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。项目当前状态、证据、运行方式和后续计划统一见 [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md)。
+当前已合并 **Architecture Baseline v1.0、M1 平台、M2 Studio、P1 VPN 只读闭环与 P2 持久化恢复闭环**。P2 已通过 S7 RELEASE、S1 FAST final、用户合并门禁和主分支复验；下一开发链尚未启动。真实 Provider、安全工单写入、Web、第二业务场景与 120+36 冻结评测仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。项目当前状态、证据、运行方式和后续计划统一见 [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md)。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -18,7 +18,7 @@
 | PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
 | MCP Gateway、Policy、Security 与只读模拟 MCP | M1 安全平台切片已集成 | 可描述默认拒绝、审批绑定、账本/回读与安全黑盒骨架；不代表真实企业工具闭环 |
 | VPN 确定性只读知识闭环 | P1 已通过 S7 RELEASE、S1 FAST final gate 与用户门禁并进入主分支 | 可描述“确定性只读候选已集成”；不代表真实企业知识源、工单写入或发布完成 |
-| 持久化恢复闭环 | S7 RELEASE 与 S1 FAST final 通过，等待用户合并门禁 | 可描述“候选已验证”，进入主分支前不可描述为已合并或发布 |
+| 持久化恢复闭环 | S7 RELEASE、S1 FAST final、用户门禁及主分支复验通过 | 可描述“持久化恢复候选已集成”；不代表生产环境发布 |
 | OpenAI/Claude Provider | 未实现 | 不可使用“多 Provider 已接入” |
 | 本地 Compose 集成 | S7 对精确候选验证 5 服务健康、Migration/RLS/恢复 | `0002` 自动接入仍为 P2；不能宣称发布环境完成 |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |

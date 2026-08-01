@@ -72,10 +72,10 @@ Adapter 与契约测试。详细路径、配额和汇合门禁见
 
 ## 4. M2：持久化图与可靠运行
 
-当前状态：`S1_FINAL_PASS_AWAITING_USER_GATE`。Flow Lite `g1`
+当前状态：`MERGED_P2_DURABLE_RECOVERY`。Flow Lite `g1`
 已完成 S6→S2→S7→S1 注册链；PostgreSQL Checkpoint、Lease/Fencing、Outbox/Redis
-信号重建和 Worker 重启恢复已由 S7 在真实 PostgreSQL/Redis 中复现。SSE 属于
-后续未批准目标，不进入本链。
+信号重建和 Worker 重启恢复已由 S7 在真实 PostgreSQL/Redis 中复现，并通过
+S1/用户门禁进入主分支。SSE 属于后续未批准目标，当前没有开发链运行。
 
 交付：
 

@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：`P2_S1_FINAL_PASS_AWAITING_USER_GATE`（`a1` M0、`a4` M1、`a5` M2、`a6` P1 已进入主分支；`a7` P2 RELEASE/S1 final 已通过）
+- 状态：`ACCEPTED_P2`（`a1` M0、`a4` M1、`a5` M2、`a6` P1、`a7` P2 均已通过对应门禁并进入主分支）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-FLOW-005、FP-SEC-004、FP-DATA-001～003、FP-OPS-002

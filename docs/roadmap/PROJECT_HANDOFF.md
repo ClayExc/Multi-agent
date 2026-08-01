@@ -3,9 +3,10 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=P2_DURABLE_RECOVERY_CANDIDATE
-STATUS=S1_FINAL_PASS_AWAITING_USER_MERGE
+SNAPSHOT=P2_DURABLE_RECOVERY_MERGED
+STATUS=MERGED_P2_DURABLE_RECOVERY
 S7_HEAD=0b1d6ba3aa31536d9170027f0981c0e626b71f35
+MERGED_CANDIDATE_HEAD=07137ea5d80f512483b3a50be25422aa90d25b2c
 CONTRACT_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc
 RELEASED=false
 FROZEN=false
@@ -28,10 +29,10 @@ PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio 非黑箱入口�
 | M2 Studio | Worker 同源 LangGraph、Interrupt/Resume、Handoff、重试与安全投影 | 可视化调试入口，不连接生产凭据或事实源 |
 | P1 | VPN 信息补全、知识检索、租户/ACL 过滤、引用回答与稳定结果引用 | 确定性只读闭环，不包含工单写入 |
 
-## 3. P2 待合并候选
+## 3. P2 已合并能力
 
 P2 使用最小注册链 `S6 data-recovery → S2 durable-runtime → S7
-recovery-verifier → S1`，没有激活 S3/S4/S5。
+recovery-verifier → S1`，没有激活 S3/S4/S5；候选已通过用户门禁进入主分支。
 
 已验证行为：
 

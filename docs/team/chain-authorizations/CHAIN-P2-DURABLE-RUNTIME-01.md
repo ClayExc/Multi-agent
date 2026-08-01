@@ -4,7 +4,7 @@
 
 ```text
 CHAIN_ID=CHAIN-P2-DURABLE-RUNTIME-01
-STATUS=S1_FINAL_PASS_AWAITING_USER_GATE
+STATUS=COMPLETED
 AUTHORITY=S1-ARCH
 AUTHORITY_REF=docs/team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md
 FLOW_LITE_GOAL_ID=g1
@@ -24,6 +24,10 @@ CONTEXT_PROTOCOL=docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md
 
 本授权只覆盖 Flow Lite 计划中经用户明确批准的 `g1`。`g2`（Outbox→SSE）和
 `g3`（安全 Ticket 写入）仍为待批准目标，不得在本链顺带实施。
+
+完成结果：S7 RELEASE、S1 FAST final、用户合并门禁与主分支复验均为 PASS；
+精确候选 `07137ea5d80f512483b3a50be25422aa90d25b2c` 已 fast-forward 进入
+`master`。该完成状态不授权或启动下一链。
 
 ## 目标与非目标
 

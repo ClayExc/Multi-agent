@@ -86,3 +86,14 @@ S6/S2 Heads 未被改写，Contract/Lock/Migration/Infra 保持相同对象。S7
 当前只允许向用户报告并等待。用户明确批准后，S1 才能把精确 final 候选
 fast-forward 到 `master`，并在主分支复跑同一 FAST final。不得自动启动
 `g2/g3`、推送、发布或连接企业系统。
+
+## 用户门禁结果
+
+```text
+USER_DECISION=APPROVED
+MERGED_TO_MASTER=yes
+MERGED_CANDIDATE_HEAD=07137ea5d80f512483b3a50be25422aa90d25b2c
+MERGE_MODE=FAST_FORWARD_ONLY
+POST_MERGE_FAST_FINAL=PASS:35/35
+NEXT_CHAIN=none
+```

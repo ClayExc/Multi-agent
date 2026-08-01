@@ -353,6 +353,7 @@ def test_expired_and_old_generation_leases_are_fenced(
                 lease=old,
             )
         assert stale.value.code is GraphErrorCode.LEASE_LOST
+        assert database.state.checkpoints == {}
 
     asyncio.run(scenario())
 

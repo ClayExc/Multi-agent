@@ -3,12 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Protocol, cast
 
-from flowpilot_domain import Task
+from flowpilot_domain import DomainViolation, Task, TaskCommand
 from flowpilot_graph import (
     CheckpointPort,
     GraphError,
@@ -31,6 +31,91 @@ _THREAD_ID = re.compile(r"^thread_[A-Za-z0-9_-]{8,128}$")
 
 class _TaskProjectionPort(Protocol):
     async def get(self, tenant_id: str, task_id: str) -> Task | None: ...
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class TrustedTenantInventory:
+    """Tenant inventory supplied by trusted deployment configuration."""
+
+    tenant_ids: tuple[str, ...]
+
+    def __init__(self, tenant_ids: Iterable[str]) -> None:
+        if isinstance(tenant_ids, str):
+            raise TypeError("tenant_ids must be an iterable of tenant identities")
+        values = tuple(tenant_ids)
+        if not values:
+            raise ValueError("a complete trusted tenant inventory is required")
+        if any(not isinstance(value, str) or not value for value in values):
+            raise ValueError("tenant identity must be a non-empty string")
+        if len(set(values)) != len(values):
+            raise ValueError("tenant inventory contains a duplicate identity")
+        object.__setattr__(self, "tenant_ids", values)
+
+    def contains(self, tenant_id: str) -> bool:
+        return tenant_id in self.tenant_ids
+
+
+class PersistenceExecutionGuard:
+    """Bind a queued command to a trusted tenant and durable Task fact."""
+
+    def __init__(
+        self,
+        unit_of_work: DataUnitOfWorkFactory,
+        tenants: TrustedTenantInventory,
+    ) -> None:
+        self._unit_of_work = unit_of_work
+        self._tenants = tenants
+
+    async def validate(self, command: TaskCommand) -> None:
+        try:
+            command.assert_digest()
+            command.assert_security_binding()
+        except DomainViolation as exc:
+            raise GraphError(
+                GraphErrorCode.SECURITY_BINDING_MISMATCH,
+                "command failed deterministic worker binding",
+            ) from exc
+        if not self._tenants.contains(command.tenant_id):
+            raise GraphError(
+                GraphErrorCode.SECURITY_BINDING_MISMATCH,
+                "command tenant is not in the trusted runtime inventory",
+            )
+        try:
+            async with self._unit_of_work() as unit_of_work:
+                tasks = cast(_TaskProjectionPort, unit_of_work.tasks)
+                task = await tasks.get(command.tenant_id, command.task_id)
+        except PersistenceError as exc:
+            if exc.code in {
+                PersistenceErrorCode.TENANT_MISMATCH,
+                PersistenceErrorCode.TENANT_REQUIRED,
+                PersistenceErrorCode.DRIVER_PROTOCOL,
+            }:
+                raise GraphError(
+                    GraphErrorCode.SECURITY_BINDING_MISMATCH,
+                    "trusted Task identity was rejected",
+                ) from None
+            raise _storage_unavailable(
+                "trusted Task projection could not be verified",
+                retryable=exc.retryable,
+            ) from None
+        except Exception:
+            raise _storage_unavailable(
+                "trusted Task projection could not be verified"
+            ) from None
+        if task is None:
+            raise _storage_unavailable(
+                "trusted Task projection is not yet available"
+            )
+        if (
+            task.tenant_id != command.tenant_id
+            or task.task_id != command.task_id
+            or task.purpose != command.security_context.purpose
+            or task.security_context != command.security_context
+        ):
+            raise GraphError(
+                GraphErrorCode.SECURITY_BINDING_MISMATCH,
+                "command does not match the trusted Task binding",
+            )
 
 
 @dataclass(frozen=True, slots=True)

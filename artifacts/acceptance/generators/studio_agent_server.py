@@ -119,6 +119,7 @@ _FRAME_KEYS = frozenset(
         "frame_id",
         "handoff",
         "interrupt",
+        "knowledge",
         "node",
         "profile",
         "recovery",
@@ -155,6 +156,9 @@ _NESTED_FRAME_KEYS = {
         {"layers", "token_budget", "trim_reason_code"}
     ),
     "tools": frozenset({"mode", "stage"}),
+    "knowledge": frozenset(
+        {"call_count", "citation_count", "service_read_skipped"}
+    ),
 }
 _SENSITIVE_SENTINELS = (
     "tenant-production-sentinel",

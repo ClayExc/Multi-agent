@@ -1,0 +1,31 @@
+dataset_id: flowpilot-vpn-readonly-p1-local
+version: 0.1.0-candidate.1
+status: candidate
+candidate_only: true
+release_eligible: false
+declared_case_count: 20
+purpose: >-
+  Deterministic local black-box coverage for the P1 VPN read-only path through
+  Application request resolution, Worker graph, Gateway client boundary,
+  Knowledge MCP authorization/filtering, result artifacts, and safe projection.
+scope:
+  includes:
+    - complete and missing-field flows
+    - zero-result and citation-integrity failures
+    - tenant, ACL, purpose, workload, classification, and scope denial
+    - malicious-query rejection
+    - retry recovery and duplicate delivery
+    - result references, Task terminal status, and safe projection
+  excludes:
+    - release Dataset Registry membership
+    - the 120 functional and 36 safety/fault release quotas
+    - network, provider, production credentials, RLS, and Outbox integration
+measurement:
+  denominator: all_declared_cases
+  judge_policy: semantic_only_and_never_overrides_deterministic_gates
+  random_seed: 0
+  external_network: disabled
+privacy:
+  data: synthetic
+  pii: none
+  secrets: none

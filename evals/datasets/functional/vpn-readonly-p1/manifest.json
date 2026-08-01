@@ -1,0 +1,11 @@
+{
+  "schema_version": "flowpilot.vpn-local-manifest.v1",
+  "dataset_id": "flowpilot-vpn-readonly-p1-local",
+  "version": "0.1.0-candidate.1",
+  "candidate_only": true,
+  "case_count": 20,
+  "files": {
+    "dataset-card.yaml": "sha256:62001f93322878116e6fbaf59af6ccd1cfaf8f1b009e55164019fc1c5a1ddfad",
+    "vpn-cases.json": "sha256:fb99e39f558967612f42d84b450729323e8681caf07616e02264e42a3df54f39"
+  }
+}

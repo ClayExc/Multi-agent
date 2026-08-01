@@ -10,6 +10,13 @@ from .reporting import (
 )
 from .scoring import DeterministicScorer, JudgeBoundary
 from .validation import OfflineRepositoryValidator, ValidationFinding
+from .vpn_readonly import (
+    VPN_CANDIDATE_CASE_COUNT,
+    VpnCaseDefinition,
+    VpnCaseExpected,
+    VpnCaseSet,
+    load_vpn_case_set,
+)
 
 __all__ = [
     "AssertionOutcome",
@@ -20,7 +27,12 @@ __all__ = [
     "JudgeBoundary",
     "OfflineRepositoryValidator",
     "ValidationFinding",
+    "VPN_CANDIDATE_CASE_COUNT",
+    "VpnCaseDefinition",
+    "VpnCaseExpected",
+    "VpnCaseSet",
     "aggregate_results",
     "build_evidence_record",
     "generate_acceptance_bundle",
+    "load_vpn_case_set",
 ]

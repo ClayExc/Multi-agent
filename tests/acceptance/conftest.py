@@ -11,8 +11,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOTS = (
     ROOT / "apps" / "mcp-gateway" / "src",
+    ROOT / "apps" / "worker" / "src",
+    ROOT / "mcp-servers" / "knowledge" / "src",
     ROOT / "packages" / "application" / "src",
+    ROOT / "packages" / "context" / "src",
     ROOT / "packages" / "domain" / "src",
+    ROOT / "packages" / "graph" / "src",
+    ROOT / "packages" / "model-gateway" / "src",
     ROOT / "packages" / "persistence" / "src",
     ROOT / "packages" / "policy" / "src",
     ROOT / "packages" / "security" / "src",

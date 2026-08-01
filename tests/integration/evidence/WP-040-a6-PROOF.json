@@ -1,0 +1,163 @@
+{
+  "schema_version": "flowpilot.wp040a6-proof.v1",
+  "chain_id": "CHAIN-P1-VPN-READONLY-01",
+  "step_id": "P1-VPN-05-S7",
+  "attempt_id": "WP-040-a6",
+  "session_role": "S7-INTEGRATION",
+  "input_head": "4792098ecfe3d4723c04ece8cf9c8d62fcf02d0e",
+  "implementation_head": "171e3a277bcc1bc0002ea7f432a18a20ef07ccfb",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "knowledge_schema_pin": "sha256:b7679fde5be1187e8a36b4cd4dd95a95b63a50dc56532294174b0088f0e6600b",
+  "scope": {
+    "gate_level": "RELEASE",
+    "release_gate_reproduced": true,
+    "release_approved": false,
+    "candidate_case_count": 20,
+    "functional_120_complete": false,
+    "safety_fault_36_complete": false,
+    "production_connection": false,
+    "external_network": false,
+    "provider_usage": false,
+    "contract_change": false,
+    "workspace_lock_change": false,
+    "migration_change": false,
+    "infra_change": false
+  },
+  "static_reproduction": {
+    "phase": "P1_VPN_CANDIDATE",
+    "check_count": 46,
+    "failed_check_count": 0,
+    "verdict": "PASS",
+    "manifest_sha256": "sha256:a26e2b02f73427cfb91ef3a65c0bb36a8b0a3c9845bd14a6763131a6997f1ac3",
+    "report_sha256": "sha256:5589b0f8f86968b108b7fb0e4932b6b7b496893e2f9e92de47b96e416d27d92c",
+    "fixed_input_manifest_sha256": "sha256:f1ae490993f7514c41911e514b43871017319375feecd9c6ecfe8df5e1f490b6",
+    "fixed_input_report_sha256": "sha256:855cf594728f3e14f372a3e192034b1e16cf03a6a4ef000f671d1c379b888fda",
+    "historical_regression": {
+      "m0_manifest_sha256": "sha256:1e9140e267470a0b4404a34b07254569875c3d8c582517599cc328ba8b5dddb1",
+      "m0_report_sha256": "sha256:533a2540a2d41264fe38bbc84c92ae5fa9bd5f3e1292b57598139e470c4e143c",
+      "m1_manifest_sha256": "sha256:df72d6e13efb06bc34bedd96b14dcca6534a20752543b649c7a53e1d880c9633",
+      "m1_report_sha256": "sha256:7021c14b0102abac385179a2cd7d345011297639bf8f3f004ea6ff211b35d75a",
+      "m2_manifest_sha256": "sha256:732b971522f5bb4b4840814952efcdceae3ffd1bea8a1996e75edfb642e3dc84",
+      "m2_report_sha256": "sha256:69d01b16ae97165d1c9122c9f7bc3bf755fa31b2d1522710f71d05b1e60d17b0"
+    }
+  },
+  "composition": {
+    "linear_commit_count": 10,
+    "scope_violation_count": 0,
+    "workspace_member_count": 14,
+    "lock_package_count": 116,
+    "expected_wheel_count": 14,
+    "candidate_case_count": 20,
+    "cross_tenant_successful_retrievals": 0,
+    "knowledge_mcp_bypass_findings": 0,
+    "interrupt_recovery_duplicate_logical_calls": 0,
+    "s4_handoff_sha256": "sha256:b785b6607cc93a595a78e92dc28d924d52b704f666a41f34933e0f2d7103cf98",
+    "s4_proof_sha256": "sha256:44b48979e439c1bbdca970459cdad7ced3478d4f895aadcdca3484a23fc8a7aa",
+    "dataset_card_sha256": "sha256:62001f93322878116e6fbaf59af6ccd1cfaf8f1b009e55164019fc1c5a1ddfad",
+    "case_file_sha256": "sha256:fb99e39f558967612f42d84b450729323e8681caf07616e02264e42a3df54f39"
+  },
+  "test_results": [
+    {
+      "command": "uv sync --all-packages --all-groups --locked in a new UV_PROJECT_ENVIRONMENT",
+      "result": "PASS",
+      "summary": "116 locked packages; 14 internal Workspace packages; CPython 3.12.11"
+    },
+    {
+      "command": "make test",
+      "result": "PASS",
+      "summary": "253 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "89 passed; real local Agent Server lifecycle included"
+    },
+    {
+      "command": "python -B -m pytest tests/integration -q",
+      "result": "PASS",
+      "summary": "44 passed; 12 P1 composition and negative regressions"
+    },
+    {
+      "command": "make test-security",
+      "result": "PASS",
+      "summary": "68 passed"
+    },
+    {
+      "command": "make test-contract",
+      "result": "PASS",
+      "summary": "20 schemas; 35 cases; 43 semantic negatives; 52 features"
+    },
+    {
+      "command": "python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "2 cases; 0 findings"
+    },
+    {
+      "command": "ruff check <P1 changed Python paths and S7 paths>",
+      "result": "PASS",
+      "summary": "41 files; all checks passed"
+    },
+    {
+      "command": "mypy --strict <14 Workspace sources, evaluation and S7 verifier>",
+      "result": "PASS",
+      "summary": "94 source files; no issues"
+    },
+    {
+      "command": "import flowpilot_mcp_knowledge and compare ToolContract.schema_hash with fixed pin",
+      "result": "PASS",
+      "summary": "sha256:b7679fde5be1187e8a36b4cd4dd95a95b63a50dc56532294174b0088f0e6600b"
+    },
+    {
+      "command": "uv build --all-packages --wheel; locked dependency sync without Workspace; install wheels --no-deps; import",
+      "result": "PASS",
+      "summary": "14 wheels; LOCKED_WHEEL_IMPORT_OK packages=14"
+    },
+    {
+      "command": "pip-audit 2.10.1 --path <fresh locked environment>/Lib/site-packages --skip-editable",
+      "result": "PASS",
+      "summary": "0 known vulnerabilities; 14 internal editable packages skipped from PyPI lookup"
+    },
+    {
+      "command": "high-confidence Secret and UTF-8/LF/BOM scan over activation..S7 implementation Head",
+      "result": "PASS",
+      "summary": "62 changed paths; 0 secret findings; 0 byte-format findings"
+    },
+    {
+      "command": "docker compose up --wait; 0002 twice; RLS SQL; PostgreSQL adapter; Redis loss; down -v",
+      "result": "PASS",
+      "summary": "5 healthy services; migration repeatable; RLS PASS; POSTGRES_ADAPTER_OK; Redis 0->1->0 with PostgreSQL tasks 3->3; cleanup containers=0 volumes=0 networks=0"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_IMPLEMENTED",
+      "summary": "No target; exit 2; not claimed as PASS"
+    },
+    {
+      "command": "ruff check artifacts/acceptance/generators tests/acceptance",
+      "result": "INHERITED_FINDINGS",
+      "summary": "4 I001 findings in WP-030-a1 evaluation/observability tests outside the P1 changed range; affected-path Ruff passed"
+    }
+  ],
+  "environment": {
+    "os": "Windows",
+    "python": "3.12.11",
+    "uv": "0.11.32",
+    "ruff": "0.16.0",
+    "mypy": "1.20.2",
+    "pip_audit": "2.10.1",
+    "docker_client": "29.6.2",
+    "docker_server": "29.6.2",
+    "docker_compose": "v5.3.1",
+    "compose_project": "flowpilot-wp040-a6-171e3a2",
+    "fresh_environment": "C:/Users/Administrator/AppData/Local/Temp/flowpilot-wp040-a6-release-171e3a2"
+  },
+  "residuals": {
+    "repository_worktree_dirty": false,
+    "langgraph_api_directories": 0,
+    "compose_containers": 0,
+    "compose_volumes": 0,
+    "compose_networks": 0,
+    "started_external_provider_connections": 0,
+    "production_credentials_used": 0
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "knowledge_fixture_version": "flowpilot.domain-pack.knowledge-fixture.v1",
+  "source_ref": "knowledge://tenant-a/onboarding-sop/device-standards/1.0#backend-laptop",
+  "tenant_id": "tenant-a",
+  "document_id": "onboarding_device_standards",
+  "document_version": "1.0",
+  "section": "Backend engineer laptop standard",
+  "chunk_id": "backend_laptop",
+  "data_classification": "internal",
+  "acl_subjects": [
+    "group:onboarding-ops",
+    "group:hr-operations"
+  ],
+  "effective_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2027-12-31T00:00:00Z",
+  "content_summary": "Backend engineers receive a ThinkPad X1 Carbon G11 (32GB RAM, 1TB SSD, corporate Windows 11 image). Assignable when inventory for the onboarding location reports available units.",
+  "content_hash": "sha256:5ca12a96a27674c3d82e1ce427714d5594f405d314ccf0c067496024689023ac"
+}

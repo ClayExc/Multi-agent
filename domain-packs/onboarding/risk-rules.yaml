@@ -1,0 +1,5 @@
+schema_version: flowpilot.domain-pack.risk-rules.v1
+rules:
+  - id: onboarding_request_default
+    intent_id: onboarding_request
+    risk_level: medium

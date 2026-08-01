@@ -233,3 +233,14 @@
 | m6b.safe.dlp.001 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_redact_not_echo |
 | m6b.safe.dlp.002 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_deny_export_secret |
 | m6b.safe.dlp.003 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_pre_write_scan |
+
+## 6. M5-1 目标登记（AC-E2E-002 业务面，S2-RUNTIME s2-runtime-m5a）
+
+> 登记说明：M5-1 由注册制 Agent `s2-runtime-m5a`（S2-RUNTIME 档案）在独立
+> worktree 分支实现；本行是面向人的登记投影，机器状态以 `traceability.v1.json`
+> 与验收证据为准。功能 ID 沿用既有 Feature（FP-FLOW-003 / FP-APR-001 /
+> FP-MCP-003/004/005 / FP-CTX-004），不新增 Feature 段。
+
+| 目标 | 业务结果 | 实现路径 | 验收测试 | 状态 |
+|---|---|---|---|---|
+| M5-1 新员工入职复合申请（AC-E2E-002 业务面） | 澄清循环（WAITING_USER 五字段多轮，M4-2 硬预算）→ 三只读分支并行（设备标准/库存/权限模板，逐分支独立失败定位，Trace 区间重叠）→ 双子动作计划（同一 task 两个 PlannedAction，幂等键互异）→ 权限动作经理审批 Interrupt（FP-APR-001 卡片契约）→ 进程内批准恢复 → 双写闭环（action_digest 绑定/幂等重放/UNKNOWN 先回读/写后回读/Ledger）→ 关联工单创建与汇总（仅含实际创建并回读成功的工单）；任一子动作业务失败 → FAILED + failure_code 定位子动作，已成功子动作不重复执行 | `domain-packs/onboarding/`、`evals/fixtures/onboarding-catalog-v1.json`、`packages/graph`（parallel_reads 三分支 + reducer 逐分支失败 + 子动作计划 + 部分失败终态）、`packages/application/domain_packs.py`（BUILTIN_DOMAIN_PACK_ROOTS 注册） | `tests/acceptance/onboarding/test_onboarding_composite_flow.py`、`test_onboarding_clarify_loop.py`、`test_onboarding_parallel_reads.py` | IMPLEMENTED（本地 17/17 通过；待 S1 门禁与 S7 独立复算） |

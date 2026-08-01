@@ -1,0 +1,18 @@
+{
+  "knowledge_fixture_version": "flowpilot.domain-pack.knowledge-fixture.v1",
+  "source_ref": "knowledge://tenant-a/onboarding-sop/permission-templates/1.0#backend-role",
+  "tenant_id": "tenant-a",
+  "document_id": "onboarding_permission_templates",
+  "document_version": "1.0",
+  "section": "Backend engineer permission template",
+  "chunk_id": "backend_role",
+  "data_classification": "internal",
+  "acl_subjects": [
+    "group:onboarding-ops",
+    "group:hr-operations"
+  ],
+  "effective_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2027-12-31T00:00:00Z",
+  "content_summary": "Template PT-BE-01 grants repo:backend-read, ci:pipeline-run and vpn:office. Granting requires approval by the hiring manager recorded in the request.",
+  "content_hash": "sha256:29fc8cf2476bbd3316709ddfe733af82cd4d2f2b3fd5aec0690a514288bbafaa"
+}

@@ -1,0 +1,18 @@
+{
+  "knowledge_fixture_version": "flowpilot.domain-pack.knowledge-fixture.v1",
+  "source_ref": "knowledge://tenant-a/onboarding-sop/inventory/1.0#shanghai-thinkpad",
+  "tenant_id": "tenant-a",
+  "document_id": "onboarding_inventory",
+  "document_version": "1.0",
+  "section": "Shanghai stock - ThinkPad X1 Carbon G11",
+  "chunk_id": "shanghai_thinkpad",
+  "data_classification": "internal",
+  "acl_subjects": [
+    "group:onboarding-ops",
+    "group:hr-operations"
+  ],
+  "effective_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-12-31T00:00:00Z",
+  "content_summary": "Shanghai location holds 8 available ThinkPad X1 Carbon G11 units; Beijing currently has 0. Inventory is checked at execution time, not at request time.",
+  "content_hash": "sha256:9d46d39591efc065220a40cad7e8efdab37eb7d6524315bc948b4c5dd2b7319a"
+}

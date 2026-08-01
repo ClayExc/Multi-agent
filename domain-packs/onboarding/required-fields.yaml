@@ -1,0 +1,8 @@
+schema_version: flowpilot.domain-pack.required-fields.v1
+required_fields:
+  onboarding_request:
+    - full_name
+    - department
+    - manager
+    - location
+    - start_date

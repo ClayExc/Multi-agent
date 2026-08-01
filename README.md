@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前主分支处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片已集成**。产品 P1 VPN 只读闭环已经通过 S7 RELEASE 组合复现和 S1 FAST final gate，现停在用户合并门禁；在用户批准前，该候选尚未进入主分支。真实 Provider、工单写入、`studio-integration` 可信端口、Web 与完整端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
+当前主分支处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片已集成 + P1 VPN 只读闭环已集成**。P1 已通过 S7 RELEASE、S1 FAST final gate 和用户合并门禁；真实 Provider、工单写入、`studio-integration` 可信端口、Web 与完整端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -17,7 +17,7 @@
 | LangGraph/Runtime/Context/Worker 与 Studio 安全入口 | M2 同源图工厂、真实本地 Agent Server、Interrupt/Resume 和安全投影已组合验证 | 可描述可恢复 Runtime 骨架与非黑箱开发入口；真实 Provider 和完整生产业务节点未完成 |
 | PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
 | MCP Gateway、Policy、Security 与只读模拟 MCP | M1 安全平台切片已集成 | 可描述默认拒绝、审批绑定、账本/回读与安全黑盒骨架；不代表真实企业工具闭环 |
-| VPN 确定性只读知识闭环 | P1 候选已通过 S7 RELEASE 与 S1 FAST final gate，等待用户合并 | 可描述“候选已独立验证”；合并前不得宣称已进入主分支或已发布 |
+| VPN 确定性只读知识闭环 | P1 已通过 S7 RELEASE、S1 FAST final gate 与用户门禁并进入主分支 | 可描述“确定性只读候选已集成”；不代表真实企业知识源、工单写入或发布完成 |
 | OpenAI/Claude Provider | 未实现 | 不可使用“多 Provider 已接入” |
 | 本地 Compose 集成 | S7 对精确候选验证 5 服务健康、Migration/RLS/恢复 | `0002` 自动接入仍为 P2；不能宣称发布环境完成 |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |

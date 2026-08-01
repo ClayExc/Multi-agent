@@ -4,7 +4,7 @@
 
 ```text
 CHAIN_ID=CHAIN-P1-VPN-READONLY-01
-STATUS=PAUSED
+STATUS=COMPLETED
 AUTHORITY=S1-ARCH
 AUTHORITY_REF=docs/team/chain-authorizations/CHAIN-P1-VPN-READONLY-01.md
 EXECUTION_MODE=ORDERED
@@ -17,8 +17,8 @@ FINAL_GATE=S7-INTEGRATION->S1-ARCH
 MAX_LOCAL_REPAIR_ATTEMPTS=1
 ```
 
-暂停原因：S7 RELEASE 组合复现与 S1 FAST final gate 已通过，当前处于
-`USER_GATE_REQUIRED=yes`。用户批准前不得合并主分支或自动启动下一链。
+完成结果：S7 RELEASE 组合复现、S1 FAST final gate 与用户合并门禁均已
+通过；精确候选已 fast-forward 进入主分支。该完成状态不自动授权下一链。
 
 本链交付产品里程碑 P1 的最小可验收垂直切片：合成 VPN 请求经
 Command Intake 进入确定性图，缺失环境字段时可中断追问并续跑；字段齐全

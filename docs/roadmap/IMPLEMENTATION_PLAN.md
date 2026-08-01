@@ -45,7 +45,7 @@
 
 ## 3. M1：VPN 确定性单 Agent 基线
 
-当前状态：`IN_PROGRESS`。第一条有序链只交付只读知识闭环；Ticket 写入、
+当前状态：`MERGED_P1_READONLY`。第一条有序链已经交付只读知识闭环；Ticket 写入、
 审批、真实 Provider、Web 和通用向量检索仍按后续里程碑推进。
 
 交付：

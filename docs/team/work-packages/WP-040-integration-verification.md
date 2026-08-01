@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：`ACCEPTED_CANDIDATE`（`a1` M0、`a4` M1、`a5` M2 已进入主分支；`a6` P1 VPN 已通过 RELEASE 与 S1 final gate，等待用户合并）
+- 状态：`ACCEPTED`（`a1` M0、`a4` M1、`a5` M2、`a6` P1 VPN 均已通过对应 final gate 与用户门禁并进入主分支）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-SEC-004、FP-DATA-001、FP-OPS-002

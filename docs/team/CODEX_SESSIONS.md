@@ -107,7 +107,7 @@ CANCELLED 由用户或 S1 明确终止
 11. `[MERGED_M1]` MCP Gateway、Policy、Security、只读模拟 MCP、Workspace/Lock、安全黑盒和集成证据已通过 S7、S1 与用户门禁并原子进入主分支。
 12. `[MERGED_M2]` `CHAIN-M2-STUDIO-01` 已按 `S5 → S2 → S4 → S7 → S1` 完成 LangGraph Studio 非黑箱入口，并通过用户门禁原子进入主分支。
 13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架和 M1 安全黑盒，继续为 Studio 与后续产品切片增加独立验收。
-14. `[USER_GATE_P1]` `CHAIN-P1-VPN-READONLY-01` 已按 `S5 → S3 → S2 → S4 → S7 → S1` 完成确定性 VPN 只读知识候选；S7 RELEASE 与 S1 FAST final gate 已通过，等待用户合并。
+14. `[MERGED_P1]` `CHAIN-P1-VPN-READONLY-01` 已按 `S5 → S3 → S2 → S4 → S7 → S1` 完成确定性 VPN 只读知识候选，并通过 S7 RELEASE、S1 FAST final gate 与用户门禁进入主分支。
 
 发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。
 

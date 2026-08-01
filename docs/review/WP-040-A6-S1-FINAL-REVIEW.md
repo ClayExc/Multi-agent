@@ -80,3 +80,19 @@ Compose/RLS/恢复均通过，因此 S1 不重复完整 RELEASE。
 `PAUSED / USER_GATE_REQUIRED`；用户明确批准后，S1 才能将精确候选
 fast-forward 到主分支，并在主分支复跑同一 FAST final gate。当前不自动
 合并、不推送，也不启动下一条开发链。
+
+## 用户门禁结果
+
+```text
+USER_DECISION=APPROVED
+MERGED_TO_MASTER=yes
+MERGED_CANDIDATE_HEAD=25a1dcd02e20230718f15da591682a931e0cf8b5
+MERGE_MODE=FAST_FORWARD_ONLY
+POST_MERGE_FAST_GATE=49/49_PASS
+RELEASED=no
+FROZEN=no
+NEXT_SCHEDULER=AGENT_REGISTRY_WITH_FLOW_LITE
+```
+
+该记录只确认候选已进入主分支。真实 Provider、工单写入、120/36 数据集和
+发布冻结的状态仍未提升；下一链必须重新建立工作包、注册选择和用户批准。

@@ -13,7 +13,9 @@ import copy
 import hashlib
 import json
 import os
-from collections.abc import AsyncIterator, Mapping, Sequence
+import selectors
+import sys
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -76,6 +78,10 @@ TENANT_A = "tenant-a"
 TENANT_B = "tenant-b"
 GRAPH_VERSION = "graph-v1"
 REDIS_NAMESPACE = "flowpilot:wp040:a7:run-signal"
+
+
+def _selector_loop_factory() -> asyncio.AbstractEventLoop:
+    return asyncio.SelectorEventLoop(selectors.SelectSelector())
 
 
 class AsyncPostgresConnection(Protocol):
@@ -784,7 +790,13 @@ def main() -> int:
         raise SystemExit(
             "FLOWPILOT_TEST_DATABASE_URL and FLOWPILOT_TEST_REDIS_URL are required"
         )
-    result = asyncio.run(_run(args.database_url, args.redis_url))
+    loop_factory: Callable[[], asyncio.AbstractEventLoop] | None = None
+    if sys.platform == "win32":
+        loop_factory = _selector_loop_factory
+    result = asyncio.run(
+        _run(args.database_url, args.redis_url),
+        loop_factory=loop_factory,
+    )
     document = asdict(result)
     encoded = json.dumps(document, indent=2, sort_keys=True) + "\n"
     if args.output is not None:

@@ -38,3 +38,19 @@ assertions, an offline data-source fixture under `evals/fixtures/`, and a safety
 classification (`security-class:` / `gate:` tags). All 69 candidates pass
 `OfflineRepositoryValidator.validate_evaluation_cases`; generation is
 deterministic and fully offline (see `dataset-card.yaml` rebuild section).
+
+## M6 incremental-B candidate corpus (goal B1)
+
+`incremental_b.py` curates and validates the incremental-B candidate corpus:
+40 functional candidates (business_read 16, ticket_write_verification 8,
+approval_recovery 8, long_context_handoff 8) and 12 safety/fault candidates
+(approval_replay_tamper_duplicate_write 3, dependency_failure_unknown 6,
+secret_dlp_audit 3), materialized under `evals/datasets/m6-incremental-b/`.
+It follows the same EvaluationCase v1 binding rules as incremental A and adds
+released long-context/handoff assertions (`assert.context.within_budget.v1`,
+`assert.handoff.fields_allowed.v1`) and UNKNOWN-reconciliation assertions
+(`assert.event.sequence_complete.v1`); new offline fault profiles for the
+dependency-failure and secret/DLP/audit categories live under
+`evals/fixtures/fault-profiles/`. All 52 candidates pass
+`OfflineRepositoryValidator.validate_evaluation_cases` (0 findings).
+Cumulative with incremental A: 88 functional + 33 safety = 121 candidates.

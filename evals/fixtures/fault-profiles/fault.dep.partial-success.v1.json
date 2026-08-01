@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dep.partial-success.v1",
+  "profile_version": "1.0.0",
+  "description": "Partial success fault: the request timed out but the upstream may have committed, so retrying must return the existing resource instead of creating a duplicate.",
+  "synthetic": true,
+  "payload": {
+    "kind": "partial_success",
+    "upstream_committed": true,
+    "mechanism": "请求超时但上游可能已提交，禁止重复创建"
+  }
+}

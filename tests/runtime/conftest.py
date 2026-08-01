@@ -34,10 +34,17 @@ SOURCE_ROOTS = (
     DOMAIN_SOURCE,
     APPLICATION_SOURCE,
     PERSISTENCE_SOURCE,
+    REPOSITORY_ROOT / "apps" / "mcp-gateway" / "src",
+    REPOSITORY_ROOT / "mcp-servers" / "knowledge" / "src",
+    REPOSITORY_ROOT / "mcp-servers" / "ticket" / "src",
     REPOSITORY_ROOT / "packages" / "context" / "src",
     REPOSITORY_ROOT / "packages" / "agent-runtime" / "src",
     REPOSITORY_ROOT / "packages" / "model-gateway" / "src",
     REPOSITORY_ROOT / "packages" / "graph" / "src",
+    REPOSITORY_ROOT / "packages" / "observability" / "src",
+    REPOSITORY_ROOT / "packages" / "policy" / "src",
+    REPOSITORY_ROOT / "packages" / "security" / "src",
+    REPOSITORY_ROOT / "packages" / "tool-contracts" / "src",
     REPOSITORY_ROOT / "apps" / "worker" / "src",
 )
 for source_root in reversed(SOURCE_ROOTS):

@@ -4,19 +4,50 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, TypedDict
 
-from flowpilot_graph import (
-    FLOWPILOT_GRAPH_ID,
-    DebugProjectionPolicy,
-    FlowPilotGraphNodes,
-    GraphDefinition,
-    GraphError,
-    GraphErrorCode,
-    StudioProfile,
-    assert_studio_input_safe,
-    assert_studio_profile_allowed,
-    build_flowpilot_it_service_graph,
-    debug_projection,
-)
+try:
+    from flowpilot_graph import (
+        FLOWPILOT_GRAPH_ID,
+        DebugProjectionPolicy,
+        FlowPilotGraphNodes,
+        GraphDefinition,
+        GraphError,
+        GraphErrorCode,
+        StudioProfile,
+        assert_studio_input_safe,
+        assert_studio_profile_allowed,
+        build_flowpilot_it_service_graph,
+        debug_projection,
+    )
+except ModuleNotFoundError:
+    # The Studio Agent Server launches this module inside a langgraph_cli
+    # subprocess whose environment has no PYTHONPATH and where the FlowPilot
+    # workspace packages are not pip-installed.  Derive the repository root
+    # from this file's location and expose every in-repo ``src`` root so the
+    # server can import the graph packages; environments that already have
+    # the packages importable never reach this branch.
+    import sys
+    from pathlib import Path
+
+    _REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+    for _src_root in sorted((_REPOSITORY_ROOT / "packages").glob("*/src")):
+        sys.path.insert(0, str(_src_root))
+    for _src_root in sorted((_REPOSITORY_ROOT / "apps").glob("*/src")):
+        sys.path.insert(0, str(_src_root))
+    for _src_root in sorted((_REPOSITORY_ROOT / "mcp-servers").glob("*/src")):
+        sys.path.insert(0, str(_src_root))
+    from flowpilot_graph import (
+        FLOWPILOT_GRAPH_ID,
+        DebugProjectionPolicy,
+        FlowPilotGraphNodes,
+        GraphDefinition,
+        GraphError,
+        GraphErrorCode,
+        StudioProfile,
+        assert_studio_input_safe,
+        assert_studio_profile_allowed,
+        build_flowpilot_it_service_graph,
+        debug_projection,
+    )
 from langgraph.types import interrupt
 
 _DEFAULT_SCENARIO = "full_demo"

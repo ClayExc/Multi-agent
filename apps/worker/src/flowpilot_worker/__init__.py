@@ -5,6 +5,7 @@ from .durable import (
     DurableRuntime,
     build_durable_runtime,
 )
+from .onboarding_factory import OnboardingDurableGraphFactory
 from .events import TaskEventPublisher
 from .persistence import (
     PersistenceCheckpointAdapter,
@@ -46,6 +47,7 @@ __all__ = [
     "DurableGraphFactory",
     "DurableRuntime",
     "InMemoryExecutionQueue",
+    "OnboardingDurableGraphFactory",
     "PersistenceCheckpointAdapter",
     "PersistenceExecutionGuard",
     "PersistenceLeaseAdapter",

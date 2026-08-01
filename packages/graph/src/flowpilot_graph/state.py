@@ -107,6 +107,23 @@ class GraphState:
     cumulative_input_tokens: int = 0
     cumulative_output_tokens: int = 0
     summary: LayeredSummary | None = None
+    # M5-2 recovery (FP-FLOW-005 / AC-E2E-002 reliability face): parallel
+    # read-branch completion marks, the reduced read facts, the sub-action
+    # plan and per-sub-action execution progress ride the Checkpoint so a
+    # Worker crash restart resumes from the last completed node instead of
+    # re-running finished read branches or verified sub-actions.  All four
+    # are additive (empty by default); the onboarding graph owns the
+    # concrete projections.
+    completed_read_branches: tuple[str, ...] = ()
+    read_facts: tuple[tuple[str, Any], ...] = ()
+    sub_action_plan: tuple[dict[str, Any], ...] = ()
+    sub_action_progress: tuple[dict[str, Any], ...] = ()
+    # M5-2 recovery: the intake fields and the original requester ride the
+    # Checkpoint so a crash-restart replay never re-resolves the request
+    # (the resolver may not serve approval-decision commands) and the
+    # approval separation-of-duties check keeps the ORIGINAL requester.
+    recovery_fields: tuple[tuple[str, str], ...] = ()
+    recovery_requester_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.run_generation < 1 or self.checkpoint_sequence < 0:
@@ -213,6 +230,14 @@ class GraphState:
             "summary": (
                 self.summary.to_mapping() if self.summary is not None else None
             ),
+            "completed_read_branches": list(self.completed_read_branches),
+            "read_facts": [list(item) for item in self.read_facts],
+            "sub_action_plan": [dict(item) for item in self.sub_action_plan],
+            "sub_action_progress": [
+                dict(item) for item in self.sub_action_progress
+            ],
+            "recovery_fields": [list(item) for item in self.recovery_fields],
+            "recovery_requester_id": self.recovery_requester_id,
         }
         assert_checkpoint_safe(value)
         return value
@@ -282,6 +307,28 @@ class GraphState:
                 summary=(
                     LayeredSummary.from_mapping(value["summary"])
                     if value.get("summary") is not None
+                    else None
+                ),
+                completed_read_branches=tuple(
+                    str(item) for item in value.get("completed_read_branches", ())
+                ),
+                read_facts=tuple(
+                    (str(item[0]), item[1])
+                    for item in value.get("read_facts", ())
+                ),
+                sub_action_plan=tuple(
+                    dict(item) for item in value.get("sub_action_plan", ())
+                ),
+                sub_action_progress=tuple(
+                    dict(item) for item in value.get("sub_action_progress", ())
+                ),
+                recovery_fields=tuple(
+                    (str(item[0]), str(item[1]))
+                    for item in value.get("recovery_fields", ())
+                ),
+                recovery_requester_id=(
+                    str(value["recovery_requester_id"])
+                    if value.get("recovery_requester_id") is not None
                     else None
                 ),
             )

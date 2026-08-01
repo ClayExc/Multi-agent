@@ -297,6 +297,14 @@ class OnboardingGraphState(TypedDict, total=False):
     runtime_outcome: str
     terminal_reason: str
     failure_code: str
+    # M5-2 recovery (AC-E2E-002 reliability face): control-plane inputs for
+    # a crash-restart replay.  ``recovery_restored`` marks Checkpoint-
+    # projected progress so ``prepare`` keeps it; ``resume_decision`` /
+    # ``resume_confirmed`` carry the interrupted approval/clarification
+    # decision into the replay so every validation still runs.
+    recovery_restored: bool
+    resume_decision: dict[str, Any]
+    resume_confirmed: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -385,6 +393,11 @@ class OnboardingCompositeGraph(GraphExecutionPort):
         # used to assert parallel interval overlap deterministically.
         self._branch_traces: dict[str, dict[str, str]] = {}
         self.last_safe_state: Mapping[str, Any] | None = None
+        # M5-2 recovery (FP-FLOW-005 / AC-E2E-002 reliability face): the
+        # latest Checkpoint written by an in-node recovery progress record.
+        # execute() bases its terminal transition on it so the checkpoint
+        # sequence CAS never conflicts with in-node progress saves.
+        self._recovery_state: GraphState | None = None
         nodes = _OnboardingNodes(self)
         self._definition = build_flowpilot_it_service_graph(
             OnboardingGraphState,
@@ -443,6 +456,10 @@ class OnboardingCompositeGraph(GraphExecutionPort):
             failure_code=None,
         )
         current = await self._save(current, lease)
+        # M5-2 recovery: in-node recovery progress records (read-branch
+        # completion, sub-action plan/progress) base their Checkpoint CAS
+        # on this freshly saved state and refresh this handle.
+        self._recovery_state = current
 
         # Rebuild the cross-turn budget from the Checkpoint so interrupted
         # or restarted runs never re-charge rounds that already ran
@@ -478,12 +495,50 @@ class OnboardingCompositeGraph(GraphExecutionPort):
             elif was_waiting_user and await self._has_graph_checkpoint(graph_config):
                 graph_input = Command(resume={"confirmed": True})
             else:
-                graph_input = {"task_ref": self._opaque_task_ref(command)}
+                graph_input = self._recovery_input(command, current)
+                if (
+                    command.command_type is CommandType.DECIDE_APPROVAL
+                    and bool(current.sub_action_plan)
+                ):
+                    # M5-2: the control-plane thread checkpoint was lost
+                    # (process crash).  Replay the graph from its Checkpoint
+                    # and feed the approval decision to the approval node so
+                    # the full re-authorization validation still runs
+                    # (binding / duties / manager / approval-active) instead
+                    # of silently skipping the interrupt.  This covers both
+                    # a crash parked at WAITING_APPROVAL and a crash inside
+                    # run_agent (status RUNNING) after the approval.
+                    graph_input = {
+                        **graph_input,
+                        "resume_decision": {
+                            "approval_id": str(command.payload["approval_id"]),
+                            "action_digest": str(command.payload["action_digest"]),
+                            "decision": (
+                                "approved"
+                                if command.payload["decision"] == "approve"
+                                else "rejected"
+                            ),
+                            "approver_id": command.actor.id,
+                        },
+                    }
+                elif was_waiting_user:
+                    # Same crash-recovery semantics for a clarification
+                    # interrupt: the submitted message is the confirmation,
+                    # the resolver re-reads the accumulated fields.
+                    graph_input = {
+                        **graph_input,
+                        "resume_confirmed": True,
+                    }
             result = await self._definition.graph.ainvoke(
                 cast(Any, graph_input),
                 config=cast(Any, graph_config),
             )
             self.last_safe_state = dict(result)
+            # M5-2 recovery: in-node progress records advanced the
+            # Checkpoint sequence; base the terminal transition on the
+            # latest record so the save CAS never conflicts.
+            if self._recovery_state is not None:
+                current = self._recovery_state
             if result.get("__interrupt__"):
                 waiting_route = self._pending_route(result)
                 waiting = current.transition(
@@ -579,6 +634,92 @@ class OnboardingCompositeGraph(GraphExecutionPort):
             )
         finally:
             _ACTIVE_INVOCATION.reset(token)
+            self._recovery_state = None
+
+    def _recovery_input(
+        self,
+        command: TaskCommand,
+        current: GraphState,
+    ) -> dict[str, Any]:
+        """Project Checkpoint recovery progress into the graph input.
+
+        M5-2 (FP-FLOW-005 / AC-E2E-002 reliability face): after a Worker
+        crash the control-plane thread checkpoint may be gone; the durable
+        GraphState Checkpoint is the source of truth.  Completed parallel
+        read branches, the reduced read facts, the sub-action plan and the
+        per-sub-action execution progress are injected so the replayed graph
+        resumes from the last completed node instead of re-running finished
+        branches or verified sub-actions.  ``recovery_restored`` lets the
+        ``prepare`` node keep injected progress instead of re-initializing.
+        """
+        recovery: dict[str, Any] = {}
+        if current.completed_read_branches:
+            recovery["reads_complete"] = True
+            recovery["reads"] = {
+                branch: {
+                    "branch_id": branch,
+                    "facts": {},
+                    "evidence_refs": [],
+                    "failure_code": None,
+                }
+                for branch in current.completed_read_branches
+            }
+            recovery["read_facts"] = dict(current.read_facts)
+            recovery["read_failures"] = {}
+        if current.sub_action_plan:
+            recovery["sub_actions"] = list(current.sub_action_plan)
+            permission_id = next(
+                (
+                    item["approval_id"]
+                    for item in current.sub_action_plan
+                    if item.get("approval_id")
+                ),
+                None,
+            )
+            if permission_id is not None:
+                recovery["permission_approval_id"] = permission_id
+        if current.sub_action_progress:
+            recovery["write_results"] = {
+                item["action_id"]: dict(item)
+                for item in current.sub_action_progress
+            }
+        if current.recovery_fields:
+            recovery["fields"] = dict(current.recovery_fields)
+            recovery["input_complete"] = True
+        if current.recovery_requester_id is not None:
+            recovery["requester_id"] = current.recovery_requester_id
+        if recovery:
+            recovery["recovery_restored"] = True
+        return {"task_ref": self._opaque_task_ref(command), **recovery}
+
+    async def _record_recovery_progress(
+        self,
+        *,
+        node: GraphNode,
+        **updates: Any,
+    ) -> None:
+        """Persist one in-node recovery progress record (M5-2).
+
+        Called from inside graph nodes after a parallel read-branch join,
+        the sub-action plan and every completed sub-action.  The record is
+        a RUNNING GraphState Checkpoint; its sequence participates in the
+        same CAS/fencing as every other Checkpoint write, so a stale worker
+        can never overwrite a newer generation's progress.
+        """
+        base = self._recovery_state
+        if base is None:
+            command = self._invocation().command
+            base = await self._checkpoints.load(
+                command.tenant_id, command.task_id
+            )
+        if base is None:
+            return
+        saved = await self._checkpoints.save(
+            base.transition(GraphStatus.RUNNING, node=node, **updates),
+            expected_sequence=base.checkpoint_sequence,
+            lease=self._invocation().lease,
+        )
+        self._recovery_state = saved
 
     @staticmethod
     def _pending_route(result: Mapping[str, Any]) -> str:
@@ -1221,7 +1362,17 @@ class _OnboardingNodes:
             finalize=self.finalize,
         )
 
-    async def prepare(self, _state: Mapping[str, Any]) -> Mapping[str, Any]:
+    async def prepare(self, state: Mapping[str, Any]) -> Mapping[str, Any]:
+        if state.get("recovery_restored") is True:
+            # M5-2 recovery: keep the injected progress (completed read
+            # branches, sub-action plan, per-sub-action execution progress)
+            # and only re-assert the RUNNING status.  A fresh thread
+            # checkpoint has no channel values for those keys; leaving them
+            # untouched preserves the Checkpoint-restored progress.
+            return self._advance(
+                "prepare",
+                {"status": GraphStatus.RUNNING.value},
+            )
         return self._advance(
             "prepare",
             {
@@ -1242,7 +1393,23 @@ class _OnboardingNodes:
             },
         )
 
-    async def build_context(self, _state: Mapping[str, Any]) -> Mapping[str, Any]:
+    async def build_context(self, state: Mapping[str, Any]) -> Mapping[str, Any]:
+        if state.get("recovery_restored") is True:
+            # M5-2 recovery: intake fields and requester were restored from
+            # the Checkpoint; never re-resolve the request (the resolver
+            # may not serve approval-decision commands) and re-check the
+            # field completeness against the restored fields.
+            fields = dict(state.get("fields") or {})
+            missing = self._missing_fields(fields)
+            return self._advance(
+                "build_context",
+                {
+                    "fields": fields,
+                    "missing_fields": list(missing),
+                    "input_complete": not missing,
+                    "requester_id": str(state.get("requester_id") or ""),
+                },
+            )
         observation = await self._runtime._resolve()
         fields = dict(observation.fields)
         missing = self._missing_fields(fields)
@@ -1268,6 +1435,15 @@ class _OnboardingNodes:
             },
             context_kind="request",
         )
+        requester_id = self._runtime._invocation().command.actor.id
+        # M5-2 recovery: persist intake fields + original requester so a
+        # crash-restart replay never re-resolves the request and the
+        # approval separation-of-duties check keeps the ORIGINAL requester.
+        await self._runtime._record_recovery_progress(
+            node=GraphNode.BUILD_CONTEXT,
+            recovery_fields=tuple(sorted(fields.items())),
+            recovery_requester_id=requester_id,
+        )
         return self._advance(
             "build_context",
             {
@@ -1275,7 +1451,7 @@ class _OnboardingNodes:
                 # The requester is checkpointed at intake so approval-time
                 # separation-of-duties checks compare against the original
                 # requester, never the current (approver) command actor.
-                "requester_id": self._runtime._invocation().command.actor.id,
+                "requester_id": requester_id,
                 "fields": fields,
                 "missing_fields": list(missing),
                 "input_complete": not missing,
@@ -1348,7 +1524,9 @@ class _OnboardingNodes:
                 0, self._runtime._ledger_accounting.round_count - 1
             ),
         }
-        resume = interrupt(card)
+        resume = state.get("resume_confirmed")
+        if resume is not True:
+            resume = interrupt(card)
         if not isinstance(resume, Mapping) or resume.get("confirmed") is not True:
             raise _OnboardingFailure("RUNTIME_CLARIFICATION_INVALID")
         refreshed = await self._runtime._resolve()
@@ -1426,6 +1604,19 @@ class _OnboardingNodes:
             for item in (raw[key] for key in sorted(raw))
         )
         reduced = reduce_parallel(branches)
+        if not reduced.failures:
+            # M5-2 recovery: persist the completed read-branch marks and
+            # the reduced facts so a crash restart skips the three read
+            # branches (the graph can re-plan sub-actions from the facts).
+            await self._runtime._record_recovery_progress(
+                node=GraphNode.SERVICE_READ,
+                completed_read_branches=(
+                    "device_standard",
+                    "inventory",
+                    "permission_template",
+                ),
+                read_facts=tuple(sorted(dict(reduced.facts).items())),
+            )
         return self._advance(
             "join_reads",
             {
@@ -1462,6 +1653,13 @@ class _OnboardingNodes:
             facts=facts,
             clock=self._runtime._clock,
         )
+        # M5-2 recovery: persist the deterministic sub-action plan so a
+        # crash restart re-routes to the approval interrupt instead of
+        # re-planning (and never re-running the read branches).
+        await self._runtime._record_recovery_progress(
+            node=GraphNode.RUN_AGENT,
+            sub_action_plan=tuple(sub_actions),
+        )
         return self._advance(
             "handoff",
             {
@@ -1484,7 +1682,13 @@ class _OnboardingNodes:
         if permission is None:
             raise _OnboardingFailure("RUNTIME_APPROVAL_PROPOSAL_MISSING")
         card = build_onboarding_approval_card(permission)
-        decision = interrupt(card)
+        # M5-2 recovery: when the control-plane thread checkpoint was lost
+        # (process crash) execute() feeds the approval decision from the
+        # DECIDE_APPROVAL command; every validation below still runs, so a
+        # revoked / expired / tampered approval is rejected on recovery.
+        decision = state.get("resume_decision")
+        if decision is None:
+            decision = interrupt(card)
         if not isinstance(decision, Mapping):
             raise _OnboardingFailure("RUNTIME_APPROVAL_DECISION_INVALID")
         if (
@@ -1543,7 +1747,9 @@ class _OnboardingNodes:
             action_id = sub_action["action_id"]
             existing = write_results.get(action_id)
             if existing and existing.get("status") == "verified":
-                # Already-succeeded sub-actions are never re-executed.
+                # Already-succeeded sub-actions are never re-executed
+                # (also across a crash restart: the progress Checkpoint
+                # carries them, M5-2).
                 continue
             if existing and existing.get("status") in (
                 "failed_final",
@@ -1553,33 +1759,58 @@ class _OnboardingNodes:
                 break
             outcome = await self._runtime._execute_write(sub_action)
             write_results[action_id] = outcome
+            # M5-2 recovery: persist per-sub-action progress before the
+            # next action so a crash between sub-actions resumes from the
+            # last verified action instead of replaying it.
+            await self._runtime._record_recovery_progress(
+                node=GraphNode.RUN_AGENT,
+                sub_action_progress=tuple(write_results.values()),
+            )
             if outcome["status"] != "verified":
                 failure = str(outcome["failure_code"])
                 break
 
         if failure is None:
-            ticket_outcome = await self._runtime._execute_write(
-                _plan_ticket_action(
-                    config=self._runtime._config,
-                    command=self._runtime._invocation().command,
-                    state=state,
-                    write_results=write_results,
-                    clock=self._runtime._clock,
+            existing_ticket = write_results.get("ticket")
+            if (
+                existing_ticket is not None
+                and existing_ticket.get("status") == "verified"
+            ):
+                # M5-2 recovery: the related ticket was already created and
+                # verified before the crash; never re-execute it.
+                ticket_outcome = existing_ticket
+            else:
+                ticket_outcome = await self._runtime._execute_write(
+                    _plan_ticket_action(
+                        config=self._runtime._config,
+                        command=self._runtime._invocation().command,
+                        state=state,
+                        write_results=write_results,
+                        clock=self._runtime._clock,
+                    )
                 )
-            )
+                write_results["ticket"] = ticket_outcome
             ticket_id = None
             if ticket_outcome["status"] == "verified":
                 data = ticket_outcome.get("data") or {}
                 candidate = data.get("ticket_id")
                 if isinstance(candidate, str) and candidate:
                     ticket_id = candidate
-            write_results["ticket"] = ticket_outcome
             if ticket_outcome["status"] != "verified" or ticket_id is None:
                 failure = str(
                     ticket_outcome.get("failure_code") or "WRITE_FAILED"
                 )
             else:
-                ticket_refs.append(f"ticket://{self._runtime._invocation().command.tenant_id}/{ticket_id}")
+                ticket_ref = (
+                    f"ticket://{self._runtime._invocation().command.tenant_id}/"
+                    f"{ticket_id}"
+                )
+                if ticket_ref not in ticket_refs:
+                    ticket_refs.append(ticket_ref)
+            await self._runtime._record_recovery_progress(
+                node=GraphNode.RUN_AGENT,
+                sub_action_progress=tuple(write_results.values()),
+            )
 
         update: dict[str, Any] = {
             "write_results": write_results,

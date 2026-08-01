@@ -1,0 +1,62 @@
+{
+  "schema_version": "flowpilot.synthetic-tenant-directory.v1",
+  "fixture_id": "synthetic-tenant-directory-v1",
+  "purpose": "Offline synthetic tenant and principal directory for the M6 incremental-A tenant-isolation and rbac/abac/sod candidates. Every tenant key, user, role, and attribute is fictional.",
+  "synthetic": true,
+  "tenants": [
+    {
+      "tenant_fixture_id": "tenant-a",
+      "synthetic_tenant_key": "synthetic-tenant-alpha",
+      "display_name": "Alpha 合成租户",
+      "change_window": "tue/thu 22:00-02:00"
+    },
+    {
+      "tenant_fixture_id": "tenant-b-synthetic",
+      "synthetic_tenant_key": "synthetic-tenant-beta",
+      "display_name": "Beta 合成租户",
+      "change_window": "wed 22:00-02:00",
+      "release_only": false
+    },
+    {
+      "tenant_fixture_id": "tenant-c-synthetic",
+      "synthetic_tenant_key": "synthetic-tenant-gamma",
+      "display_name": "Gamma 合成租户",
+      "change_window": "fri 22:00-02:00",
+      "release_only": false
+    }
+  ],
+  "principals": [
+    {
+      "principal_fixture_id": "principal-basic-user",
+      "subject_type": "user",
+      "roles": ["employee"],
+      "tenant": "synthetic-tenant-alpha",
+      "department": "IT",
+      "region": "east"
+    },
+    {
+      "principal_fixture_id": "principal-basic-user-beta",
+      "subject_type": "user",
+      "roles": ["employee"],
+      "tenant": "synthetic-tenant-beta",
+      "department": "finance",
+      "region": "east"
+    },
+    {
+      "principal_fixture_id": "principal-it-approver",
+      "subject_type": "user",
+      "roles": ["employee", "it-approver"],
+      "tenant": "synthetic-tenant-alpha",
+      "department": "IT",
+      "region": "east"
+    },
+    {
+      "principal_fixture_id": "principal-admin",
+      "subject_type": "user",
+      "roles": ["employee", "admin"],
+      "tenant": "synthetic-tenant-alpha",
+      "department": "IT",
+      "region": "east"
+    }
+  ]
+}

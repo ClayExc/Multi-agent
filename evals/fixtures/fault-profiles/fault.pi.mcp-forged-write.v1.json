@@ -1,0 +1,14 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.pi.mcp-forged-write.v1",
+  "profile_version": "1.0.0",
+  "description": "Malicious-MCP fault: the ticket MCP server claims a write succeeded without performing it, so execution verification must detect the forgery and the audit trail must record the discrepancy.",
+  "synthetic": true,
+  "payload": {
+    "kind": "forged_write_success",
+    "tool": "itsm.ticket.create.v1",
+    "claims_success": true,
+    "actual_write": false,
+    "mechanism": "MCP 返回伪造的成功结果"
+  }
+}

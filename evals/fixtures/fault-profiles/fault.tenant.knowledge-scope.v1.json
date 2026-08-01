@@ -1,0 +1,13 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.tenant.knowledge-scope.v1",
+  "profile_version": "1.0.0",
+  "description": "Knowledge retrieval scope fault: the knowledge MCP returns documents owned by another synthetic tenant into the candidate tenant's result set.",
+  "synthetic": true,
+  "payload": {
+    "kind": "retrieval_scope",
+    "injected_tenant": "synthetic-tenant-beta",
+    "doc_ids": ["KB-DOC-0002"],
+    "mechanism": "knowledge MCP 返回了他租户文档"
+  }
+}

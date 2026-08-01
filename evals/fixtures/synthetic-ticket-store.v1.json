@@ -1,0 +1,77 @@
+{
+  "schema_version": "flowpilot.synthetic-ticket-store.v1",
+  "fixture_id": "synthetic-ticket-store-v1",
+  "purpose": "Offline synthetic ticket and change templates that ground the M6 incremental-A clarification and ticket_write_verification candidates. All identifiers, fields, and values are fictional.",
+  "synthetic": true,
+  "ticket_templates": [
+    {
+      "ticket_id": "INC-2026-000123",
+      "tenant": "synthetic-tenant-alpha",
+      "type": "incident",
+      "status": "open",
+      "severity": "Sev2",
+      "environment": "prod",
+      "asset_id": "LAP-000123",
+      "title": "办公笔记本无法连接公司网络",
+      "description": "员工反馈有线与无线均无法连接，其他设备正常。"
+    },
+    {
+      "ticket_id": "INC-2026-000124",
+      "tenant": "synthetic-tenant-beta",
+      "type": "incident",
+      "status": "open",
+      "severity": "Sev3",
+      "environment": "staging",
+      "asset_id": "SRV-B-0042",
+      "title": "预发环境报表任务失败",
+      "description": "每日报表任务在凌晨失败，重试两次仍失败。"
+    },
+    {
+      "ticket_id": "SR-2026-000456",
+      "tenant": "synthetic-tenant-alpha",
+      "type": "service_request",
+      "status": "in_progress",
+      "category": "software_install",
+      "environment": "dev",
+      "asset_id": "LAP-000789",
+      "title": "申请安装数据分析工具",
+      "description": "标准目录外软件，需安全评审。"
+    },
+    {
+      "ticket_id": "CHG-2026-000789",
+      "tenant": "synthetic-tenant-alpha",
+      "type": "change",
+      "status": "pending_approval",
+      "category": "standard_change",
+      "environment": "prod",
+      "change_window": "2026-08-04 22:00-02:00",
+      "title": "核心网关版本升级",
+      "description": "升级到 3.1.2，影响面 120 用户，需审批。"
+    },
+    {
+      "ticket_id": "SR-2026-000457",
+      "tenant": "synthetic-tenant-alpha",
+      "type": "service_request",
+      "status": "draft",
+      "category": "vpn_access",
+      "environment": "prod",
+      "asset_id": null,
+      "title": "",
+      "description": ""
+    }
+  ],
+  "field_vocabulary": [
+    "title",
+    "description",
+    "category",
+    "priority",
+    "impact",
+    "environment",
+    "asset_id",
+    "requester",
+    "cost_center",
+    "change_window",
+    "attachment_ref",
+    "impact_assessment"
+  ]
+}

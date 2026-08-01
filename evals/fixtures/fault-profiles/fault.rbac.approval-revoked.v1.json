@@ -1,0 +1,13 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.rbac.approval-revoked.v1",
+  "profile_version": "1.0.0",
+  "description": "Authorization fault: an approval that was valid when the task paused is revoked before the task resumes, so the resume must fail closed.",
+  "synthetic": true,
+  "payload": {
+    "kind": "approval_revocation",
+    "approved_before_interrupt": true,
+    "revoked_after_interrupt": true,
+    "approval_ref": "AP-2026-0002"
+  }
+}

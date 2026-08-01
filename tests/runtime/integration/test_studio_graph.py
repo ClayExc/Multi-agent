@@ -91,14 +91,10 @@ def test_topology_snapshot_matches_compiled_graph() -> None:
     expected_edges: set[tuple[str, str, bool]] = set()
     for edge in expected["edges"]:
         sources = (
-            edge["source"]
-            if isinstance(edge["source"], list)
-            else [edge["source"]]
+            edge["source"] if isinstance(edge["source"], list) else [edge["source"]]
         )
         targets = (
-            edge["target"]
-            if isinstance(edge["target"], list)
-            else [edge["target"]]
+            edge["target"] if isinstance(edge["target"], list) else [edge["target"]]
         )
         expected_edges.update(
             (source, target, "condition" in edge)
@@ -106,8 +102,7 @@ def test_topology_snapshot_matches_compiled_graph() -> None:
             for target in targets
         )
     compiled_edges = {
-        (edge.source, edge.target, edge.conditional)
-        for edge in compiled.edges
+        (edge.source, edge.target, edge.conditional) for edge in compiled.edges
     }
 
     assert actual == expected
@@ -123,9 +118,7 @@ def test_topology_snapshot_matches_compiled_graph() -> None:
 
 def test_full_demo_interrupts_resumes_handoffs_and_retries() -> None:
     async def scenario() -> None:
-        definition = create_studio_graph_definition(
-            checkpointer=InMemorySaver()
-        )
+        definition = create_studio_graph_definition(checkpointer=InMemorySaver())
         graph = definition.graph
         config = {
             "configurable": {
@@ -167,6 +160,9 @@ def test_full_demo_interrupts_resumes_handoffs_and_retries() -> None:
         assert "handoff" in completed["visited_nodes"]
         assert "retry" in completed["visited_nodes"]
         assert completed["tool_stage"] == "no_authoritative_write"
+        assert completed["knowledge_call_count"] == 1
+        assert completed["citation_count"] == 1
+        assert completed["service_read_skipped"] is True
 
         frames = completed["debug_projection"]
         assert len(frames) == 18
@@ -175,17 +171,13 @@ def test_full_demo_interrupts_resumes_handoffs_and_retries() -> None:
         )
         assert expected_projection == {
             "schema": "flowpilot.debug-projection-snapshot.v1",
-            "frame_digests": [
-                projection_digest(frame) for frame in frames
-            ],
+            "frame_digests": [projection_digest(frame) for frame in frames],
         }
         assert [frame["step"] for frame in frames] == sorted(
             frame["step"] for frame in frames
         )
         assert all(frame["profile"] == "studio-safe" for frame in frames)
-        assert all(
-            frame["recovery"]["run_generation"] == 1 for frame in frames
-        )
+        assert all(frame["recovery"]["run_generation"] == 1 for frame in frames)
 
     asyncio.run(scenario())
 
@@ -219,8 +211,6 @@ def test_budget_and_compensation_paths_fail_closed(
         assert result["failure_code"] == failure_code
         assert result["tool_stage"] == "no_authoritative_write"
         if scenario_name == "compensate":
-            assert result["compensation_status"] == (
-                "not_required_no_side_effect"
-            )
+            assert result["compensation_status"] == ("not_required_no_side_effect")
 
     asyncio.run(scenario())

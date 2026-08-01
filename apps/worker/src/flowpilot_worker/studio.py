@@ -95,7 +95,10 @@ class StudioSafeState(TypedDict, total=False):
     input_complete: bool
     knowledge_read_complete: bool
     service_read_complete: bool
+    service_read_skipped: bool
     reads_complete: bool
+    knowledge_call_count: int
+    citation_count: int
     approval_required: bool
     approval_granted: bool
     interrupt_kind: str
@@ -168,7 +171,10 @@ class _StudioSafeNodes:
             "input_complete": not needs_clarification,
             "knowledge_read_complete": False,
             "service_read_complete": False,
+            "service_read_skipped": False,
             "reads_complete": False,
+            "knowledge_call_count": 0,
+            "citation_count": 0,
             "approval_required": needs_approval,
             "approval_granted": False,
             "interrupt_resolved": False,
@@ -273,6 +279,8 @@ class _StudioSafeNodes:
             "knowledge_read",
             {
                 "knowledge_read_complete": True,
+                "knowledge_call_count": 1,
+                "citation_count": 1,
             },
             record_current=False,
         )
@@ -287,6 +295,7 @@ class _StudioSafeNodes:
             "service_read",
             {
                 "service_read_complete": True,
+                "service_read_skipped": True,
             },
             record_current=False,
         )

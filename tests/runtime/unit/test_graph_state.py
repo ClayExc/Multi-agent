@@ -44,7 +44,17 @@ def test_checkpoint_round_trip_contains_only_minimal_recovery_state() -> None:
 
 
 def test_checkpoint_rejects_credentials_and_provider_sessions() -> None:
-    for forbidden in ("credential", "bearer_token", "provider_session"):
+    for forbidden in (
+        "credential",
+        "bearer_token",
+        "provider_session",
+        "original_message",
+        "raw_document",
+        "request_body",
+        "tool_payload",
+        "acl_subjects",
+        "answer_body",
+    ):
         with pytest.raises(GraphError) as captured:
             assert_checkpoint_safe({forbidden: "secret"})
         assert captured.value.code is GraphErrorCode.STATE_INVALID

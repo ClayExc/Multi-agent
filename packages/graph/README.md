@@ -10,7 +10,9 @@ WP-010 and WP-012 provide:
 - minimal checkpoint serialization that excludes provider sessions and secrets;
 - lease/run-generation fencing requirements for the S6 persistence adapter;
 - explicit interrupt and retry states; and
-- deterministic parallel reducers; and
+- deterministic parallel reducers;
+- minimal VPN observation/result references and logical knowledge counters;
+  and
 - a default-deny `debug_projection` that exposes routing and recovery metadata
   without authority objects, raw context, credentials, or provider sessions.
 

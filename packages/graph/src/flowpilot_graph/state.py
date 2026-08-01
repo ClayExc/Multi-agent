@@ -20,7 +20,11 @@ class GraphStatus(StrEnum):
 
 class GraphNode(StrEnum):
     START = "start"
+    INTAKE = "intake"
     BUILD_CONTEXT = "build_context"
+    KNOWLEDGE_READ = "knowledge_read"
+    SERVICE_READ = "service_read"
+    RESPOND = "respond"
     RUN_AGENT = "run_agent"
     INTERRUPT = "interrupt"
     FINALIZE = "finalize"
@@ -58,6 +62,13 @@ _FORBIDDEN_STATE_KEYS = {
     "private_key",
     "provider_session",
     "session_ref",
+    "acl",
+    "acl_subjects",
+    "answer_body",
+    "original_message",
+    "raw_document",
+    "request_body",
+    "tool_payload",
 }
 
 
@@ -82,6 +93,11 @@ class GraphState:
     failure_code: str | None = None
     pending_reason: str | None = None
     tool_proposal_refs: tuple[str, ...] = ()
+    observation_ref: str | None = None
+    knowledge_call_count: int = 0
+    citation_count: int = 0
+    reference_refs: tuple[str, ...] = ()
+    service_read_skipped: bool = False
 
     def __post_init__(self) -> None:
         if self.run_generation < 1 or self.checkpoint_sequence < 0:
@@ -94,10 +110,25 @@ class GraphState:
                 GraphErrorCode.STATE_INVALID,
                 "graph attempt count cannot be negative",
             )
+        if self.knowledge_call_count < 0 or self.citation_count < 0:
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph knowledge counters cannot be negative",
+            )
         if len(self.tool_proposal_refs) != len(set(self.tool_proposal_refs)):
             raise GraphError(
                 GraphErrorCode.STATE_INVALID,
                 "tool proposal references must be unique",
+            )
+        if len(self.reference_refs) != len(set(self.reference_refs)):
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph knowledge references must be unique",
+            )
+        if self.citation_count != len(self.reference_refs) and self.reference_refs:
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph citation count must match its minimal references",
             )
         if (
             self.status in {GraphStatus.COMPLETED, GraphStatus.FAILED}
@@ -153,6 +184,11 @@ class GraphState:
             "failure_code": self.failure_code,
             "pending_reason": self.pending_reason,
             "tool_proposal_refs": list(self.tool_proposal_refs),
+            "observation_ref": self.observation_ref,
+            "knowledge_call_count": self.knowledge_call_count,
+            "citation_count": self.citation_count,
+            "reference_refs": list(self.reference_refs),
+            "service_read_skipped": self.service_read_skipped,
         }
         assert_checkpoint_safe(value)
         return value
@@ -198,6 +234,19 @@ class GraphState:
                 ),
                 tool_proposal_refs=tuple(
                     str(item) for item in value.get("tool_proposal_refs", ())
+                ),
+                observation_ref=(
+                    str(value["observation_ref"])
+                    if value.get("observation_ref") is not None
+                    else None
+                ),
+                knowledge_call_count=int(value.get("knowledge_call_count", 0)),
+                citation_count=int(value.get("citation_count", 0)),
+                reference_refs=tuple(
+                    str(item) for item in value.get("reference_refs", ())
+                ),
+                service_read_skipped=(
+                    value.get("service_read_skipped", False) is True
                 ),
             )
         except (KeyError, TypeError, ValueError) as exc:

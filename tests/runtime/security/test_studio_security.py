@@ -51,10 +51,7 @@ def test_production_profile_state_edit_is_rejected_with_stable_code() -> None:
                     "scenario": "happy_path",
                 }
             )
-        assert (
-            captured.value.code
-            is GraphErrorCode.STUDIO_PROFILE_FORBIDDEN
-        )
+        assert captured.value.code is GraphErrorCode.STUDIO_PROFILE_FORBIDDEN
 
     asyncio.run(scenario())
 
@@ -74,9 +71,7 @@ def test_studio_input_drops_authoritative_or_sensitive_state(
 ) -> None:
     async def scenario() -> None:
         graph = create_studio_graph_definition().graph
-        result = await graph.ainvoke(
-            {"scenario": "happy_path", **forbidden}
-        )
+        result = await graph.ainvoke({"scenario": "happy_path", **forbidden})
         serialized = json.dumps(result, sort_keys=True)
 
         assert result["status"] == "COMPLETED"
@@ -102,6 +97,9 @@ def test_debug_projection_is_default_deny_and_opaque() -> None:
         "maximum_retries": 2,
         "context_layers": {"L0": True, "L1": True, "L2": True},
         "context_token_budget": 512,
+        "knowledge_call_count": 1,
+        "citation_count": 1,
+        "service_read_skipped": True,
         "unknown_future_field": "must-not-appear",
         "api_key": "must-not-appear",
         "provider_session": "must-not-appear",
@@ -115,9 +113,12 @@ def test_debug_projection_is_default_deny_and_opaque() -> None:
     )
     serialized = json.dumps(projection, sort_keys=True)
 
-    assert projection["recovery"]["task_ref"].startswith(
-        "task://sha256/"
-    )
+    assert projection["recovery"]["task_ref"].startswith("task://sha256/")
+    assert projection["knowledge"] == {
+        "call_count": 1,
+        "citation_count": 1,
+        "service_read_skipped": True,
+    }
     for forbidden in (
         "must-not-appear",
         "person@example.com",

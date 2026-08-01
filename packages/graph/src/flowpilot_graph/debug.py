@@ -144,6 +144,15 @@ def debug_projection(
             "mode": _stable_value(source.get("tool_mode"), _STABLE_NODE),
             "stage": _stable_value(source.get("tool_stage"), _STABLE_NODE),
         },
+        "knowledge": {
+            "call_count": _non_negative_int(
+                source.get("knowledge_call_count")
+            ),
+            "citation_count": _non_negative_int(source.get("citation_count")),
+            "service_read_skipped": _boolean(
+                source.get("service_read_skipped")
+            ),
+        },
         "terminal_reason": _stable_value(
             source.get("terminal_reason"),
             _STABLE_CODE,

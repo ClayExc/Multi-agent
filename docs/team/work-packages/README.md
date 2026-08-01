@@ -3,7 +3,7 @@
 ## 当前阶段
 
 - 里程碑：产品 P2 持久化图与可靠运行
-- 阶段状态：`S7_RELEASE_PASS_AWAITING_S1_FINAL_AND_USER_GATE`
+- 阶段状态：`S1_FINAL_PASS_AWAITING_USER_GATE`
 - 架构责任：`S1-ARCH`
 - 已接受基线：M0 Core/Runtime/Data、M1 Platform、M2 Studio
 - 当前有序链：[`CHAIN-P2-DURABLE-RUNTIME-01`](../chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md)
@@ -21,8 +21,8 @@
 | [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | ACCEPTED_M1 / MERGED_P1 | P1 已合并 | Gateway/Policy/Security；P1 知识工具 Attempt `a2` |
 | [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | PASS_P2_CANDIDATE | P1 已合并 | Persistence 恢复边界与负向证据 Attempt `a3` |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | MERGED_P1 | P1 已合并 | 20 条候选 Case、黑盒质量与证据 Attempt `a4` |
-| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | RELEASE_PASS_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
-| [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | REVIEW | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
+| [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | S1_FINAL_PASS_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
+| [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | USER_GATE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 
 `IN_PROGRESS` 表示 WP-000 已完成实现基线评审证明，但尚未满足发布级冻结条件。`BLOCKED` 在此只描述工作包前置条件，不代表项目或 Codex 目标进入 blocked 状态。
 
@@ -39,8 +39,8 @@ S6/data-recovery/WP-021-a3
   -> S1 final/user gate
 ```
 
-S6、S2、S7 已完成，S7 RELEASE 为 PASS；当前只剩 S1 FAST final 和用户合并
-门禁。S3/S4/S5 未参与本链，也没有接收日常等待消息。
+S6、S2、S7 与 S1 final 已完成；当前只剩用户合并门禁。S3/S4/S5 未参与本链，
+也没有接收日常等待消息。
 
 历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
 启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行

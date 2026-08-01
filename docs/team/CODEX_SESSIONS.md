@@ -93,7 +93,7 @@ CANCELLED 由用户或 S1 明确终止
 ContractSet 摘要
 `sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
 仍是当前实现基线。M0、M1 Platform、M2 Studio 与 P1 已进入主分支；P2 已通过
-S7 RELEASE，等待 S1 final 与用户门禁。发布级 `frozen` 仍等待正式 Evidence、
+S7 RELEASE 与 S1 FAST final，等待用户门禁。发布级 `frozen` 仍等待正式 Evidence、
 120+36 Dataset/Fixture 和 Traceability 提升。
 
 当前状态只在 [`PROJECT_HANDOFF.md`](../roadmap/PROJECT_HANDOFF.md) 和

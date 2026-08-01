@@ -3,10 +3,10 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=FLOW_LITE_TRIPLE_MERGED
-STATUS=MERGED_FLOW_LITE_TRIPLE
+SNAPSHOT=M4_2_REDEVELOPED_MERGED
+STATUS=MERGED_M4_2
 S7_HEAD=0b1d6ba3aa31536d9170027f0981c0e626b71f35
-MERGED_CANDIDATE_HEAD=613118c
+MERGED_CANDIDATE_HEAD=00021f1
 CONTRACT_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc
 RELEASED=false
 FROZEN=false
@@ -117,7 +117,9 @@ make studio-smoke
 |---|---|---|
 | Outbox→SSE | **已合入 master**（flow-lite g1，2026-08-01） | S4/S7 独立复核后 FP-DATA-003 升 VERIFIED |
 | VPN 安全工单写入 | **已合入 master**（flow-lite g2，2026-08-01） | S4 黑盒复核后 FP-MCP/APR 系列升 VERIFIED；真实 Ticket MCP 接入 |
-| 评测候选语料 | **已合入 master**（flow-lite g3，69 条候选登记） | 120+36 冻结前转正式 Case 集 |
+| 评测候选语料 | **已合入 master**（flow-lite g3，69+52=121 条候选登记） | 120+36 冻结前转正式 Case 集 |
+| Provider Adapter | **已合入 master**（M4-1，Sandbox Adapter 零凭据零网络） | S4/S7 复核后 FP-AGT-001/002/003 升 VERIFIED；真实 Provider 接入 |
+| Context 预算与受限 Handoff | **已合入 master**（M4-2 重开发版，2026-08-01） | S4/S7 复核后 FP-CTX-001~005、FP-AGT-004 升 VERIFIED |
 | 真实 OpenAI/Claude Provider | 未实现 | 至少一个真实 Adapter；确定性验收不依赖其在线 |
 | Multi-Agent/Context 优化 | 设计与骨架 | 受限 Handoff、预算、消融与真实 Token 报告 |
 | Web 产品面 | 未实现 | Task/Timeline/补全/审批/证据面板 |

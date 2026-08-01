@@ -10,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOTS = (
+    ROOT / "apps" / "api" / "src",
     ROOT / "apps" / "mcp-gateway" / "src",
     ROOT / "apps" / "worker" / "src",
     ROOT / "mcp-servers" / "knowledge" / "src",

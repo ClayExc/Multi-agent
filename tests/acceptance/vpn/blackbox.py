@@ -9,15 +9,21 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
+from flowpilot_api import TrustedRequestIdentity, create_app
+from flowpilot_api.testing import StaticRequestSecurity
 from flowpilot_application import (
+    CommandIntakeService,
     RequestObservationService,
     RequestReferenceQuery,
     ResolvedRequestReference,
     ResultArtifactService,
 )
 from flowpilot_application.testing import (
+    FakeExecutionPort,
     FakeRequestReferenceResolver,
     FakeResultArtifactPort,
+    FakeUnitOfWorkFactory,
 )
 from flowpilot_context import ContextBuilder
 from flowpilot_domain import (
@@ -161,6 +167,12 @@ async def run_vpn_case(case: VpnCaseDefinition) -> VpnBlackBoxObservation:
         return await _run_clarification_case(case)
 
     command, resolved = _complete_inputs(case.scenario)
+    api_boundary_ok = True
+    if case.scenario in {"complete_request", "duplicate_terminal_delivery"}:
+        api_boundary_ok = await _exercise_api_boundary(
+            command,
+            duplicate=case.scenario == "duplicate_terminal_delivery",
+        )
     adapter = KnowledgeMcpAdapter(
         (_knowledge_record(expired=case.scenario == "expired_knowledge_record"),),
         clock=lambda: FIXED_NOW,
@@ -231,6 +243,7 @@ async def run_vpn_case(case: VpnCaseDefinition) -> VpnBlackBoxObservation:
         artifacts=artifacts,
         sequence_ok=sequence_ok,
         stable_result=stable_result,
+        api_boundary_ok=api_boundary_ok,
     )
 
 
@@ -318,6 +331,7 @@ async def _run_clarification_case(
         artifacts=artifacts,
         sequence_ok=sequence_ok,
         stable_result=False,
+        api_boundary_ok=True,
     )
 
 
@@ -368,6 +382,7 @@ def _observation(
     artifacts: FakeResultArtifactPort,
     sequence_ok: bool,
     stable_result: bool,
+    api_boundary_ok: bool,
 ) -> VpnBlackBoxObservation:
     state = outcome.state
     if stable_result:
@@ -415,6 +430,7 @@ def _observation(
     assertion_checks = {
         "assert.task.terminal_status.v1": (
             state.status in {GraphStatus.COMPLETED, GraphStatus.FAILED}
+            and api_boundary_ok
             and projection_matches
         ),
         "assert.intent.matches.v1": projection_matches,
@@ -442,6 +458,71 @@ def _observation(
             for assertion_id in case.assertions
         },
     )
+
+
+async def _exercise_api_boundary(
+    command: TaskCommand,
+    *,
+    duplicate: bool,
+) -> bool:
+    unit_of_work = FakeUnitOfWorkFactory()
+    execution = FakeExecutionPort()
+    context = command.security_context
+    security = StaticRequestSecurity(
+        TrustedRequestIdentity(
+            tenant_id=command.tenant_id,
+            subject_id=command.actor.id,
+            subject_type=command.actor.type,
+            purpose=context.purpose,
+            security_context_id=context.context_id,
+            security_context_ref=context.context_ref,
+            security_context_hash=context.context_hash,
+        )
+    )
+    app = create_app(
+        command_intake=CommandIntakeService(
+            unit_of_work=unit_of_work,
+            execution=execution,
+            clock=lambda: FIXED_NOW,
+        ),
+        request_security=security,
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://flowpilot.acceptance",
+    ) as client:
+        command_body = _command_mapping(command)
+        first = await client.post("/v1/task-commands", json=command_body)
+        if first.status_code != 202 or first.json().get("replayed") is not False:
+            return False
+        if duplicate:
+            replay = await client.post(
+                "/v1/task-commands",
+                json=command_body,
+            )
+            if replay.status_code != 202 or replay.json().get("replayed") is not True:
+                return False
+    return len(execution.calls) == 1
+
+
+def _command_mapping(command: TaskCommand) -> dict[str, Any]:
+    value: dict[str, Any] = {
+        "command_id": command.command_id,
+        "command_type": command.command_type.value,
+        "tenant_id": command.tenant_id,
+        "task_id": command.task_id,
+        "actor": command.actor.to_mapping(),
+        "security_context": command.security_context.to_mapping(),
+        "expected_task_version": command.expected_task_version,
+        "idempotency_key": command.idempotency_key,
+        "command_digest": command.command_digest,
+        "payload": dict(command.payload),
+        "issued_at": command.issued_at.isoformat().replace("+00:00", "Z"),
+    }
+    if command.correlation_id is not None:
+        value["correlation_id"] = command.correlation_id
+    return value
 
 
 def _complete_inputs(scenario: str) -> tuple[TaskCommand, ResolvedRequestReference]:

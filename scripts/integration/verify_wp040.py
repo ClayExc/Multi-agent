@@ -419,6 +419,72 @@ P1_PRODUCT_PATHS = (
     "web",
 )
 
+P2_CHAIN_ID = "CHAIN-P2-DURABLE-RUNTIME-01"
+P2_ACTIVATION_COMMIT = "c51026cfa50be6e7e060266f16e2f82b68cfcac9"
+P2_CONTROL_HEAD = "74326bb188d3db76d19ca4a4138bf38d11e52d6b"
+P2_DATA_IMPLEMENTATION_HEAD = "f666ad49f3909815a2d597e0ee9f40955eb717a1"
+P2_DATA_HEAD = "36e25279d6b4e02e7471c242ed2bd71dfc0a5dbc"
+P2_RUNTIME_IMPLEMENTATION_HEAD = "e0354aaefa0eb2a559b251c9c02cd3069a3194d3"
+P2_INPUT_HEAD = "052e61beff5711e3e69dbaf45b792ad8d1a309dc"
+P2_AUTHORITY_PATH = (
+    "docs/team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md"
+)
+P2_AUTHORITY_SHA256 = (
+    "0e171dd25f3cb83b36fbf4da6910b745"
+    "859c23d601cc75eec9f311ee4e0bbc34"
+)
+P2_REGISTRY_PATH = (
+    "docs/team/agent-registrations/CHAIN-P2-DURABLE-RUNTIME-01.md"
+)
+P2_REGISTRY_SHA256 = (
+    "6062a4f58524e21af78df38197c5892c"
+    "0d09fef0e188fc97933c28ebaef688a9"
+)
+P2_EVIDENCE: dict[str, tuple[str, str, str]] = {
+    "S6_HANDOFF": (
+        P2_DATA_HEAD,
+        "tests/data/evidence/WP-021-a3-HANDOFF.md",
+        "17759d0beca2644cfa5910bdf1d5327c924438a28eafc47434ea394b13ee1823",
+    ),
+    "S2_HANDOFF": (
+        P2_INPUT_HEAD,
+        "tests/runtime/evidence/WP-010-a4-HANDOFF.md",
+        "5fb65bcb3f2c2e47ae081c70201e282d3d1d6e85b83b3800da076f4d1b6b24d1",
+    ),
+    "CHAIN_AUTHORITY": (
+        P2_INPUT_HEAD,
+        P2_AUTHORITY_PATH,
+        P2_AUTHORITY_SHA256,
+    ),
+    "AGENT_REGISTRY": (
+        P2_INPUT_HEAD,
+        P2_REGISTRY_PATH,
+        P2_REGISTRY_SHA256,
+    ),
+}
+P2_PRODUCT_PATHS = (
+    ".env.example",
+    "Makefile",
+    "apps",
+    "artifacts/acceptance",
+    "domain-packs",
+    "evals",
+    "infra",
+    "langgraph.json",
+    "mcp-servers",
+    "migrations",
+    "packages",
+    "pyproject.toml",
+    "tests/acceptance",
+    "tests/core",
+    "tests/data",
+    "tests/experience",
+    "tests/platform",
+    "tests/runtime",
+    "uv.lock",
+    "web",
+)
+
 HIGH_CONFIDENCE_SECRET_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -436,6 +502,8 @@ class ValidationPhase(StrEnum):
     M2_STUDIO_S1_FINAL = "M2_STUDIO_S1_FINAL"
     P1_VPN_CANDIDATE = "P1_VPN_CANDIDATE"
     P1_VPN_S1_FINAL = "P1_VPN_S1_FINAL"
+    P2_DURABLE_CANDIDATE = "P2_DURABLE_CANDIDATE"
+    P2_DURABLE_S1_FINAL = "P2_DURABLE_S1_FINAL"
 
 
 @dataclass(frozen=True)
@@ -4033,6 +4101,593 @@ def build_p1_vpn_manifest(
     return manifest
 
 
+def verify_p2_topology(
+    repo: Path,
+    expected_parents: dict[str, str] | None = None,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    parents = expected_parents or {
+        P2_CONTROL_HEAD: P2_ACTIVATION_COMMIT,
+        P2_DATA_IMPLEMENTATION_HEAD: P2_CONTROL_HEAD,
+        P2_DATA_HEAD: P2_DATA_IMPLEMENTATION_HEAD,
+        P2_RUNTIME_IMPLEMENTATION_HEAD: P2_DATA_HEAD,
+        P2_INPUT_HEAD: P2_RUNTIME_IMPLEMENTATION_HEAD,
+    }
+    parent_records: dict[str, list[str]] = {}
+    parent_failures: list[str] = []
+    for head, expected_parent in parents.items():
+        actual = run_git(repo, "show", "-s", "--format=%P", head).split()
+        parent_records[head] = actual
+        if actual != [expected_parent]:
+            parent_failures.append(
+                f"{head}:parents={actual}:expected={[expected_parent]}"
+            )
+
+    step_scopes: dict[str, dict[str, Any]] = {
+        "S1_CONTROL": {
+            "base": P2_ACTIVATION_COMMIT,
+            "head": P2_CONTROL_HEAD,
+            "exact": ("AGENTS.md", "README.md"),
+            "prefixes": ("docs/architecture/", "docs/team/"),
+        },
+        "S6_DATA": {
+            "base": P2_CONTROL_HEAD,
+            "head": P2_DATA_IMPLEMENTATION_HEAD,
+            "exact": (),
+            "prefixes": ("packages/persistence/", "tests/data/"),
+        },
+        "S6_HANDOFF": {
+            "base": P2_DATA_IMPLEMENTATION_HEAD,
+            "head": P2_DATA_HEAD,
+            "exact": ("tests/data/evidence/WP-021-a3-HANDOFF.md",),
+            "prefixes": (),
+        },
+        "S2_RUNTIME": {
+            "base": P2_DATA_HEAD,
+            "head": P2_RUNTIME_IMPLEMENTATION_HEAD,
+            "exact": (),
+            "prefixes": (
+                "apps/worker/",
+                "packages/graph/",
+                "tests/runtime/",
+            ),
+        },
+        "S2_HANDOFF": {
+            "base": P2_RUNTIME_IMPLEMENTATION_HEAD,
+            "head": P2_INPUT_HEAD,
+            "exact": ("tests/runtime/evidence/WP-010-a4-HANDOFF.md",),
+            "prefixes": (),
+        },
+    }
+    scope_records: dict[str, Any] = {}
+    checks = [
+        make_check(
+            "p2.git.linear_topology",
+            not parent_failures,
+            f"failures={parent_failures or 'none'}",
+        )
+    ]
+    for step, specification in step_scopes.items():
+        paths = changed_paths(
+            repo,
+            str(specification["base"]),
+            str(specification["head"]),
+        )
+        violations = path_scope_violations_by_rule(
+            paths,
+            exact=specification["exact"],
+            prefixes=specification["prefixes"],
+        )
+        scope_records[step] = {
+            "base": specification["base"],
+            "head": specification["head"],
+            "changed_paths": paths,
+            "violations": violations,
+        }
+        checks.append(
+            make_check(
+                f"p2.scope.{step.lower()}",
+                not violations,
+                f"changed={len(paths)} violations={violations or 'none'}",
+            )
+        )
+
+    commit_count = int(
+        run_git(
+            repo,
+            "rev-list",
+            "--count",
+            f"{P2_ACTIVATION_COMMIT}..{P2_INPUT_HEAD}",
+        )
+    )
+    checks.append(
+        make_check(
+            "p2.git.commit_range",
+            commit_count == 5,
+            f"commits={commit_count}",
+        )
+    )
+    return (
+        {
+            "activation_commit": P2_ACTIVATION_COMMIT,
+            "control_head": P2_CONTROL_HEAD,
+            "input_head": P2_INPUT_HEAD,
+            "commit_count": commit_count,
+            "parents": parent_records,
+            "steps": scope_records,
+        },
+        checks,
+    )
+
+
+def verify_p2_evidence(
+    repo: Path,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    records: dict[str, Any] = {}
+    checks: list[CheckResult] = []
+    for name, (revision, path, expected_hash) in P2_EVIDENCE.items():
+        content = revision_file_bytes(repo, revision, path)
+        observed_hash = sha256_bytes(content)
+        text = content.decode("utf-8", errors="strict")
+        records[name] = {
+            "revision": revision,
+            "path": path,
+            "sha256": f"sha256:{observed_hash}",
+        }
+        checks.append(
+            make_check(
+                f"p2.evidence.{name.lower()}",
+                observed_hash == expected_hash,
+                f"sha256:{observed_hash}",
+            )
+        )
+        if name.endswith("HANDOFF"):
+            expected_attempt = (
+                "WP-021-a3" if name == "S6_HANDOFF" else "WP-010-a4"
+            )
+            semantic_ok = all(
+                marker in text
+                for marker in (
+                    "OUTCOME=PASS_HANDOFF",
+                    f"ATTEMPT_ID={expected_attempt}",
+                    f"CONTRACT_CONTENT_DIGEST={CONTRACT_DIGEST}",
+                    "GATE=PASS",
+                )
+            )
+            checks.append(
+                make_check(
+                    f"p2.evidence.{name.lower()}_semantics",
+                    semantic_ok,
+                    f"attempt={expected_attempt} pass_handoff={semantic_ok}",
+                )
+            )
+    return records, checks
+
+
+def verify_p2_static_boundaries(
+    repo: Path,
+) -> tuple[dict[str, Any], list[CheckResult]]:
+    worker_paths = sorted(
+        path
+        for path in run_git(
+            repo,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            P2_INPUT_HEAD,
+            "apps/worker/src",
+        ).splitlines()
+        if path.endswith(".py")
+    )
+    forbidden_imports = ("psycopg", "redis", "sqlalchemy")
+    driver_bypass_findings: list[str] = []
+    for path in worker_paths:
+        source = revision_file_text(repo, P2_INPUT_HEAD, path)
+        tree = ast.parse(source, filename=path)
+        modules: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+                modules.append(node.module)
+        for module in modules:
+            if module.split(".", 1)[0] in forbidden_imports:
+                driver_bypass_findings.append(f"{path}:{module}")
+
+    durable_source = revision_file_text(
+        repo,
+        P2_INPUT_HEAD,
+        "apps/worker/src/flowpilot_worker/durable.py",
+    )
+    worker_persistence_source = revision_file_text(
+        repo,
+        P2_INPUT_HEAD,
+        "apps/worker/src/flowpilot_worker/persistence.py",
+    )
+    postgres_source = revision_file_text(
+        repo,
+        P2_INPUT_HEAD,
+        "packages/persistence/src/flowpilot_persistence/postgres.py",
+    )
+    recovery_source = revision_file_text(
+        repo,
+        P2_INPUT_HEAD,
+        "packages/persistence/src/flowpilot_persistence/recovery.py",
+    )
+    redis_source = revision_file_text(
+        repo,
+        P2_INPUT_HEAD,
+        "packages/persistence/src/flowpilot_persistence/redis_coordination.py",
+    )
+    typed_assembly = all(
+        marker in durable_source
+        for marker in (
+            "DataUnitOfWorkFactory",
+            "CoordinationRebuilder",
+            "PersistenceCheckpointAdapter",
+            "PersistenceLeaseAdapter",
+            "control_checkpointer",
+        )
+    )
+    explicit_control = (
+        "if control_checkpointer is None" in durable_source
+        and "InMemorySaver" not in durable_source
+        and "InMemorySaver" not in worker_persistence_source
+    )
+    fenced_cas = all(
+        marker in postgres_source
+        for marker in (
+            "run_generation = flowpilot.task_leases.run_generation + 1",
+            "SET lease_token = 'released_' || lease_token",
+            "checkpoint compare-and-swap sequence does not match",
+            "PersistenceErrorCode.STALE_FENCE",
+        )
+    )
+    tenant_rebuild = all(
+        marker in recovery_source + redis_source
+        for marker in (
+            "a complete trusted tenant inventory is required",
+            "runnable_signals",
+            "rebuild_tenant",
+            "tenant rebuild source contains another tenant",
+        )
+    )
+    checks = [
+        make_check(
+            "p2.boundary.worker_no_driver_bypass",
+            not driver_bypass_findings,
+            f"findings={driver_bypass_findings or 'none'}",
+        ),
+        make_check(
+            "p2.boundary.typed_durable_assembly",
+            typed_assembly,
+            f"typed_assembly={typed_assembly}",
+        ),
+        make_check(
+            "p2.boundary.explicit_control_checkpointer",
+            explicit_control,
+            f"explicit_control={explicit_control}",
+        ),
+        make_check(
+            "p2.boundary.fenced_checkpoint_cas",
+            fenced_cas,
+            f"fenced_cas={fenced_cas}",
+        ),
+        make_check(
+            "p2.boundary.trusted_tenant_rebuild",
+            tenant_rebuild,
+            f"trusted_tenant_rebuild={tenant_rebuild}",
+        ),
+    ]
+    return (
+        {
+            "worker_source_count": len(worker_paths),
+            "driver_bypass_findings": driver_bypass_findings,
+            "typed_durable_assembly": typed_assembly,
+            "explicit_control_checkpointer": explicit_control,
+            "fenced_checkpoint_cas": fenced_cas,
+            "trusted_tenant_rebuild": tenant_rebuild,
+        },
+        checks,
+    )
+
+
+def build_p2_durable_manifest(
+    repo: Path,
+    *,
+    phase: ValidationPhase,
+    target_head: str | None,
+    s7_head: str | None,
+    enforce_checkout_identity: bool,
+) -> dict[str, Any]:
+    if phase not in {
+        ValidationPhase.P2_DURABLE_CANDIDATE,
+        ValidationPhase.P2_DURABLE_S1_FINAL,
+    }:
+        raise ValueError(f"unsupported P2 durable phase: {phase}")
+    checkout_head = run_git(repo, "rev-parse", "HEAD")
+    checkout_branch = run_git(repo, "branch", "--show-current")
+    checks: list[CheckResult] = []
+    final_record: dict[str, Any] | None = None
+    candidate_record: dict[str, Any]
+
+    if phase is ValidationPhase.P2_DURABLE_CANDIDATE:
+        verified_head = resolve_commit(
+            repo,
+            target_head if target_head is not None else checkout_head,
+        )
+        branch = (
+            checkout_branch if enforce_checkout_identity else CANDIDATE_BRANCH
+        )
+        candidate_delta = changed_paths(repo, P2_INPUT_HEAD, verified_head)
+        candidate_violations = path_scope_violations(
+            candidate_delta,
+            S7_ALLOWED_PREFIXES,
+        )
+        protected_identities, protected_mismatches = compare_revision_paths(
+            repo,
+            P2_INPUT_HEAD,
+            verified_head,
+            P2_PRODUCT_PATHS,
+        )
+        checks.extend(
+            (
+                make_check(
+                    "p2.git.branch",
+                    is_candidate_branch(branch),
+                    f"phase={phase.value} branch={branch}",
+                ),
+                make_check(
+                    "p2.git.input_ancestor",
+                    commit_is_ancestor(repo, P2_INPUT_HEAD, verified_head),
+                    f"input={P2_INPUT_HEAD} target={verified_head}",
+                ),
+                make_check(
+                    "p2.git.s7_delta_scope",
+                    not candidate_violations,
+                    f"violations={candidate_violations or 'none'}",
+                ),
+                make_check(
+                    "p2.git.candidate_product_tree",
+                    not protected_mismatches,
+                    f"mismatches={protected_mismatches or 'none'}",
+                ),
+            )
+        )
+        candidate_record = {
+            "input_head": P2_INPUT_HEAD,
+            "s7_head": verified_head,
+            "delta": candidate_delta,
+            "delta_scope_violations": candidate_violations,
+            "protected_path_identities": protected_identities,
+            "protected_path_mismatches": protected_mismatches,
+        }
+    else:
+        if s7_head is None:
+            raise ValueError("--s7-head is required for P2_DURABLE_S1_FINAL")
+        verified_head = resolve_commit(
+            repo,
+            target_head if target_head is not None else checkout_head,
+        )
+        verified_s7_head = resolve_commit(repo, s7_head)
+        branch = select_target_branch(repo, verified_head)
+        candidate_delta = changed_paths(
+            repo,
+            P2_INPUT_HEAD,
+            verified_s7_head,
+        )
+        candidate_violations = path_scope_violations(
+            candidate_delta,
+            S7_ALLOWED_PREFIXES,
+        )
+        final_changes = changed_path_statuses(
+            repo,
+            verified_s7_head,
+            verified_head,
+        )
+        final_gitignore = run_git(repo, "show", f"{verified_head}:.gitignore")
+        final_violations = final_scope_violations(
+            final_changes,
+            final_gitignore,
+        )
+        protected_identities, protected_mismatches = compare_revision_paths(
+            repo,
+            P2_INPUT_HEAD,
+            verified_head,
+            P2_PRODUCT_PATHS,
+        )
+        input_ancestry = {
+            "S6-DATA": commit_is_ancestor(repo, P2_DATA_HEAD, verified_head),
+            "S2-RUNTIME": commit_is_ancestor(repo, P2_INPUT_HEAD, verified_head),
+        }
+        checks.extend(
+            (
+                make_check(
+                    "p2.git.branch",
+                    is_s1_branch(branch),
+                    f"phase={phase.value} branch={branch}",
+                ),
+                make_check(
+                    "p2.git.s7_head_ancestor",
+                    commit_is_ancestor(repo, verified_s7_head, verified_head),
+                    f"s7={verified_s7_head} final={verified_head}",
+                ),
+                make_check(
+                    "p2.git.s7_delta_scope",
+                    not candidate_violations,
+                    f"violations={candidate_violations or 'none'}",
+                ),
+                make_check(
+                    "p2.git.s1_final_delta_scope",
+                    not final_violations,
+                    f"violations={final_violations or 'none'}",
+                ),
+                make_check(
+                    "p2.git.final_product_tree",
+                    not protected_mismatches,
+                    f"mismatches={protected_mismatches or 'none'}",
+                ),
+                make_check(
+                    "p2.git.final_input_heads",
+                    all(input_ancestry.values()),
+                    f"ancestry={input_ancestry}",
+                ),
+            )
+        )
+        candidate_record = {
+            "input_head": P2_INPUT_HEAD,
+            "s7_head": verified_s7_head,
+            "delta": candidate_delta,
+            "delta_scope_violations": candidate_violations,
+        }
+        final_record = {
+            "target_head": verified_head,
+            "s7_head": verified_s7_head,
+            "delta": [
+                {"status": status, "path": path}
+                for status, path in final_changes
+            ],
+            "delta_scope_violations": final_violations,
+            "protected_path_identities": protected_identities,
+            "protected_path_mismatches": protected_mismatches,
+            "input_head_ancestry": input_ancestry,
+        }
+
+    topology, topology_checks = verify_p2_topology(repo)
+    evidence, evidence_checks = verify_p2_evidence(repo)
+    boundaries, boundary_checks = verify_p2_static_boundaries(repo)
+    workspace, raw_workspace_checks = verify_m2_workspace(repo, P2_INPUT_HEAD)
+    workspace_checks = [
+        CheckResult(
+            check_id=check.check_id.replace("m2.", "p2.", 1),
+            outcome=check.outcome,
+            evidence=check.evidence,
+        )
+        for check in raw_workspace_checks
+    ]
+    checks.extend(topology_checks)
+    checks.extend(evidence_checks)
+    checks.extend(boundary_checks)
+    checks.extend(workspace_checks)
+
+    contract_manifest = load_revision_json(
+        repo,
+        P2_INPUT_HEAD,
+        "contracts/contract-set.v1.json",
+    )
+    recomputed_contract_digest = contract_content_digest(contract_manifest)
+    activation_contract_tree = revision_object_id(
+        repo,
+        P2_ACTIVATION_COMMIT,
+        "contracts",
+    )
+    input_contract_tree = revision_object_id(repo, P2_INPUT_HEAD, "contracts")
+    target_contract_tree = revision_object_id(repo, verified_head, "contracts")
+    checks.extend(
+        (
+            make_check(
+                "p2.contract.content_digest",
+                recomputed_contract_digest == CONTRACT_DIGEST
+                and contract_manifest["content_digest"] == CONTRACT_DIGEST,
+                f"recomputed={recomputed_contract_digest}",
+            ),
+            make_check(
+                "p2.contract.tree_identity",
+                activation_contract_tree
+                == input_contract_tree
+                == target_contract_tree
+                == CONTRACT_TREE,
+                (
+                    f"activation={activation_contract_tree} "
+                    f"input={input_contract_tree} target={target_contract_tree}"
+                ),
+            ),
+        )
+    )
+
+    immutable_paths = ("pyproject.toml", "uv.lock", "Makefile", "migrations", "infra")
+    immutable_identities, immutable_mismatches = compare_revision_paths(
+        repo,
+        P2_ACTIVATION_COMMIT,
+        verified_head,
+        immutable_paths,
+    )
+    checks.append(
+        make_check(
+            "p2.shared.activation_identity",
+            not immutable_mismatches,
+            f"mismatches={immutable_mismatches or 'none'}",
+        )
+    )
+    changed_input_paths = changed_paths(
+        repo,
+        P2_ACTIVATION_COMMIT,
+        P2_INPUT_HEAD,
+    )
+    secret_findings = high_confidence_secret_findings(
+        repo,
+        P2_INPUT_HEAD,
+        changed_input_paths,
+    )
+    checks.append(
+        make_check(
+            "p2.security.high_confidence_secret_scan",
+            not secret_findings,
+            f"findings={secret_findings or 'none'}",
+        )
+    )
+
+    failed = [check.check_id for check in checks if check.outcome != "PASS"]
+    manifest: dict[str, Any] = {
+        "schema": "flowpilot.integration-composition-manifest.p2-durable.v1",
+        "work_package": "WP-040",
+        "attempt_id": "WP-040-a7",
+        "chain_id": P2_CHAIN_ID,
+        "execution_mode": "ORDERED",
+        "risk_class": "R2",
+        "validation_phase": phase.value,
+        "base_commit": P2_INPUT_HEAD,
+        "input_heads": {
+            "S6-DATA": P2_DATA_HEAD,
+            "S2-RUNTIME": P2_INPUT_HEAD,
+        },
+        "target_head": verified_head,
+        "branch": branch,
+        "candidate": candidate_record,
+        "topology": topology,
+        "contract": {
+            "declared_content_digest": contract_manifest["content_digest"],
+            "recomputed_content_digest": recomputed_contract_digest,
+            "digest_profile": contract_manifest["digest_profile"],
+            "activation_tree": activation_contract_tree,
+            "input_tree": input_contract_tree,
+            "target_tree": target_contract_tree,
+        },
+        "workspace": workspace,
+        "boundaries": boundaries,
+        "evidence": evidence,
+        "shared": {
+            "identities": immutable_identities,
+            "mismatches": immutable_mismatches,
+        },
+        "security": {
+            "high_confidence_secret_findings": secret_findings,
+            "worker_driver_bypass_findings": boundaries[
+                "driver_bypass_findings"
+            ],
+        },
+        "checks": [asdict(check) for check in checks],
+        "summary": {
+            "check_count": len(checks),
+            "failed_check_count": len(failed),
+            "failed_checks": failed,
+            "verdict": "PASS" if not failed else "FAIL",
+        },
+    }
+    if final_record is not None:
+        manifest["final"] = final_record
+    return manifest
+
+
 def build_manifest(
     repo: Path,
     phase: ValidationPhase | str = ValidationPhase.S7_CANDIDATE,
@@ -4070,6 +4725,17 @@ def build_manifest(
         ValidationPhase.P1_VPN_S1_FINAL,
     }:
         return build_p1_vpn_manifest(
+            repo,
+            phase=validation_phase,
+            target_head=target_head,
+            s7_head=s7_head,
+            enforce_checkout_identity=enforce_checkout_identity,
+        )
+    if validation_phase in {
+        ValidationPhase.P2_DURABLE_CANDIDATE,
+        ValidationPhase.P2_DURABLE_S1_FINAL,
+    }:
+        return build_p2_durable_manifest(
             repo,
             phase=validation_phase,
             target_head=target_head,
@@ -4422,6 +5088,11 @@ def render_report(manifest: dict[str, Any]) -> str:
         == "flowpilot.integration-composition-manifest.p1-vpn.v1"
     ):
         return render_p1_vpn_report(manifest)
+    if (
+        manifest["schema"]
+        == "flowpilot.integration-composition-manifest.p2-durable.v1"
+    ):
+        return render_p2_durable_report(manifest)
 
     summary = manifest["summary"]
     final_phase = (
@@ -4705,6 +5376,74 @@ def render_p1_vpn_report(manifest: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_p2_durable_report(manifest: dict[str, Any]) -> str:
+    summary = manifest["summary"]
+    final_phase = (
+        manifest["validation_phase"]
+        == ValidationPhase.P2_DURABLE_S1_FINAL.value
+    )
+    title = (
+        "# WP-040-a7 P2 Durable S1 Final Evidence Reproduction Report"
+        if final_phase
+        else "# WP-040-a7 P2 Durable Composition Report"
+    )
+    lines = [
+        title,
+        "",
+        f"- Validation phase: `{manifest['validation_phase']}`",
+        f"- Verdict: `{summary['verdict']}`",
+        f"- Static checks: `{summary['check_count']}`",
+        f"- Failed checks: `{summary['failed_check_count']}`",
+        f"- S2 input head: `{manifest['input_heads']['S2-RUNTIME']}`",
+        f"- Target head: `{manifest['target_head']}`",
+        (
+            "- Contract digest: "
+            f"`{manifest['contract']['recomputed_content_digest']}`"
+        ),
+        f"- Lock digest: `{manifest['workspace']['lock_sha256']}`",
+        (
+            "- Workspace closure: "
+            f"`{manifest['workspace']['member_count']} packages / "
+            f"{manifest['workspace']['lock_package_count']} locked entries`"
+        ),
+        (
+            "- Worker direct-driver bypass findings: "
+            f"`{len(manifest['security']['worker_driver_bypass_findings'])}`"
+        ),
+        "",
+        "## Static checks",
+        "",
+        "| Check | Outcome | Evidence |",
+        "|---|---|---|",
+    ]
+    for check in manifest["checks"]:
+        evidence = check["evidence"].replace("|", "\\|").replace("\n", " ")
+        lines.append(
+            f"| `{check['check_id']}` | {check['outcome']} | {evidence} |"
+        )
+    lines.extend(
+        (
+            "",
+            "## Evidence boundary",
+            "",
+            (
+                "This report reproduces the ordered S1/S6/S2 topology, "
+                "path ownership, Handoff bytes, ContractSet, Workspace/Lock, "
+                "typed Worker boundaries, protected product identity, and "
+                "high-confidence Secret scan."
+            ),
+            (
+                "Real PostgreSQL/RLS, Redis loss and rebuild, Worker restart, "
+                "generation fencing, checkpoint CAS, terminal replay, test "
+                "execution, and cleanup remain command evidence in the S7 "
+                "handoff and proof."
+            ),
+            "",
+        )
+    )
+    return "\n".join(lines)
+
+
 def write_artifacts(
     manifest: dict[str, Any],
     output_dir: Path,
@@ -4784,6 +5523,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         ValidationPhase.P1_VPN_S1_FINAL.value: (
             "WP040_P1_VPN_S1_FINAL"
+        ),
+        ValidationPhase.P2_DURABLE_CANDIDATE.value: (
+            "WP040_P2_DURABLE_COMPOSITION"
+        ),
+        ValidationPhase.P2_DURABLE_S1_FINAL.value: (
+            "WP040_P2_DURABLE_S1_FINAL"
         ),
     }
     prefix = prefixes[args.phase]

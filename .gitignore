@@ -13,6 +13,7 @@ __pycache__/
 .ruff_cache/
 
 # Generated runtime state and acceptance artifacts
+.flow/
 infra/.state/
 artifacts/acceptance/*/
 !artifacts/acceptance/README.md

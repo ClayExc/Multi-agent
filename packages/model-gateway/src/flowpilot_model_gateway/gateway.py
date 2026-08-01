@@ -8,6 +8,14 @@ from typing import Any, Protocol
 
 from flowpilot_domain import DataClassification
 
+from .wire import (
+    ProviderPort,
+    ProviderToolProposal,
+    ProviderWireError,
+    ProviderWireErrorCode,
+    ProviderWireRequest,
+)
+
 
 class ModelTask(StrEnum):
     CLASSIFY = "classify"
@@ -68,6 +76,7 @@ class ModelResult:
     output: Mapping[str, Any]
     input_tokens: int
     output_tokens: int
+    tool_proposals: tuple[ProviderToolProposal, ...] = ()
 
 
 class ModelGatewayPort(Protocol):
@@ -95,9 +104,18 @@ class DeterministicModelGateway:
         *,
         routes: tuple[ProviderRoute, ...],
         outputs: Mapping[str, Mapping[str, Any]] | None = None,
+        providers: Mapping[str, ProviderPort] | None = None,
     ) -> None:
+        """Route by classification ceiling; delegate completion to ports.
+
+        ``providers`` is the ProviderPort registry: provider name -> port.
+        A route whose provider has a registered port is completed through
+        that port (wire protocol); otherwise the gateway falls back to its
+        deterministic built-in completion so existing callers keep working.
+        """
         self._routes = routes
         self._outputs = dict(outputs or {})
+        self._providers = dict(providers or {})
         self.calls: list[ModelRequest] = []
 
     async def complete(self, request: ModelRequest) -> ModelResult:
@@ -117,6 +135,9 @@ class DeterministicModelGateway:
                 ModelGatewayErrorCode.ROUTE_DENIED,
                 "no approved provider route is available",
             )
+        port = self._providers.get(route.provider)
+        if port is not None:
+            return await self._complete_via_port(port, request)
         output = self._outputs.get(request.request_id, {"outcome": request.task.value})
         encoded_input = repr(sorted(request.payload.items())).encode()
         input_tokens = max(1, len(encoded_input) // 4)
@@ -138,4 +159,61 @@ class DeterministicModelGateway:
             output=dict(output),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+        )
+
+    async def _complete_via_port(
+        self,
+        port: ProviderPort,
+        request: ModelRequest,
+    ) -> ModelResult:
+        wire_request = ProviderWireRequest(
+            request_id=request.request_id,
+            task=request.task.value,
+            payload=request.payload,
+            data_classification=request.data_classification,
+            maximum_input_tokens=request.maximum_input_tokens,
+            maximum_output_tokens=request.maximum_output_tokens,
+        )
+        try:
+            response = await port.complete(wire_request)
+        except ProviderWireError as exc:
+            raise self._map_wire_error(exc) from exc
+        if (
+            response.input_tokens > request.maximum_input_tokens
+            or response.output_tokens > request.maximum_output_tokens
+        ):
+            raise ModelGatewayError(
+                ModelGatewayErrorCode.BUDGET_EXHAUSTED,
+                "provider port violated a hard token budget",
+            )
+        suffix = hashlib.sha256(request.request_id.encode()).hexdigest()[:16]
+        return ModelResult(
+            result_id=f"mgr_{suffix}",
+            request_id=request.request_id,
+            provider=response.provider,
+            model=response.model,
+            output=dict(response.output),
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            tool_proposals=response.tool_proposals,
+        )
+
+    @staticmethod
+    def _map_wire_error(exc: ProviderWireError) -> ModelGatewayError:
+        if exc.code is ProviderWireErrorCode.PROVIDER_UNAVAILABLE:
+            # The wire contract has exactly one retryable code; normalize any
+            # misbehaving port back to the stable retryable gateway error.
+            return ModelGatewayError(
+                ModelGatewayErrorCode.PROVIDER_UNAVAILABLE,
+                exc.safe_message,
+                retryable=True,
+            )
+        if exc.code is ProviderWireErrorCode.BUDGET_EXHAUSTED:
+            return ModelGatewayError(
+                ModelGatewayErrorCode.BUDGET_EXHAUSTED,
+                exc.safe_message,
+            )
+        return ModelGatewayError(
+            ModelGatewayErrorCode.INVALID_OUTPUT,
+            exc.safe_message,
         )

@@ -10,6 +10,7 @@ from .engine import (
     GraphExecutionPort,
     GraphRunOutcome,
     PreparedGraphRun,
+    ProviderSelectionTrace,
     RuntimeGraphConfig,
     RuntimeGraphKernel,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "LeaseToken",
     "LangGraphRuntime",
     "PreparedGraphRun",
+    "ProviderSelectionTrace",
     "ReducedBranches",
     "RuntimeGraphConfig",
     "RuntimeGraphKernel",

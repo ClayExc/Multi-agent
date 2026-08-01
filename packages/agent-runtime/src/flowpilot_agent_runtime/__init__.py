@@ -17,6 +17,7 @@ from .models import (
     ToolProposal,
 )
 from .ports import AgentRuntimePort
+from .sandbox import SandboxAdapter
 from .validation import (
     RequestConsistencyError,
     ToolScopeError,
@@ -44,6 +45,7 @@ __all__ = [
     "RuntimeErrorCode",
     "RuntimeFailure",
     "RuntimeUsage",
+    "SandboxAdapter",
     "ToolOperation",
     "ToolProposal",
     "ToolScopeError",

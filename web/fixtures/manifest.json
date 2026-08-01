@@ -1,0 +1,39 @@
+{
+  "schema_version": "flowpilot.shell-fixtures.v1",
+  "fixture_id": "flowpilot-web-shell-fixtures-v1",
+  "synthetic": true,
+  "purpose": "Local synthetic data that drives the replaceable track-C web shell first phase (task list/detail, timeline, info completion, approval card display, citations, retry and error panels). Shapes align with the apps/api Task/Command/Event v1 contracts and the stream.py SSE frame format. All digests are fictional and never derived from real credentials.",
+  "generated_at": "2026-08-01T00:00:00Z",
+  "entries": {
+    "tasks.v1.json": {
+      "contract": "contracts/jsonschema/task.v1.schema.json",
+      "note": "Task v1 projections; every entry must also parse as apps/api TaskBody and flowpilot_domain.Task",
+      "sha256": "sha256:c1630ea9f35d89faf0e0f1588031395884fdfdb1187f5a3c39b091c88e02bba6"
+    },
+    "events.v1.json": {
+      "contract": "contracts/jsonschema/task-event.v1.schema.json",
+      "note": "TaskEvent v1 envelopes delivered over SSE; task_002 deliberately carries a sequence gap (3) to exercise gap detection",
+      "sha256": "sha256:a003cff9c4e17ca2264737a639889a303fff508a6b7f2dd5227a5d762961e1e0"
+    },
+    "approvals.v1.json": {
+      "contract": "contracts/jsonschema/approval.v1.schema.json",
+      "note": "Approval records rendered by the approval card; join key action_id -> planned-actions.v1.json",
+      "sha256": "sha256:72a677018ab96de3a074ebc7c38ca5b2a4817a473032cf06a57ddcbf053f49c3"
+    },
+    "planned-actions.v1.json": {
+      "contract": "contracts/jsonschema/planned-action.v1.schema.json",
+      "note": "Planned actions rendered as card impact/parameters/rationale/summary/expiry; twin actions under task_004 mirror the M5-1 composite shape",
+      "sha256": "sha256:6a8a3016762ad2457a08ab14de636c9863c7352c1bed593fd56e1d9b09b128fb"
+    },
+    "result-artifacts.v1.json": {
+      "contract": "display-only",
+      "note": "Result artifact display data (content + citations) referenced by task.result_ref; citations mirror ResultCitation semantics",
+      "sha256": "sha256:b10da7788687aa72d1170978f1e2bbcd4c574d307f4603ba6853367fd71378f0"
+    },
+    "commands.v1.json": {
+      "contract": "contracts/jsonschema/task-command.v1.schema.json",
+      "note": "Command drafts the shell builds for info completion (task.message.submit.v1) and retry (task.retry.request.v1); no approval commands",
+      "sha256": "sha256:6585ef72abe499de3622abea8629b49c2556f4dbd16e1c7972f24508b4b12ac9"
+    }
+  }
+}

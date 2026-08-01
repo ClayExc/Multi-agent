@@ -1,0 +1,152 @@
+{
+  "synthetic": true,
+  "planned_actions": [
+    {
+      "action_id": "act_device_001",
+      "tenant_id": "tenant-it",
+      "task_id": "task_onboard_001",
+      "requester_id": "u_zhangwei",
+      "agent": {
+        "id": "agent-ops",
+        "version": "flowpilot.agent.v2"
+      },
+      "tool": {
+        "name": "itsm.ticket.create.v1",
+        "schema_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "operation": "write"
+      },
+      "arguments": {
+        "ticket_type": "device_issue",
+        "summary": "新员工笔记本发放",
+        "priority": "P2",
+        "asset_id": "ast_nb_0012"
+      },
+      "resource": {
+        "type": "ticket",
+        "id": "it_tk_0001",
+        "owner_id": "u_zhangwei"
+      },
+      "purpose": "新员工入职设备分配",
+      "data_classification": "internal",
+      "policy_version": "policy.v1.3",
+      "expires_at": "2026-08-01T12:00:00Z"
+    },
+    {
+      "action_id": "act_device_004",
+      "tenant_id": "tenant-it",
+      "task_id": "task_onboard_004",
+      "requester_id": "u_zhangwei",
+      "agent": {
+        "id": "agent-ops",
+        "version": "flowpilot.agent.v2"
+      },
+      "tool": {
+        "name": "itsm.ticket.create.v1",
+        "schema_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "operation": "write"
+      },
+      "arguments": {
+        "ticket_type": "device_issue",
+        "summary": "新员工笔记本发放",
+        "priority": "P2",
+        "asset_id": "ast_nb_0017"
+      },
+      "resource": {
+        "type": "ticket",
+        "id": "it_tk_0002",
+        "owner_id": "u_zhangwei"
+      },
+      "purpose": "新员工入职设备分配",
+      "data_classification": "internal",
+      "policy_version": "policy.v1.3",
+      "expires_at": "2026-08-02T12:00:00Z"
+    },
+    {
+      "action_id": "act_permission_004",
+      "tenant_id": "tenant-it",
+      "task_id": "task_onboard_004",
+      "requester_id": "u_zhangwei",
+      "agent": {
+        "id": "agent-ops",
+        "version": "flowpilot.agent.v2"
+      },
+      "tool": {
+        "name": "itsm.permission.grant.v1",
+        "schema_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "operation": "write"
+      },
+      "arguments": {
+        "principal": "u_zhangwei",
+        "permission_set": "vpn_standard",
+        "expires_days": 30
+      },
+      "resource": {
+        "type": "entitlement",
+        "id": "ent_vpn_0008",
+        "owner_id": "u_manager_li"
+      },
+      "purpose": "新员工入职权限授予",
+      "data_classification": "internal",
+      "policy_version": "policy.v1.3",
+      "expires_at": "2026-08-02T18:00:00Z"
+    },
+    {
+      "action_id": "act_permission_006",
+      "tenant_id": "tenant-it",
+      "task_id": "task_onboard_006",
+      "requester_id": "u_zhaoliu",
+      "agent": {
+        "id": "agent-ops",
+        "version": "flowpilot.agent.v2"
+      },
+      "tool": {
+        "name": "itsm.permission.grant.v1",
+        "schema_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "operation": "write"
+      },
+      "arguments": {
+        "principal": "u_zhaoliu",
+        "permission_set": "vpn_standard",
+        "expires_days": 30
+      },
+      "resource": {
+        "type": "entitlement",
+        "id": "ent_vpn_0009",
+        "owner_id": "u_manager_li"
+      },
+      "purpose": "新员工入职权限授予（加急）",
+      "data_classification": "internal",
+      "policy_version": "policy.v1.3",
+      "expires_at": "2026-07-31T15:00:00Z"
+    },
+    {
+      "action_id": "act_inventory_005",
+      "tenant_id": "tenant-it",
+      "task_id": "task_inventory_005",
+      "requester_id": "u_zhangwei",
+      "agent": {
+        "id": "agent-ops",
+        "version": "flowpilot.agent.v2"
+      },
+      "tool": {
+        "name": "itsm.inventory.reserve.v1",
+        "schema_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "operation": "write"
+      },
+      "arguments": {
+        "asset_type": "notebook",
+        "quantity": 1,
+        "model": "ThinkPad X1"
+      },
+      "resource": {
+        "type": "inventory",
+        "id": "inv_wh_0003",
+        "owner_id": "u_warehouse"
+      },
+      "purpose": "设备库存预留",
+      "data_classification": "internal",
+      "policy_version": "policy.v1.3",
+      "expires_at": "2026-08-01T14:00:00Z"
+    }
+  ]
+}

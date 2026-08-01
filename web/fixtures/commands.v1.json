@@ -1,0 +1,80 @@
+{
+  "synthetic": true,
+  "commands": [
+    {
+      "command_id": "cmd_repair_submit_0001",
+      "command_type": "task.message.submit.v1",
+      "tenant_id": "tenant-it",
+      "task_id": "task_repair_003",
+      "actor": {
+        "type": "user",
+        "id": "u_zhangwei"
+      },
+      "security_context": {
+        "context_id": "secctx_repair_003",
+        "context_ref": "ref://security/contexts/secctx_repair_003",
+        "context_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "办公设备报修",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T10:00:00Z",
+        "expires_at": "2026-08-01T22:00:00Z"
+      },
+      "expected_task_version": 2,
+      "idempotency_key": "sha256:8ff49d6b5830ca4ea7a4b37efb7aaa35a1da1df6dff61e8a0e4b19e27b879c23",
+      "command_digest": "sha256:b305bca1cea8b6faffb52d97ed417d44c9b31655eceb37e90f5aad808ffb201e",
+      "correlation_id": "corr_cmd_submit_001",
+      "payload": {
+        "message_id": "msg_repair_0001",
+        "message_ref": "ref://messages/msg_repair_0001",
+        "attachment_refs": []
+      },
+      "issued_at": "2026-08-01T11:00:00Z"
+    },
+    {
+      "command_id": "cmd_inv_retry_0001",
+      "command_type": "task.retry.request.v1",
+      "tenant_id": "tenant-it",
+      "task_id": "task_inventory_005",
+      "actor": {
+        "type": "user",
+        "id": "u_zhangwei"
+      },
+      "security_context": {
+        "context_id": "secctx_inventory_005",
+        "context_ref": "ref://security/contexts/secctx_inventory_005",
+        "context_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "设备库存预留",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T12:00:00Z",
+        "expires_at": "2026-08-02T00:00:00Z"
+      },
+      "expected_task_version": 1,
+      "idempotency_key": "sha256:9aa8005e5d2f7a998dab0284ad0279a6bc3ce0404c0d0b062dfdd3c9d777ab08",
+      "command_digest": "sha256:e5a8672d71caff93436a987ee3c322a8c3dc9f2d54ced1874a38ded8c1a4d8e9",
+      "correlation_id": "corr_cmd_retry_001",
+      "payload": {
+        "failed_run_id": "run_0005inv01",
+        "reason": "库存已补货，申请重试"
+      },
+      "issued_at": "2026-08-01T13:00:00Z"
+    }
+  ]
+}

@@ -531,7 +531,9 @@ async def _read_sse(
     try:
         await asyncio.wait_for(app_task, timeout=timeout)
     except asyncio.TimeoutError:
-        if expected > 0:
+        # SSE is an infinite stream: the app task never completes on its own.
+        # If we have collected the expected events, that is success.
+        if expected > 0 and len(collected) < expected:
             raise
         app_task.cancel()
         try:

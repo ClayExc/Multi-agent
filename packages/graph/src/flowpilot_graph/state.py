@@ -5,6 +5,8 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any
 
+from flowpilot_context import LayeredSummary
+
 from .errors import GraphError, GraphErrorCode
 
 
@@ -98,6 +100,13 @@ class GraphState:
     citation_count: int = 0
     reference_refs: tuple[str, ...] = ()
     service_read_skipped: bool = False
+    # M4-2 context engineering (FP-CTX-004 / FP-CTX-002): cross-turn budget
+    # counters and the layered conversation summary ride the Checkpoint so
+    # an interrupted or restarted run rebuilds them instead of re-charging.
+    conversation_round: int = 0
+    cumulative_input_tokens: int = 0
+    cumulative_output_tokens: int = 0
+    summary: LayeredSummary | None = None
 
     def __post_init__(self) -> None:
         if self.run_generation < 1 or self.checkpoint_sequence < 0:
@@ -114,6 +123,15 @@ class GraphState:
             raise GraphError(
                 GraphErrorCode.STATE_INVALID,
                 "graph knowledge counters cannot be negative",
+            )
+        if (
+            self.conversation_round < 0
+            or self.cumulative_input_tokens < 0
+            or self.cumulative_output_tokens < 0
+        ):
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph conversation budget counters cannot be negative",
             )
         if len(self.tool_proposal_refs) != len(set(self.tool_proposal_refs)):
             raise GraphError(
@@ -189,6 +207,12 @@ class GraphState:
             "citation_count": self.citation_count,
             "reference_refs": list(self.reference_refs),
             "service_read_skipped": self.service_read_skipped,
+            "conversation_round": self.conversation_round,
+            "cumulative_input_tokens": self.cumulative_input_tokens,
+            "cumulative_output_tokens": self.cumulative_output_tokens,
+            "summary": (
+                self.summary.to_mapping() if self.summary is not None else None
+            ),
         }
         assert_checkpoint_safe(value)
         return value
@@ -247,6 +271,18 @@ class GraphState:
                 ),
                 service_read_skipped=(
                     value.get("service_read_skipped", False) is True
+                ),
+                conversation_round=int(value.get("conversation_round", 0)),
+                cumulative_input_tokens=int(
+                    value.get("cumulative_input_tokens", 0)
+                ),
+                cumulative_output_tokens=int(
+                    value.get("cumulative_output_tokens", 0)
+                ),
+                summary=(
+                    LayeredSummary.from_mapping(value["summary"])
+                    if value.get("summary") is not None
+                    else None
                 ),
             )
         except (KeyError, TypeError, ValueError) as exc:

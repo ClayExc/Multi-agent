@@ -34,7 +34,7 @@
 | FP-CTX-002 | P0 | 分层摘要区分声称、验证与推断 | `packages/context` | `tests/runtime/unit/test_summary_contract.py` | 摘要 Schema 结果 | DESIGNED |
 | FP-CTX-003 | P0 | Handoff 字段与工具重新过滤 | `packages/context` | `tests/runtime/integration/test_handoff_filter.py` | Handoff Manifest | DESIGNED |
 | FP-CTX-004 | P0 | 长对话硬 Token 预算 | `packages/context` | `tests/runtime/e2e/test_long_context_budget.py` | 逐层 Token 报告 | DESIGNED |
-| FP-CTX-005 | P1 | Baseline/Optimized Context 消融 | `packages/evaluation` | `evals/runners/context_ablation.py` | `context-ablation.json` | DESIGNED |
+| FP-CTX-005 | P1 | Baseline/Optimized Context 消融 | `packages/evaluation` | `packages/evaluation/context_ablation.py` | `context-ablation.json` | DESIGNED |
 | FP-MCP-001 | P0 | 所有业务工具只经 MCP Gateway | `apps/mcp-gateway` | `tests/platform/security/test_no_tool_bypass.py` | 网络策略与调用图 | DESIGNED |
 | FP-MCP-002 | P0 | Tool Schema 固定与变更降级 | `apps/mcp-gateway` | `tests/platform/contract/test_schema_pinning.py` | Schema diff 事件 | DESIGNED |
 | FP-MCP-003 | P0 | 写动作幂等重放 | `packages/tool-contracts` | `tests/platform/integration/test_write_idempotency.py` | 10 次请求/1 个资源 | DESIGNED |

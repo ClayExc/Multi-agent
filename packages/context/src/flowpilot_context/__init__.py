@@ -1,5 +1,12 @@
-from .builder import ContextBuilder, ContextBuildRequest, estimate_tokens
+from .builder import (
+    ContextBuilder,
+    ContextBuildRequest,
+    build_summary_layer,
+    estimate_tokens,
+    forbidden_field_scan,
+)
 from .errors import ContextError, ContextErrorCode
+from .ledger import BudgetExhaustion, ContextBudgetLedger
 from .models import (
     CLASSIFICATION_RANK,
     EXPECTED_TRUST,
@@ -9,13 +16,18 @@ from .models import (
     ContextPolicy,
     HandoffBundle,
     HandoffManifest,
+    LayeredSummary,
     LayerName,
+    SummaryItem,
+    SummaryKind,
+    TokenUsageRecord,
     TrustLevel,
 )
 
 __all__ = [
+    "BudgetExhaustion",
     "CLASSIFICATION_RANK",
-    "EXPECTED_TRUST",
+    "ContextBudgetLedger",
     "ContextBuildRequest",
     "ContextBuilder",
     "ContextEnvelope",
@@ -24,9 +36,16 @@ __all__ = [
     "ContextLayer",
     "ContextManifest",
     "ContextPolicy",
+    "EXPECTED_TRUST",
     "HandoffBundle",
     "HandoffManifest",
     "LayerName",
+    "LayeredSummary",
+    "SummaryItem",
+    "SummaryKind",
+    "TokenUsageRecord",
     "TrustLevel",
+    "build_summary_layer",
     "estimate_tokens",
+    "forbidden_field_scan",
 ]

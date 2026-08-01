@@ -9,6 +9,7 @@ from .debug import (
 from .engine import (
     GraphExecutionPort,
     GraphRunOutcome,
+    HandoffDecision,
     PreparedGraphRun,
     ProviderSelectionTrace,
     RuntimeGraphConfig,
@@ -50,6 +51,7 @@ __all__ = [
     "GraphRunOutcome",
     "GraphState",
     "GraphStatus",
+    "HandoffDecision",
     "InMemoryCheckpointStore",
     "InMemoryLeaseStore",
     "LeasePort",

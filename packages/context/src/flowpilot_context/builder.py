@@ -18,6 +18,7 @@ from .models import (
     ContextPolicy,
     HandoffBundle,
     HandoffManifest,
+    LayeredSummary,
     LayerName,
     TrustLevel,
 )
@@ -39,6 +40,56 @@ _FORBIDDEN_HANDOFF_FIELDS = {
     "session_ref",
     "tool_credentials",
 }
+
+
+def build_summary_layer(
+    *,
+    summary: LayeredSummary,
+    ref: str,
+) -> ContextLayer:
+    """Wrap a layered summary as the L3 conversation-summary layer.
+
+    The summary is data (``DERIVED_DATA``), never an instruction: it rides
+    below L0-L2 in the trust model and is the first optional layer dropped
+    under budget pressure after recent messages (FP-CTX-002).
+    """
+    if not ref:
+        raise ContextError(
+            ContextErrorCode.INVALID_CONTEXT,
+            "summary layer requires a non-empty reference",
+        )
+    return ContextLayer(
+        name=LayerName.CONVERSATION_SUMMARY,
+        trust=TrustLevel.DERIVED_DATA,
+        classification=DataClassification.INTERNAL,
+        content=summary.to_mapping(),
+        source_refs=(ref,),
+    )
+
+
+def forbidden_field_scan(
+    value: object,
+    forbidden: frozenset[str] = frozenset(_FORBIDDEN_HANDOFF_FIELDS),
+) -> tuple[str, ...]:
+    """Recursively find forbidden handoff fields in any serialized payload.
+
+    Field names are matched case-insensitively so ``approval``,
+    ``ApprovalId`` or ``APPROVAL`` all count as leaks (FP-CTX-003).
+    """
+    hits: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, Mapping):
+            for key, child in node.items():
+                if str(key).lower() in forbidden:
+                    hits.append(str(key))
+                walk(child)
+        elif isinstance(node, (tuple, list)):
+            for child in node:
+                walk(child)
+
+    walk(value)
+    return tuple(dict.fromkeys(hits))
 
 
 def estimate_tokens(value: object) -> int:
@@ -144,6 +195,7 @@ class ContextBuilder:
         new_context_id: str,
         required_task_fields: Sequence[str],
         allowed_tools: Sequence[str],
+        target_tool_allowlist: Sequence[str] | None = None,
     ) -> HandoffBundle:
         if target_agent_id == source.agent_id:
             raise ContextError(
@@ -196,7 +248,11 @@ class ContextBuilder:
             )
         )
         included_fields = tuple(f"task.{item}" for item in required_task_fields)
-        return HandoffBundle(
+        effective_tools = self._filter_tools(
+            allowed_tools,
+            target_tool_allowlist,
+        )
+        bundle = HandoffBundle(
             context=rebuilt,
             manifest=HandoffManifest(
                 source_agent_id=source.agent_id,
@@ -210,9 +266,35 @@ class ContextBuilder:
                     "tool_credentials",
                     "unrelated_messages",
                 ),
-                allowed_tools=tuple(dict.fromkeys(allowed_tools)),
+                allowed_tools=effective_tools,
                 input_tokens=rebuilt.manifest.input_tokens_estimated,
             ),
+        )
+        leaks = forbidden_field_scan(bundle.to_mapping())
+        if leaks:
+            raise ContextError(
+                ContextErrorCode.HANDOFF_DENIED,
+                "handoff bundle carries forbidden fields",
+            )
+        return bundle
+
+    @staticmethod
+    def _filter_tools(
+        proposed: Sequence[str],
+        target_allowlist: Sequence[str] | None,
+    ) -> tuple[str, ...]:
+        """Intersect proposed tools with the target agent's allowlist.
+
+        Without an allowlist the proposal passes through unchanged
+        (backward compatible); with one, tools the target agent is not
+        authorized to call are dropped, not forwarded (FP-AGT-001
+        linkage).  Order of the proposal is preserved.
+        """
+        if target_allowlist is None:
+            return tuple(dict.fromkeys(proposed))
+        allowlist = set(target_allowlist)
+        return tuple(
+            dict.fromkeys(tool for tool in proposed if tool in allowlist)
         )
 
     def _validate_security_binding(self, request: ContextBuildRequest) -> None:

@@ -1,0 +1,32 @@
+{
+  "candidate_only": true,
+  "case_count": 16,
+  "category_counts": {
+    "functional": {
+      "approval_recovery": 8,
+      "long_context_handoff": 8
+    }
+  },
+  "dataset_id": "flowpilot-m6-incremental-c-local",
+  "files": {
+    "cases/functional/m6c.func.ar.009.json": "sha256:6da03079a260c46dde6890881cc8d33be72d475b97a525fd869e1b43b29d2d30",
+    "cases/functional/m6c.func.ar.010.json": "sha256:760aea266851af2eb7a80d82afa9ff4dd4c116db9338f91aa2709b2439b281c1",
+    "cases/functional/m6c.func.ar.011.json": "sha256:7a2783406757fc002dbfeeb5f203082028cd6e999cfa35127dfc46bd87d39552",
+    "cases/functional/m6c.func.ar.012.json": "sha256:be68757dd471082e799d779c7b73bd128cc8a1c85c0232b94088fd70f87efbef",
+    "cases/functional/m6c.func.ar.013.json": "sha256:62ce694032b8772abf1ceec2f24fd1dea6d06d6d03a4fb4187fd37837fea9db9",
+    "cases/functional/m6c.func.ar.014.json": "sha256:2eff7efe7a4765dc45471cb16a64569976fd085972bebc0bd4f947de5ededb15",
+    "cases/functional/m6c.func.ar.015.json": "sha256:1340d2d479fa697ed07a47e57122499e46f459b9bacd758116bb4950812bb3df",
+    "cases/functional/m6c.func.ar.016.json": "sha256:41f912d456bc18344ba9b672c40604fdf06a98a13027ca44300f7705302140ad",
+    "cases/functional/m6c.func.lh.009.json": "sha256:b31aff7079e71ecd4d74ce968ada1ffce162f757cc44d31564e43167731be30e",
+    "cases/functional/m6c.func.lh.010.json": "sha256:17ecbd95c3349988717dc89c889c89669ee053144b0ff7c5127fa40b3635622b",
+    "cases/functional/m6c.func.lh.011.json": "sha256:bb5f6b35dd46ea0150c6279523ba9d930ef173a6cdf163051134fd082f77725f",
+    "cases/functional/m6c.func.lh.012.json": "sha256:d5fcc68814458ea25b2aedca5ecc6d9aaae699bb19f053f131f70442ba50be5c",
+    "cases/functional/m6c.func.lh.013.json": "sha256:349b03a453e8d7c4e82825ba72e3817c95ca6b24ca9c2cd6edbcf2f45e6e3f02",
+    "cases/functional/m6c.func.lh.014.json": "sha256:7eb6fe5b6a1fdf976f3154225770ebac9e13ffa1feb1eea0056f34163109c743",
+    "cases/functional/m6c.func.lh.015.json": "sha256:a26d69b57e1200e73419405f0aca05a4d28647c32d8f49bd97a3da9c4f4114a5",
+    "cases/functional/m6c.func.lh.016.json": "sha256:54cd1dad7b88d43ddd1726c7b5ac2f1c378c624d1e0bc44483e23d27c66e94d5",
+    "dataset-card.yaml": "sha256:b24b6d2738a8470cf07f7eb5130f35f564e516360b36db7a99b7ef7ecc4d83b6"
+  },
+  "schema_version": "flowpilot.m6-incremental-c-manifest.v1",
+  "version": "0.1.0-candidate.1"
+}

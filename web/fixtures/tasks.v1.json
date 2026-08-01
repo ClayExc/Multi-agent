@@ -1,0 +1,293 @@
+{
+  "synthetic": true,
+  "tasks": [
+    {
+      "task_id": "task_onboard_001",
+      "thread_id": "thread_onboard_001",
+      "tenant_id": "tenant-it",
+      "status": "COMPLETED",
+      "version": 5,
+      "run_generation": 2,
+      "active_run_id": null,
+      "latest_checkpoint_id": "ckpt_onboard_001_final",
+      "domain": "it-service",
+      "intent": "onboarding_request",
+      "risk_level": "medium",
+      "purpose": "新员工入职设备与权限申请",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_onboard_001",
+        "context_ref": "ref://security/contexts/secctx_onboard_001",
+        "context_hash": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "新员工入职设备与权限申请",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T08:00:00Z",
+        "expires_at": "2026-08-01T20:00:00Z"
+      },
+      "release": {
+        "graph_version": "flowpilot.graph.v2",
+        "domain_pack_version": "flowpilot.domain-pack.v2",
+        "context_policy_version": "flowpilot.context-policy.v1",
+        "policy_version": "policy.v1.3",
+        "tool_schema_set": "flowpilot.tools.v1"
+      },
+      "waiting_on": null,
+      "result_ref": "ref://artifacts/res_onboard_001",
+      "error": null,
+      "created_at": "2026-08-01T08:05:00Z",
+      "updated_at": "2026-08-01T09:40:00Z",
+      "completed_at": "2026-08-01T09:40:00Z"
+    },
+    {
+      "task_id": "task_vpn_perm_002",
+      "thread_id": "thread_vpn_perm_002",
+      "tenant_id": "tenant-it",
+      "status": "RUNNING",
+      "version": 2,
+      "run_generation": 1,
+      "active_run_id": "run_0002vpn01",
+      "latest_checkpoint_id": "ckpt_vpn_002_run3",
+      "domain": "it-service",
+      "intent": "vpn_access_change",
+      "risk_level": "low",
+      "purpose": "VPN 权限变更申请",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_vpn_perm_002",
+        "context_ref": "ref://security/contexts/secctx_vpn_perm_002",
+        "context_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "VPN 权限变更申请",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T07:30:00Z",
+        "expires_at": "2026-08-01T19:30:00Z"
+      },
+      "release": {
+        "graph_version": "flowpilot.graph.v2",
+        "domain_pack_version": "flowpilot.domain-pack.v2",
+        "context_policy_version": "flowpilot.context-policy.v1",
+        "policy_version": "policy.v1.3",
+        "tool_schema_set": "flowpilot.tools.v1"
+      },
+      "waiting_on": null,
+      "result_ref": null,
+      "error": null,
+      "created_at": "2026-08-01T07:35:00Z",
+      "updated_at": "2026-08-01T07:38:00Z",
+      "completed_at": null
+    },
+    {
+      "task_id": "task_repair_003",
+      "thread_id": "thread_repair_003",
+      "tenant_id": "tenant-it",
+      "status": "WAITING_USER",
+      "version": 2,
+      "run_generation": 1,
+      "active_run_id": "run_0003rep01",
+      "latest_checkpoint_id": "ckpt_repair_003_wait",
+      "domain": "it-service",
+      "intent": "repair_request",
+      "risk_level": "low",
+      "purpose": "办公设备报修",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_repair_003",
+        "context_ref": "ref://security/contexts/secctx_repair_003",
+        "context_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "办公设备报修",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T10:00:00Z",
+        "expires_at": "2026-08-01T22:00:00Z"
+      },
+      "release": {
+        "graph_version": "flowpilot.graph.v2",
+        "domain_pack_version": "flowpilot.domain-pack.v2",
+        "context_policy_version": "flowpilot.context-policy.v1",
+        "policy_version": "policy.v1.3",
+        "tool_schema_set": "flowpilot.tools.v1"
+      },
+      "waiting_on": {
+        "type": "user_input",
+        "request_id": "req_repair_0001",
+        "expires_at": "2026-08-02T12:00:00Z"
+      },
+      "result_ref": null,
+      "error": null,
+      "created_at": "2026-08-01T10:05:00Z",
+      "updated_at": "2026-08-01T10:08:00Z",
+      "completed_at": null
+    },
+    {
+      "task_id": "task_onboard_004",
+      "thread_id": "thread_onboard_004",
+      "tenant_id": "tenant-it",
+      "status": "WAITING_APPROVAL",
+      "version": 2,
+      "run_generation": 1,
+      "active_run_id": "run_0004onb01",
+      "latest_checkpoint_id": "ckpt_onboard_004_apr",
+      "domain": "it-service",
+      "intent": "onboarding_request",
+      "risk_level": "high",
+      "purpose": "新员工入职设备分配与权限授予",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_onboard_004",
+        "context_ref": "ref://security/contexts/secctx_onboard_004",
+        "context_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "新员工入职设备分配与权限授予",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T09:50:00Z",
+        "expires_at": "2026-08-01T21:50:00Z"
+      },
+      "release": {
+        "graph_version": "flowpilot.graph.v2",
+        "domain_pack_version": "flowpilot.domain-pack.v2",
+        "context_policy_version": "flowpilot.context-policy.v1",
+        "policy_version": "policy.v1.3",
+        "tool_schema_set": "flowpilot.tools.v1"
+      },
+      "waiting_on": {
+        "type": "approval",
+        "request_id": "apr_00000004",
+        "expires_at": "2026-08-02T18:00:00Z"
+      },
+      "result_ref": null,
+      "error": null,
+      "created_at": "2026-08-01T09:55:00Z",
+      "updated_at": "2026-08-01T10:06:00Z",
+      "completed_at": null
+    },
+    {
+      "task_id": "task_inventory_005",
+      "thread_id": "thread_inventory_005",
+      "tenant_id": "tenant-it",
+      "status": "FAILED",
+      "version": 1,
+      "run_generation": 1,
+      "active_run_id": null,
+      "latest_checkpoint_id": "ckpt_inv_005_fail",
+      "domain": "it-service",
+      "intent": "inventory_reservation",
+      "risk_level": "medium",
+      "purpose": "设备库存预留",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_inventory_005",
+        "context_ref": "ref://security/contexts/secctx_inventory_005",
+        "context_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhangwei",
+        "subject_type": "user",
+        "purpose": "设备库存预留",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-08-01T12:00:00Z",
+        "expires_at": "2026-08-02T00:00:00Z"
+      },
+      "release": {
+        "graph_version": "flowpilot.graph.v2",
+        "domain_pack_version": "flowpilot.domain-pack.v2",
+        "context_policy_version": "flowpilot.context-policy.v1",
+        "policy_version": "policy.v1.3",
+        "tool_schema_set": "flowpilot.tools.v1"
+      },
+      "waiting_on": null,
+      "result_ref": null,
+      "error": {
+        "code": "INVENTORY_INSUFFICIENT",
+        "retryable": true,
+        "detail_ref": "ref://errors/inventory_0005"
+      },
+      "created_at": "2026-08-01T12:05:00Z",
+      "updated_at": "2026-08-01T12:12:00Z",
+      "completed_at": "2026-08-01T12:12:00Z"
+    },
+    {
+      "task_id": "task_onboard_006",
+      "thread_id": "thread_onboard_006",
+      "tenant_id": "tenant-it",
+      "status": "ESCALATED",
+      "version": 2,
+      "run_generation": 1,
+      "active_run_id": null,
+      "latest_checkpoint_id": "ckpt_onboard_006_esc",
+      "domain": "it-service",
+      "intent": "onboarding_request",
+      "risk_level": "high",
+      "purpose": "新员工入职权限授予（加急）",
+      "data_classification": "internal",
+      "security_context": {
+        "context_id": "secctx_onboard_006",
+        "context_ref": "ref://security/contexts/secctx_onboard_006",
+        "context_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "tenant_id": "tenant-it",
+        "subject_id": "u_zhaoliu",
+        "subject_type": "user",
+        "purpose": "新员工入职权限授予（加急）",
+        "authentication": {
+          "method": "oidc",
+          "assurance_level": "substantial",
+          "session_id_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        },
+        "delegation_id": null,
+        "data_classification_ceiling": "internal",
+        "issued_at": "2026-07-31T08:30:00Z",
+        "expires_at": "2026-07-31T20:30:00Z"
+      },
+      "release": {
+        "graph_version": "flowpilot.graph.v2",
+        "domain_pack_version": "flowpilot.domain-pack.v2",
+        "context_policy_version": "flowpilot.context-policy.v1",
+        "policy_version": "policy.v1.3",
+        "tool_schema_set": "flowpilot.tools.v1"
+      },
+      "waiting_on": null,
+      "result_ref": null,
+      "error": null,
+      "created_at": "2026-07-31T08:35:00Z",
+      "updated_at": "2026-07-31T15:05:00Z",
+      "completed_at": "2026-07-31T15:05:00Z"
+    }
+  ]
+}

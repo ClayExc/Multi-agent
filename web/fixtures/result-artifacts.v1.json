@@ -1,0 +1,24 @@
+{
+  "synthetic": true,
+  "artifacts": [
+    {
+      "result_ref": "ref://artifacts/res_onboard_001",
+      "media_type": "text/markdown",
+      "content": "入职流程已完成：设备工单 it_tk_0001 已创建并通过回读验证，VPN 权限 ent_vpn_0008 已授予。",
+      "citations": [
+        {
+          "source_ref": "ref://knowledge/device-standards",
+          "document_version": "doc.v1.4",
+          "section": "4.2 新员工设备标准",
+          "content_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        {
+          "source_ref": "ref://knowledge/permission-matrix",
+          "document_version": "doc.v1.2",
+          "section": "2.1 VPN 权限集",
+          "content_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      ]
+    }
+  ]
+}

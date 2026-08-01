@@ -96,7 +96,7 @@ ContractSet 摘要
 S7 RELEASE，等待 S1 final 与用户门禁。发布级 `frozen` 仍等待正式 Evidence、
 120+36 Dataset/Fixture 和 Traceability 提升。
 
-当前状态只在 [`PROJECT_HANDOFF.md`](../PROJECT_HANDOFF.md) 和
+当前状态只在 [`PROJECT_HANDOFF.md`](../roadmap/PROJECT_HANDOFF.md) 和
 [`work-packages/README.md`](./work-packages/README.md) 维护。历史提交、顺序和
 证据留在 `chain-authorizations/**`、`tests/**/evidence/**` 与 `docs/review/**`，
 不再复制进本强制角色文档。

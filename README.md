@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前已合并 **Architecture Baseline v1.0、M1 平台、M2 Studio 与 P1 VPN 只读闭环**。P2 持久化恢复候选已通过 S7 RELEASE，正在进行 S1 final 并等待用户合并门禁；真实 Provider、安全工单写入、Web、第二业务场景与 120+36 冻结评测仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。项目当前状态、证据、运行方式和后续计划统一见 [项目交接总览](./docs/PROJECT_HANDOFF.md)。
+当前已合并 **Architecture Baseline v1.0、M1 平台、M2 Studio 与 P1 VPN 只读闭环**。P2 持久化恢复候选已通过 S7 RELEASE，正在进行 S1 final 并等待用户合并门禁；真实 Provider、安全工单写入、Web、第二业务场景与 120+36 冻结评测仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。项目当前状态、证据、运行方式和后续计划统一见 [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md)。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -102,7 +102,7 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 
 | 文档 | 作用 |
 |---|---|
-| [项目交接总览](./docs/PROJECT_HANDOFF.md) | 当前能力、证据、运行入口、限制、目录责任与下一阶段计划的唯一状态入口 |
+| [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md) | 当前能力、证据、运行入口、限制、目录责任与下一阶段计划的唯一状态入口 |
 | [STRUCTURE.md](./STRUCTURE.md) | 目标仓库结构、部署单元、依赖方向和目录验收 |
 | [架构总览](./docs/architecture/ARCHITECTURE.md) | 容器边界、状态所有权、事务、恢复、安全与可观测设计 |
 | [企业级 Agent 学习与演进手册](./docs/architecture/ENGINEERING_PLAYBOOK.md) | 记录检索、恢复、循环、Context、副作用、安全与评测难题及其结构化解法 |

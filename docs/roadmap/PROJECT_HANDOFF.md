@@ -59,9 +59,9 @@ S7 RELEASE 证据：
 
 权威证据：
 
-- [`WP-040-a7-HANDOFF.md`](../tests/integration/evidence/WP-040-a7-HANDOFF.md)
-- [`WP-040-a7-PROOF.json`](../tests/integration/evidence/WP-040-a7-PROOF.json)
-- [`CHAIN-P2-DURABLE-RUNTIME-01`](./team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md)
+- [`WP-040-a7-HANDOFF.md`](../../tests/integration/evidence/WP-040-a7-HANDOFF.md)
+- [`WP-040-a7-PROOF.json`](../../tests/integration/evidence/WP-040-a7-PROOF.json)
+- [`CHAIN-P2-DURABLE-RUNTIME-01`](../team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md)
 
 ## 4. 关键架构边界
 
@@ -107,7 +107,7 @@ make studio-smoke
 | `scripts/integration`、`tests/integration` | S7 | 独立组合与证据复现 |
 | 根契约、架构、验收、路线和团队文档 | S1 | 控制面与最终裁决 |
 
-路径细节以根目录 [`AGENTS.md`](../AGENTS.md) 为准。
+路径细节以根目录 [`AGENTS.md`](../../AGENTS.md) 为准。
 
 ## 7. 尚未完成
 
@@ -149,7 +149,7 @@ P2 final
   契约测试，不连接生产系统或凭据。
 
 完整计划见
-[`ACCELERATED_DELIVERY_PLAN.md`](./roadmap/ACCELERATED_DELIVERY_PLAN.md)。
+[`ACCELERATED_DELIVERY_PLAN.md`](./ACCELERATED_DELIVERY_PLAN.md)。
 `g2/g3` 仍需要各自用户门禁，本文件不构成自动批准。
 
 ## 9. 协作与恢复

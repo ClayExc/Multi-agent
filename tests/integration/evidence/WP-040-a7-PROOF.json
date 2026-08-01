@@ -1,0 +1,194 @@
+{
+  "schema_version": "flowpilot.wp040a7-proof.v1",
+  "chain_id": "CHAIN-P2-DURABLE-RUNTIME-01",
+  "step_id": "P2-DURABLE-03-VERIFY",
+  "attempt_id": "WP-040-a7",
+  "agent_id": "recovery-verifier",
+  "session_role": "S7-INTEGRATION",
+  "input_head": "052e61beff5711e3e69dbaf45b792ad8d1a309dc",
+  "implementation_head": "4c3c9521e589a1fd54c0fee6b7a1b5d16f56ce2a",
+  "contract_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "scope": {
+    "gate_level": "RELEASE",
+    "release_gate_reproduced": true,
+    "release_approved": false,
+    "flow_lite_goal": "g1",
+    "g2_started": false,
+    "g3_started": false,
+    "contract_change": false,
+    "workspace_lock_change": false,
+    "migration_change": false,
+    "infra_change": false,
+    "product_change_by_s7": false,
+    "production_connection": false,
+    "external_provider_connection": false
+  },
+  "composition": {
+    "validation_phase": "P2_DURABLE_CANDIDATE",
+    "check_count": 33,
+    "failed_check_count": 0,
+    "verdict": "PASS",
+    "linear_commit_count": 5,
+    "scope_violation_count": 0,
+    "s7_changed_paths": 3,
+    "workspace_member_count": 14,
+    "lock_package_count": 116,
+    "expected_wheel_count": 14,
+    "manifest_sha256": "sha256:f325af3b0a59f0dab75174135dc44cff950094c9db2544bec0bc9fb83c8819c7",
+    "report_sha256": "sha256:3d2c1e107416d3fcf4b6043c6fb781f632ee57706346d0e6d75a4996cbdc2c34",
+    "fixed_input_manifest_sha256": "sha256:45c75585f03e0a652b7e1a724a05a2d3e28e6fb7d28b4f776b18ae506e3cfdd9",
+    "fixed_input_report_sha256": "sha256:ab5cf5280d6ec8208f9820d5fb42a5b6a73feed0f31a3cd7628fafdcf8aa76fd",
+    "s6_handoff_sha256": "sha256:17759d0beca2644cfa5910bdf1d5327c924438a28eafc47434ea394b13ee1823",
+    "s2_handoff_sha256": "sha256:5fb65bcb3f2c2e47ae081c70201e282d3d1d6e85b83b3800da076f4d1b6b24d1",
+    "chain_authority_sha256": "sha256:0e171dd25f3cb83b36fbf4da6910b745859c23d601cc75eec9f311ee4e0bbc34",
+    "agent_registry_sha256": "sha256:6062a4f58524e21af78df38197c5892c0d09fef0e188fc97933c28ebaef688a9",
+    "contract_tree": "3b67857c6aacce574080089ce1d8b763dd766a77",
+    "migration_tree": "162f2b65c41d1f7bad571e7d95c723206f6b86c9",
+    "infra_tree": "ec1d3e26c6eec1d5d3ad6d2213d47807f31cf991",
+    "lock_sha256": "sha256:9c9ab3febad1a13571d51e567c6546f27be809f86927e03b0e64339e4ac957c2"
+  },
+  "durable_recovery": {
+    "real_postgresql": true,
+    "real_redis": true,
+    "trusted_tenant_inventory": [
+      "tenant-a",
+      "tenant-b"
+    ],
+    "redis_loss_observed": true,
+    "first_rebuilt_signal_count": 1,
+    "second_rebuilt_signal_count": 1,
+    "terminal_rebuilt_signal_count": 0,
+    "first_run_generation": 1,
+    "recovered_run_generation": 2,
+    "first_checkpoint_sequence": 3,
+    "completed_checkpoint_sequence": 6,
+    "old_worker_write_attempts": 1,
+    "old_worker_successful_writes": 0,
+    "stale_cas_successful_writes": 0,
+    "terminal_node_reruns": 0,
+    "terminal_checkpoint_writes": 0,
+    "cross_tenant_successful_reads": 0,
+    "redis_keys_after_terminal_rebuild": 0,
+    "runtime_calls": 2,
+    "explicit_control_checkpointers_observed": 3,
+    "postgres_adapter_result": "PASS",
+    "postgres_adapter_generation": 3,
+    "postgres_adapter_rebuilt_signals": 1
+  },
+  "test_results": [
+    {
+      "command": "uv sync --all-packages --all-groups --locked in a fresh UV_PROJECT_ENVIRONMENT",
+      "result": "PASS",
+      "summary": "116 locked packages; 14 internal Workspace packages; CPython 3.12.11"
+    },
+    {
+      "command": "python -B -m pytest -q",
+      "result": "PASS",
+      "summary": "265 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/platform -q",
+      "result": "PASS",
+      "summary": "68 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "89 passed"
+    },
+    {
+      "command": "python -B -m pytest tests/integration -q",
+      "result": "PASS",
+      "summary": "60 passed; includes 16 P2 composition and failed-closed regressions"
+    },
+    {
+      "command": "python -B contracts/conformance/validate.py",
+      "result": "PASS",
+      "summary": "20 schemas; 35 cases; 43 semantic negatives; 52 features"
+    },
+    {
+      "command": "ruff check P2-owned and S7 integration paths",
+      "result": "PASS",
+      "summary": "apps/worker, packages/persistence, tests/data, tests/runtime, scripts/integration, tests/integration"
+    },
+    {
+      "command": "mypy --strict over 14 Workspace sources and S7 verifiers",
+      "result": "PASS",
+      "summary": "89 source files; no issues"
+    },
+    {
+      "command": "python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "2 cases; 0 findings"
+    },
+    {
+      "command": "uv build --all-packages --wheel; locked non-Workspace install; install wheels --no-deps; import",
+      "result": "PASS",
+      "summary": "14 wheels; LOCKED_WHEEL_IMPORT_OK packages=14"
+    },
+    {
+      "command": "pip-audit 2.10.1 --path fresh-site-packages --skip-editable",
+      "result": "PASS",
+      "summary": "0 known vulnerabilities; 14 local editable packages skipped from PyPI lookup"
+    },
+    {
+      "command": "high-confidence Secret and UTF-8/LF/BOM scan over P2 activation..S7 implementation Head",
+      "result": "PASS",
+      "summary": "30 changed paths; 0 secret findings; 0 byte-format findings"
+    },
+    {
+      "command": "isolated Compose; migration twice; RLS; durable recovery; PostgreSQL adapter; cleanup",
+      "result": "PASS",
+      "summary": "5 healthy services; generation 1->2; checkpoint 3->6; all security counters 0; cleanup 0/0/0"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_IMPLEMENTED",
+      "summary": "make executable unavailable on Windows and Makefile has no acceptance target; not claimed as PASS"
+    },
+    {
+      "command": "ruff check apps packages mcp-servers domain-packs scripts tests",
+      "result": "INHERITED_FINDINGS",
+      "summary": "29 pre-existing findings in P1 evaluation/observability/acceptance paths outside the P2 change range"
+    }
+  ],
+  "phase_durations_seconds": {
+    "bootstrap": 4.21,
+    "static": 8.2,
+    "tests_full": 22.0,
+    "tests_release_suites_wall": 80.9,
+    "typing": 8.36,
+    "build": 14.29,
+    "dependency_audit": 33.29,
+    "compose_start": 12.7,
+    "database_and_recovery": 18.7,
+    "cleanup": 2.41
+  },
+  "environment": {
+    "os": "Windows",
+    "python": "3.12.11",
+    "uv": "0.12.0",
+    "ruff": "0.16.0",
+    "mypy": "1.20.2",
+    "pip_audit": "2.10.1",
+    "docker_client": "29.6.2",
+    "docker_server": "29.6.2",
+    "docker_compose": "v5.3.1",
+    "postgres_image": "postgres:17.5-alpine",
+    "redis_image": "redis:7.4.2-alpine",
+    "compose_project": "flowpilot-wp040-a7-19923c5",
+    "fresh_environment": "C:/Users/Administrator/AppData/Local/Temp/flowpilot-wp040-a7-release-4c3c952"
+  },
+  "residuals": {
+    "repository_worktree_dirty_before_evidence": false,
+    "langgraph_api_directories": 0,
+    "compose_containers": 0,
+    "compose_volumes": 0,
+    "compose_networks": 0,
+    "old_worker_successful_writes": 0,
+    "cross_tenant_successful_reads": 0,
+    "terminal_node_reruns": 0,
+    "started_external_provider_connections": 0,
+    "production_credentials_used": 0
+  }
+}

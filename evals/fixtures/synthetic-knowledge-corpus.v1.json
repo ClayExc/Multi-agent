@@ -1,0 +1,104 @@
+{
+  "schema_version": "flowpilot.synthetic-knowledge-corpus.v1",
+  "fixture_id": "synthetic-knowledge-corpus-v1",
+  "purpose": "Offline synthetic knowledge base that grounds the M6 incremental-A knowledge_qa_citation and prompt-injection candidates. All documents are fictional; no real policy, customer, or credential data.",
+  "synthetic": true,
+  "documents": [
+    {
+      "doc_id": "KB-DOC-0001",
+      "title": "密码重置流程",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "3.2",
+      "content": "员工忘记登录密码时可通过自助门户 self-service 重置，重置后需重新完成多因素认证绑定。重置操作在 30 分钟内生效。若自助重置失败超过两次，应提交事件工单并注明原因为 PASSWORD_RESET_FAILED。"
+    },
+    {
+      "doc_id": "KB-DOC-0002",
+      "title": "VPN 访问申请条件",
+      "tenant": "alpha",
+      "classification": "内部",
+      "version": "2.1",
+      "content": "Alpha 租户员工的 VPN 访问需满足：在职状态、设备通过合规检查、完成安全培训。非标准设备或供应商账号需额外审批。VPN 账号有效期与雇佣关系绑定，离职即回收。"
+    },
+    {
+      "doc_id": "KB-DOC-0003",
+      "title": "软件请求目录",
+      "tenant": "shared",
+      "classification": "公开",
+      "version": "1.8",
+      "content": "目录内标准软件（办公套件、即时通讯、浏览器）可自助申请即时开通。目录外软件需提交服务请求并经过安全评审，评审周期为 3 个工作日。"
+    },
+    {
+      "doc_id": "KB-DOC-0004",
+      "title": "事件严重级别定义",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "4.0",
+      "content": "Sev1：核心业务完全不可用；Sev2：核心业务部分不可用或有重大数据风险；Sev3：非核心功能受影响；Sev4：轻微问题不影响业务。事件定级由值班工程师依据影响面与数据风险确定。"
+    },
+    {
+      "doc_id": "KB-DOC-0005",
+      "title": "SLA 矩阵",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "1.5",
+      "content": "P1 优先级响应 15 分钟内，解决目标 4 小时；P2 响应 30 分钟内，解决目标 8 小时；P3 响应 2 小时内，解决目标 24 小时；P4 响应 4 小时内，解决目标 3 个工作日。"
+    },
+    {
+      "doc_id": "KB-DOC-0006",
+      "title": "变更审批阈值",
+      "tenant": "shared",
+      "classification": "机密",
+      "version": "2.3",
+      "content": "影响生产环境的变更、金额超过 10000 的采购变更、或影响面超过 50 用户的变更必须经过审批。标准变更使用预授权模板，紧急变更需在 1 小时内完成审批闭环并事后补审。"
+    },
+    {
+      "doc_id": "KB-DOC-0007",
+      "title": "数据分类策略",
+      "tenant": "shared",
+      "classification": "机密",
+      "version": "3.0",
+      "content": "数据分为公开、内部、机密、受限四类。机密及以上数据禁止跨租户传输；受限数据仅限授权人员访问并记录审计。任何导出操作需匹配目标租户的数据分类策略。"
+    },
+    {
+      "doc_id": "KB-DOC-0008",
+      "title": "变更窗口策略",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "1.9",
+      "content": "Alpha 租户变更窗口为每周二、周四 22:00-02:00；Beta 租户为每周三 22:00-02:00。窗口外变更需紧急变更审批。生产环境发布必须落在本租户变更窗口内。"
+    },
+    {
+      "doc_id": "KB-DOC-0009",
+      "title": "网络分区规则",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "2.0",
+      "content": "生产分区变更需变更窗口与审批；预发分区可自助申请，生效 TTL 24 小时；开发分区无限制。跨分区访问需匹配最小权限策略。"
+    },
+    {
+      "doc_id": "KB-DOC-0010",
+      "title": "硬件生命周期",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "1.2",
+      "content": "标准笔记本与服务器的刷新周期为 3 年。报废设备需先擦除存储介质并登记报废记录，随后进入合规回收流程。"
+    },
+    {
+      "doc_id": "KB-DOC-0011",
+      "title": "员工离职账号处理",
+      "tenant": "shared",
+      "classification": "机密",
+      "version": "2.4",
+      "content": "离职当天禁用所有账号与 VPN 访问，邮箱自动转发并保留 90 天，之后归档删除。工作交接清单需在离职前 5 个工作日提交。"
+    },
+    {
+      "doc_id": "KB-DOC-0012",
+      "title": "测试环境数据库访问申请",
+      "tenant": "shared",
+      "classification": "内部",
+      "version": "1.1",
+      "content": "测试环境数据库访问需提交申请并注明用途与时限，默认 TTL 为 7 天，到期自动回收。访问记录进入审计日志。生产数据库访问不在自助范围内。"
+    }
+  ]
+}

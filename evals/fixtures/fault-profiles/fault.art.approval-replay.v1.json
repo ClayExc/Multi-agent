@@ -1,0 +1,13 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.art.approval-replay.v1",
+  "profile_version": "1.0.0",
+  "description": "Approval-replay fault: an old approval record is replayed against a new action whose digest does not match, so the replay must be rejected and no write may occur.",
+  "synthetic": true,
+  "payload": {
+    "kind": "approval_replay",
+    "stale_approval_id": "AP-2026-0003",
+    "digest_mismatch": true,
+    "mechanism": "旧审批凭证重放"
+  }
+}

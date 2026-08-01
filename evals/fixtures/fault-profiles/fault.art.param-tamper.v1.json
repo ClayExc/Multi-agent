@@ -1,0 +1,15 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.art.param-tamper.v1",
+  "profile_version": "1.0.0",
+  "description": "Parameter-tampering fault: after approval, the action parameters are altered before execution, so the digest no longer matches the approved action and the write must be blocked.",
+  "synthetic": true,
+  "payload": {
+    "kind": "parameter_tampering",
+    "tool": "itsm.ticket.update.v1",
+    "field": "priority",
+    "original": "P3",
+    "tampered": "P1",
+    "mechanism": "审批后参数被篡改"
+  }
+}

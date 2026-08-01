@@ -1,6 +1,13 @@
 """Offline evaluation and acceptance primitives for FlowPilot."""
 
 from .evidence import EvidenceRecord, build_evidence_record
+from .incremental_a import (
+    EXPECTED_CATEGORY_COUNTS,
+    INCREMENTAL_A_DATASET_ID,
+    generate_cases,
+    load_cases,
+    validate_candidates,
+)
 from .reporting import (
     AssertionOutcome,
     CaseResult,
@@ -24,6 +31,8 @@ __all__ = [
     "CaseStatus",
     "DeterministicScorer",
     "EvidenceRecord",
+    "EXPECTED_CATEGORY_COUNTS",
+    "INCREMENTAL_A_DATASET_ID",
     "JudgeBoundary",
     "OfflineRepositoryValidator",
     "ValidationFinding",
@@ -34,5 +43,8 @@ __all__ = [
     "aggregate_results",
     "build_evidence_record",
     "generate_acceptance_bundle",
+    "generate_cases",
+    "load_cases",
     "load_vpn_case_set",
+    "validate_candidates",
 ]

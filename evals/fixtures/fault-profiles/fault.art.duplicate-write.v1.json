@@ -1,0 +1,14 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.art.duplicate-write.v1",
+  "profile_version": "1.0.0",
+  "description": "Duplicate-write fault: the same logical write is delivered repeatedly (retry storm) under one idempotency key; exactly one physical write may occur.",
+  "synthetic": true,
+  "payload": {
+    "kind": "duplicate_delivery",
+    "tool": "itsm.ticket.create.v1",
+    "idempotency_key": "idem-synthetic-tw-008",
+    "delivery_count": 5,
+    "mechanism": "重试风暴重复投递"
+  }
+}

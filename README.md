@@ -4,7 +4,7 @@
 
 ## 仓库状态
 
-当前主分支处于 **Architecture Baseline v1.0 + M1 平台切片已集成 + M2 Studio 可观测切片已集成 + P1 VPN 只读闭环已集成**。P1 已通过 S7 RELEASE、S1 FAST final gate 和用户合并门禁；经 Flow Lite 计划且由用户批准的 `g1` 已转化为 P2 持久化恢复注册链，按 `data-recovery → durable-runtime → recovery-verifier` 最小集合执行。真实 Provider、工单写入、Web 与完整端到端工单闭环仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。
+当前已合并 **Architecture Baseline v1.0、M1 平台、M2 Studio 与 P1 VPN 只读闭环**。P2 持久化恢复候选已通过 S7 RELEASE，正在进行 S1 final 并等待用户合并门禁；真实 Provider、安全工单写入、Web、第二业务场景与 120+36 冻结评测仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。项目当前状态、证据、运行方式和后续计划统一见 [项目交接总览](./docs/PROJECT_HANDOFF.md)。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
@@ -18,7 +18,7 @@
 | PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
 | MCP Gateway、Policy、Security 与只读模拟 MCP | M1 安全平台切片已集成 | 可描述默认拒绝、审批绑定、账本/回读与安全黑盒骨架；不代表真实企业工具闭环 |
 | VPN 确定性只读知识闭环 | P1 已通过 S7 RELEASE、S1 FAST final gate 与用户门禁并进入主分支 | 可描述“确定性只读候选已集成”；不代表真实企业知识源、工单写入或发布完成 |
-| 持久化恢复闭环 | P2 注册链已批准，等待 S6→S2→S7 形成精确候选 | 只能描述“进入实施”，通过 final gate 前不可宣称重启/Redis 丢失恢复已验证 |
+| 持久化恢复闭环 | S7 RELEASE 通过，等待 S1 final 与用户合并门禁 | 可描述“候选已验证”，进入主分支前不可描述为已合并或发布 |
 | OpenAI/Claude Provider | 未实现 | 不可使用“多 Provider 已接入” |
 | 本地 Compose 集成 | S7 对精确候选验证 5 服务健康、Migration/RLS/恢复 | `0002` 自动接入仍为 P2；不能宣称发布环境完成 |
 | 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |
@@ -102,6 +102,7 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 
 | 文档 | 作用 |
 |---|---|
+| [项目交接总览](./docs/PROJECT_HANDOFF.md) | 当前能力、证据、运行入口、限制、目录责任与下一阶段计划的唯一状态入口 |
 | [STRUCTURE.md](./STRUCTURE.md) | 目标仓库结构、部署单元、依赖方向和目录验收 |
 | [架构总览](./docs/architecture/ARCHITECTURE.md) | 容器边界、状态所有权、事务、恢复、安全与可观测设计 |
 | [企业级 Agent 学习与演进手册](./docs/architecture/ENGINEERING_PLAYBOOK.md) | 记录检索、恢复、循环、Context、副作用、安全与评测难题及其结构化解法 |
@@ -118,7 +119,6 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
-| [rc2 五会话复审指令](./docs/team/RC2_REVIEW_INSTRUCTIONS.md) | 绑定同一 content_digest 的 S2/S3/S4/S5/S6 可复制只读指令 |
 | [工作包索引](./docs/team/work-packages/README.md) | WP-000/010/011/012/020/021/030/040 的责任、当前 Attempt、依赖与集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |

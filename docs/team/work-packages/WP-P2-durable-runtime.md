@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：IN_PROGRESS
+- 状态：REVIEW（S7 RELEASE PASS，等待 S1 final 与用户门禁）
 - Flow Lite Goal：`g1`（用户于 `2026-08-01T09:19:07Z` 批准）
 - 风险等级：R2
 - 责任会话：S6-DATA、S2-RUNTIME

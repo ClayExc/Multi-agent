@@ -103,6 +103,13 @@ FlowPilot 只允许 LangGraph 持有跨业务节点的流程状态，PostgreSQL 
 
 必须注入 Worker 强杀、Redis 清空、Checkpoint 写入失败、租约过期和旧进程延迟复活。验收关注节点调用次数、Task/Thread 身份、Run 代际、重复副作用数以及恢复前后的授权重算，而不是只确认进程重新启动。
 
+P2 实库验证暴露了一个容易被忽略的 fencing 缺陷：如果 `release()` 直接删除
+Lease 行，下一任 Worker 会重新得到 generation 1，旧 Worker 与新 Worker 的
+代际关系失去持久事实。修正结构是保留已撤销、已过期的 generation 行，并在
+下一次 acquire 时原子递增；真实恢复验证得到 generation 1→2、旧 Worker 成功
+写入 0、陈旧 Checkpoint CAS 成功写入 0。只有业务明确保证 Task ID 永不复用时，
+这一结构才充分；允许复用时必须把 generation 拆成独立不可回退事实。
+
 ### 4.3 Agent 循环调用工具，成本上升却没有进展
 
 **关联功能：** FP-FLOW-006、FP-AGT-001、FP-AGT-003

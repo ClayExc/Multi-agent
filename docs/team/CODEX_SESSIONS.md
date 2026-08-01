@@ -90,27 +90,16 @@ CANCELLED 由用户或 S1 明确终止
 
 ## 4. 当前激活门禁
 
-仓库已经初始化 Git 并绑定远端。摘要 `sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc` 已取得五角色 `ACCEPT`，Review Evidence、Attestation 和完整门禁均已完成；包含本状态的提交即为 Git 激活提交。
+ContractSet 摘要
+`sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
+仍是当前实现基线。M0、M1 Platform、M2 Studio 与 P1 已进入主分支；P2 已通过
+S7 RELEASE，等待 S1 final 与用户门禁。发布级 `frozen` 仍等待正式 Evidence、
+120+36 Dataset/Fixture 和 Traceability 提升。
 
-激活进度：
-
-1. `[DONE]` S2、S3、S4、S5、S6 对同一 RC2 `content_digest` 全部返回 `ACCEPT`。
-2. `[DONE]` 保存五份 Review Evidence。
-3. `[DONE]` 写入 ContractSet Review Attestation。
-4. `[DONE]` 运行完整 Contract Conformance Gate。
-5. `[DONE]` 创建并推送实现基线激活提交 `b5caaf2448c2860cfa67d8c5a39b9cda62eca809`。
-6. `[DONE]` 从激活提交建立 S2～S6 独立 Worktree。
-7. `[DONE]` S5 `WP-011-a1` H1 与 S4 `WP-030-a1` 离线质量骨架完成复审并进入控制基线。
-8. `[DONE]` `S6/WP-021-a2 → S2/WP-010-a2 → S5/WP-011-a3` 按预授权链完成 Persistence、Worker Adapter 与九包 Lock 闭包。
-9. `[DONE]` S7 `WP-040-a1` 完成 36/36 候选复算、143 项产品测试、九个 Wheel 与真实 Compose；S1 final gate 为 42/42，Core/Runtime/Data/Integration 共 159 项通过。
-10. `[ACCEPTED_M0]` Core、Runtime 与 Data 原子候选已由 S1 接受；不代表真实 Provider、业务 E2E 或发布冻结完成。
-11. `[MERGED_M1]` MCP Gateway、Policy、Security、只读模拟 MCP、Workspace/Lock、安全黑盒和集成证据已通过 S7、S1 与用户门禁并原子进入主分支。
-12. `[MERGED_M2]` `CHAIN-M2-STUDIO-01` 已按 `S5 → S2 → S4 → S7 → S1` 完成 LangGraph Studio 非黑箱入口，并通过用户门禁原子进入主分支。
-13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架和 M1 安全黑盒，继续为 Studio 与后续产品切片增加独立验收。
-14. `[MERGED_P1]` `CHAIN-P1-VPN-READONLY-01` 已按 `S5 → S3 → S2 → S4 → S7 → S1` 完成确定性 VPN 只读知识候选，并通过 S7 RELEASE、S1 FAST final gate 与用户门禁进入主分支。
-15. `[ACTIVE_P2]` Flow Lite `g1` 已获用户批准并转化为 `CHAIN-P2-DURABLE-RUNTIME-01`；本链只注册 `data-recovery(S6) → durable-runtime(S2) → recovery-verifier(S7) → S1`，S3/S4/S5 不参与且不接收等待消息。
-
-发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。
+当前状态只在 [`PROJECT_HANDOFF.md`](../PROJECT_HANDOFF.md) 和
+[`work-packages/README.md`](./work-packages/README.md) 维护。历史提交、顺序和
+证据留在 `chain-authorizations/**`、`tests/**/evidence/**` 与 `docs/review/**`，
+不再复制进本强制角色文档。
 
 ## 5. Worktree 与分支
 
@@ -129,48 +118,19 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 
 ## 6. 并发容量
 
-七个会话不等于七个会话必须同时写代码。S2～S6 是产品实现角色，S7 默认只读验证；人工协调阶段同时写入上限仍为 3。当前容量复核如下：
+固定 S1～S7 只表示路径 Owner 和风险档案。实际工作使用 Agent 注册制选择最小
+集合，最多三个互斥路径写 Agent；依赖链必须 `ORDERED`，独立审查可
+`READ_ONLY_PARALLEL`。R3、契约、安全、破坏性迁移和发布仍逐次人工批准。
 
-| 会话 | 当前负载 | 判断 | 达到什么条件时拆分 |
-|---|---|---|---|
-| S1 | 中 | 可控；只做控制面、契约与最终裁决 | 连续两个迭代都需要 S1 直接修产品代码时，先收紧职责而不是扩容 |
-| S2 | 中高 | M0 可控；Graph、Runtime、Context 已形成强耦合切片 | Provider 适配、Context 优化与 Graph/Worker/Studio 同时进入实施时，拆出 LLM Runtime |
-| S3 | 中 | 当前尚未过载 | 真实企业 MCP 接入与身份、策略、凭据治理并行时，拆出独立 Security 角色 |
-| S4 | 高 | 七会话中最接近拆分阈值 | Web/Retrieval 与 Evaluation/Observability 同时进入写阶段时，优先拆出 Experience |
-| S5 | 中高 | M0 可控；Workspace 单写者会制造短时峰值 | API/Domain Pack 与 Build/依赖治理连续相互阻塞时，拆出 DevEx/Build |
-| S6 | 中高 | M0 可控；迁移、RLS、恢复门禁成本高 | 多数据库适配、生产运维和业务 Persistence 同时推进时，拆出 DBRE/Infra |
-| S7 | 中 | 职责边界合理；耗时主要来自发布门禁，不是代码范围 | 先按 FAST/STANDARD/RELEASE 分级；只有组合矩阵长期超过 5 个并发候选才拆出 Release Engineering |
+M3～M6 计划按需注册 `evaluation-curator`、`experience-builder` 和
+`connector-preview`，不新增永久 S 编号。具体并行路径与汇合条件见
+[`ACCELERATED_DELIVERY_PLAN.md`](../roadmap/ACCELERATED_DELIVERY_PLAN.md)。
 
-未来新增会话的推荐顺序是：`S8-EXPERIENCE` 从 S4 接管 Web/Retrieval；`S9-LLM-RUNTIME` 从 S2 接管 Agent Runtime/Model Gateway/Context/Provider；`S10-SECURITY` 从 S3 接管身份、策略和凭据治理。未达到触发条件时，不为“看起来对称”提前扩容。
-
-当前并行规则：
-
-1. 相互独立的产品切片最多三个 `PARALLEL` 写会话。
-2. `ORDERED` 链由生产者直接交给消费者，正常路径不逐步返回 S1。
-3. S7 的候选静态检查可 `READ_ONLY_PARALLEL`；完整发布门禁只在候选身份发生变化时运行。
-4. S1 和 S7 都不得成为每个小步骤的同步确认点。
-
-每次多会话派发必须声明调度模式：
-
-- `PARALLEL`：可同时写入互斥路径，派发中写明汇合门禁。
-- `READ_ONLY_PARALLEL`：只读并行，不修改文件或 Git。
-- `ORDERED`：按显式顺序执行，前一项达到解锁条件后才能启动下一项。
-
-会话编号、消息到达顺序和用户粘贴顺序不自动构成执行顺序。
-
-对依赖稳定的 `ORDERED` 链，S1 可以按
-[`CHAIN_EXECUTION_PROTOCOL.md`](./CHAIN_EXECUTION_PROTOCOL.md)
-一次性预授权。生产者直接交给下一消费者；消费者核验精确 Head、摘要、
-范围和证据后即可继续。正常链路只在 S7 最终组合门禁返回 S1。
-
-客户端支持任务间消息时，可以按
-[`THREAD_WAKE_PROTOCOL.md`](./THREAD_WAKE_PROTOCOL.md)
-自动唤醒下一消费者。最后一个 S1 必须停在用户门禁，不能自行开启下一轮。
-
-预授权不适用于 R3。契约变化、越权路径、风险升级、门禁失败或重复返修
-会暂停链路并上报 S1。
-
-若某会话等待依赖，它可以只读审查、补测试设计或准备 RFC，不能绕过依赖私自修改共享文件。
+链执行、唤醒、增量上下文和门禁细节分别由
+[`CHAIN_EXECUTION_PROTOCOL.md`](./CHAIN_EXECUTION_PROTOCOL.md)、
+[`THREAD_WAKE_PROTOCOL.md`](./THREAD_WAKE_PROTOCOL.md)、
+[`CONTEXT_BOOTSTRAP_PROTOCOL.md`](./CONTEXT_BOOTSTRAP_PROTOCOL.md) 与
+[`INTEGRATION_GATES.md`](./INTEGRATION_GATES.md) 维护，本文件不再重复。
 
 ### 信息预算
 
@@ -183,18 +143,6 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 5. S1 选择性通知实际执行者和必要 Reviewer，不默认广播七个会话。
 6. 原始隐藏思考过程不得写入仓库、Trace、Audit、Security Event 或验收证据。
 7. S1 到达用户门禁时只报告“本轮完成 / 本轮问题 / 需要重大决策 / 下一步”；机器证据按需展开。
-
-### 注册制渐进迁移
-
-固定的 S1～S7 从现在起主要表示路径所有权、风险责任和能力档案，不再表示
-每条链都必须参与。新链按照
-[`AGENT_REGISTRY_PROTOCOL.md`](./AGENT_REGISTRY_PROTOCOL.md) 选择满足目标的
-最小 Agent 集合；未选中的会话不接收消息。需要拆分时注册临时 Agent，并以
-显式输入、输出、写入范围和汇合门禁退出，而不是继续增加永久编号会话。
-
-Flow Lite 可用于只读复杂度分析、计划草拟和本地验证；仓库的 Work Package、
-Git Head、Contract Digest、Evidence 与风险门禁仍是权威事实。迁移期间保留
-既有 Worktree 和角色映射作为兼容层，不允许新旧调度器同时写同一工作包。
 
 ## 7. RACI
 
@@ -254,13 +202,9 @@ Git Head、Contract Digest、Evidence 与风险门禁仍是权威事实。迁移
 
 ## 11. Symphony 式后续演进
 
-当前先人工执行七会话协议。完成 M0 后可增加 GitHub Issues/Projects 控制面：
-
-1. Issue 字段映射 Work Package、Feature ID、Owner Role、依赖、优先级和状态。
-2. 只有 `READY` 且依赖完成的 Issue 才创建隔离 Worktree。
-3. Agent 失败或停滞时从 Git/Issue/Evidence 恢复，不依赖聊天上下文。
-4. Agent 可以提出后续 Issue，但不能自行扩大当前 Scope 或自动批准安全变更。
-5. 自动合并只对低风险、全门禁通过的路径开放；契约、安全、迁移和发布仍需人工批准。
+当前已经采用 Agent Registry、Work Package、Git Head、Evidence 与事件驱动唤醒，
+不再把七个聊天窗口当作工作状态。后续可把同一字段映射到 GitHub Issues/Projects
+或独立编排控制面，但不能改变仓库内权限、风险和用户门禁。
 
 参考：
 

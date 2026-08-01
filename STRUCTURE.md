@@ -140,6 +140,7 @@ flowpilot/
 │   ├── acceptance/
 │   └── integration/                  # S7 组合验证生成物，默认不提交
 └── docs/
+    ├── PROJECT_HANDOFF.md              # 当前项目状态、证据、运行与后续计划主入口
     ├── architecture/                  # 总体、Context、Runtime Port 与 Studio 非黑箱设计
     ├── acceptance/                    # 定义、机器 Traceability 与人类视图
     ├── decisions/

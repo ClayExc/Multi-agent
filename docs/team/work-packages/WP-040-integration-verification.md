@@ -2,16 +2,17 @@
 
 ## 元数据
 
-- 状态：`ACCEPTED`（`a1` M0、`a4` M1、`a5` M2、`a6` P1 VPN 均已通过对应 final gate 与用户门禁并进入主分支）
+- 状态：`P2_RELEASE_PASS_AWAITING_S1_FINAL`（`a1` M0、`a4` M1、`a5` M2、`a6` P1 已进入主分支；`a7` P2 RELEASE 已通过）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
-- 功能 ID：FP-FLOW-001、FP-SEC-004、FP-DATA-001、FP-OPS-002
+- 功能 ID：FP-FLOW-001、FP-FLOW-005、FP-SEC-004、FP-DATA-001～003、FP-OPS-002
 - 依赖工作包：待核验交接本身；写模式另需独立 Worktree 与 S1 Attempt
 - 目标分支：`codex/s7/wp-040-integration-verification`
 - S1 评审：[`WP-040-A0-S1-REVIEW.md`](../../review/WP-040-A0-S1-REVIEW.md)
 - S1 最终评审：[`WP-040-A1-S1-FINAL-REVIEW.md`](../../review/WP-040-A1-S1-FINAL-REVIEW.md)
 - M2 S1 最终评审：[`WP-040-A5-S1-FINAL-REVIEW.md`](../../review/WP-040-A5-S1-FINAL-REVIEW.md)
 - P1 S1 最终评审：[`WP-040-A6-S1-FINAL-REVIEW.md`](../../review/WP-040-A6-S1-FINAL-REVIEW.md)
+- P2 S7 交接：[`WP-040-a7-HANDOFF.md`](../../../tests/integration/evidence/WP-040-a7-HANDOFF.md)
 - 门禁分级：[`INTEGRATION_GATES.md`](../INTEGRATION_GATES.md)
 
 ## 目标

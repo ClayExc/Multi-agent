@@ -33,6 +33,8 @@ EVIDENCE_CONTRACT=tests/data/evidence/WP-021-a3-HANDOFF.md
 AVAILABILITY=selected
 CONCURRENCY=single-writer
 EXIT_CONDITION=数据恢复边界与负向证据通过并产生精确 Head
+CONTEXT_MODE=DELTA
+CONTEXT_BASE_COMMIT=c51026cfa50be6e7e060266f16e2f82b68cfcac9
 ```
 
 ### durable-runtime
@@ -49,6 +51,8 @@ EVIDENCE_CONTRACT=tests/runtime/evidence/WP-010-a4-HANDOFF.md
 AVAILABILITY=dependency-wait
 CONCURRENCY=single-writer
 EXIT_CONDITION=进程重启和 Redis 丢失恢复通过且已完成分支不重放
+CONTEXT_MODE=DELTA
+CONTEXT_BASE_COMMIT=c5c118d808931492d7ee44455b1c2a9360625675
 ```
 
 ### recovery-verifier
@@ -65,6 +69,8 @@ EVIDENCE_CONTRACT=tests/integration/evidence/WP-040-a7-HANDOFF.md
 AVAILABILITY=dependency-wait
 CONCURRENCY=single-writer
 EXIT_CONDITION=RELEASE 候选复现完成并唤醒 S1 final gate
+CONTEXT_MODE=DELTA
+CONTEXT_BASE_COMMIT=0da13854beafd0e82f5f6151cc9f78ef1e090fc9
 ```
 
 ## 未选择原因

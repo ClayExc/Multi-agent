@@ -4,7 +4,7 @@
 
 本文件适用于 FlowPilot 仓库中的所有 Codex 会话。七会话职责、路径所有权、启动提示和协作流程见 `docs/team/CODEX_SESSIONS.md`。
 
-开始工作前必须依次阅读：
+首次注册为某个 `SESSION_ROLE` 且没有可信上下文基线时，必须依次阅读：
 
 1. `README.md`
 2. `STRUCTURE.md`
@@ -13,10 +13,15 @@
 5. `docs/team/session-contracts/<SESSION_ROLE>.md`
 6. 当前工作包引用的架构、ADR 和验收文档
 
-首次进入新 Attempt 必须完整读取上述文件。同一 Attempt 因客户端中断、上下文
-压缩或正常唤醒而恢复时，可以先复算这些文件的 Git Blob/内容摘要；摘要与已
-接受输入一致时只读取本次发生变化和工作包直接引用的部分，摘要变化时重新
-完整读取。不得只凭聊天记忆跳过校验。
+已注册的长期任务开始新 Attempt 时默认使用
+`docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md` 的 `DELTA` 模式：验证唤醒信封中的
+`CONTEXT_BASE_COMMIT` 是目标 Head 的祖先，只读取当前 Chain、Work Package、
+Agent Registry、直接 Handoff，以及两提交之间发生变化的强制文档片段。未变化
+文件不得为了“确认”而全文重读；客户端已经注入本文件时也不得重复从磁盘读取。
+
+只有首次注册、非线性基线、角色/路径权限变化、Contract Major、架构不变量或
+安全边界变化，以及证据无法确定性验证时，才切换 `FULL`。不得只凭聊天记忆
+跳过校验，也不得把“新 Attempt”本身当作全量读取理由。
 
 ## 2. 会话身份
 
@@ -244,6 +249,7 @@ make acceptance
 - 拆分工作时优先注册有明确能力、输入、输出、写入范围和退出条件的临时 Agent，不再默认增加永久编号会话。
 - 任务唤醒采用事件驱动。S1 不轮询普通进度；只有完成、P0/P1、权限请求或用户门禁触发跨任务消息。
 - Handoff 只传递身份字段、证据引用和解锁条件；命令日志、测试明细和背景说明保存在仓库证据中，由消费者按需读取。
+- 已注册任务默认按 `docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md` 增量加载上下文；新 Attempt 不自动触发全量重读。
 - Flow Lite 可以辅助只读分析、计划和本地验证，但不替代 Work Package、路径所有权、Git Head、Contract Digest、风险门禁或用户批准。
 
 ## 10. 工作包

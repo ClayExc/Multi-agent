@@ -18,6 +18,8 @@ CONTRACT_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a
 FINAL_GATE=S7-INTEGRATION->S1-ARCH
 MAX_LOCAL_REPAIR_ATTEMPTS=1
 EFFICIENCY_POLICY=EVENT_DRIVEN_COMPACT_V1
+CONTEXT_MODE_DEFAULT=DELTA
+CONTEXT_PROTOCOL=docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md
 ```
 
 本授权只覆盖 Flow Lite 计划中经用户明确批准的 `g1`。`g2`（Outbox→SSE）和
@@ -61,6 +63,9 @@ NEXT_AGENT_ID=durable-runtime
 NEXT_ROLE=S2-RUNTIME
 NEXT_ATTEMPT_ID=WP-010-a4
 HANDOFF=tests/data/evidence/WP-021-a3-HANDOFF.md
+CONTEXT_MODE=DELTA
+CONTEXT_BASE_COMMIT=c51026cfa50be6e7e060266f16e2f82b68cfcac9
+CONTEXT_REQUIRED_READS=docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md,docs/team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md,docs/team/work-packages/WP-P2-durable-runtime.md,docs/team/agent-registrations/CHAIN-P2-DURABLE-RUNTIME-01.md
 ```
 
 S6 必须先审计现有 Port，避免重复实现；只补齐 Runtime 所需的确定性缺口：
@@ -86,6 +91,9 @@ NEXT_AGENT_ID=recovery-verifier
 NEXT_ROLE=S7-INTEGRATION
 NEXT_ATTEMPT_ID=WP-040-a7
 HANDOFF=tests/runtime/evidence/WP-010-a4-HANDOFF.md
+CONTEXT_MODE=DELTA
+CONTEXT_BASE_COMMIT=c5c118d808931492d7ee44455b1c2a9360625675
+CONTEXT_REQUIRED_READS=docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md,docs/team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md,docs/team/work-packages/WP-P2-durable-runtime.md,docs/team/agent-registrations/CHAIN-P2-DURABLE-RUNTIME-01.md,tests/data/evidence/WP-021-a3-HANDOFF.md
 ```
 
 S2 将 Worker 接到 S6 类型化 Checkpoint/Lease/Outbox 边界；生产恢复入口不得
@@ -111,6 +119,9 @@ UNLOCK_CONDITION=S2 Handoff consumer ACCEPT and S7 ff-only reaches exact S2 Head
 NEXT_AGENT_ID=S1-ARCH
 NEXT_ROLE=S1-ARCH
 HANDOFF=tests/integration/evidence/WP-040-a7-HANDOFF.md
+CONTEXT_MODE=DELTA
+CONTEXT_BASE_COMMIT=0da13854beafd0e82f5f6151cc9f78ef1e090fc9
+CONTEXT_REQUIRED_READS=docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md,docs/team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md,docs/team/work-packages/WP-P2-durable-runtime.md,docs/team/agent-registrations/CHAIN-P2-DURABLE-RUNTIME-01.md,tests/runtime/evidence/WP-010-a4-HANDOFF.md
 ```
 
 S7 复算精确线性 Head、路径、Handoff Hash、ContractSet、产品/恢复/安全测试、

@@ -62,6 +62,10 @@ RISK_CLASS=<class>
 BASE_COMMIT=<sha>
 INPUT_HEAD=<sha>
 CONTRACT_CONTENT_DIGEST=sha256:<64hex>
+CONTEXT_MODE=<DELTA|FULL>
+CONTEXT_BASE_COMMIT=<consumer-last-accepted-context-sha|none>
+CONTEXT_TARGET_COMMIT=<exact-input-head>
+CONTEXT_REQUIRED_READS=<chain,work-package,registry,direct-handoff>
 HANDOFF=<repo-relative-path>
 HANDOFF_SHA256=sha256:<64hex>
 UNLOCK_CONDITION=<deterministic-condition>
@@ -78,10 +82,12 @@ USER_GATE_REQUIRED=<yes|no>
 1. 核对自身 `SESSION_ROLE`、Worktree、分支和允许路径。
 2. 检查 `DEDUP_KEY`；已经消费过的消息只返回原结果，不重复写入。
 3. 验证 Base/Input Head、Contract Digest、Handoff Hash、工作树洁净度和解锁条件。
-4. 门禁不满足时停止，不唤醒下一会话；一次性批量报告阻断。
-5. 门禁满足时执行授权 Attempt，生成新的 Head、Handoff 和证据。
-6. 只有 `CONSUMER_ACCEPTED` 且不命中停止条件，才向链中的下一个角色发送唤醒信封。
-7. 最后一个生产者唤醒 S1；S1 运行 final gate 后输出 `USER_GATE_REQUIRED=yes` 并停止。
+4. 按 [`CONTEXT_BOOTSTRAP_PROTOCOL.md`](./CONTEXT_BOOTSTRAP_PROTOCOL.md) 验证
+   Context Base→Target，并只加载直接材料和变化片段；新 Attempt 不等于 `FULL`。
+5. 门禁不满足时停止，不唤醒下一会话；一次性批量报告阻断。
+6. 门禁满足时执行授权 Attempt，生成新的 Head、Handoff 和证据。
+7. 只有 `CONSUMER_ACCEPTED` 且不命中停止条件，才向链中的下一个角色发送唤醒信封。
+8. 最后一个生产者唤醒 S1；S1 运行 final gate 后输出 `USER_GATE_REQUIRED=yes` 并停止。
 
 唤醒发送成功只表示消息已投递，不表示消费者已经接受或完成。
 

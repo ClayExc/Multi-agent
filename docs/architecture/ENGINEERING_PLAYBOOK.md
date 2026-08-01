@@ -334,6 +334,13 @@ FlowPilot 改用注册制渐进迁移：角色保留为路径与风险档案，�
 永久编号会话。详细规则见
 [`AGENT_REGISTRY_PROTOCOL.md`](../team/AGENT_REGISTRY_PROTOCOL.md)。
 
+第一次注册制试运行暴露了第二层浪费：虽然只唤醒一个 Agent，旧规则仍要求
+每个新 Attempt 全量重读未变化的基线。修正后，长期任务使用 Git
+`CONTEXT_BASE_COMMIT..CONTEXT_TARGET_COMMIT` 做增量启动，只读当前授权、工作包、
+注册记录、直接 Handoff 和变化片段；首次注册、非线性历史或契约/权限/安全
+不变量变化才全量加载。详见
+[`CONTEXT_BOOTSTRAP_PROTOCOL.md`](../team/CONTEXT_BOOTSTRAP_PROTOCOL.md)。
+
 这一结构与产品 Agent 的 Context Engineering 相同：稳定事实放在外部状态，
 每次只注入当前动作所需上下文。残余风险是能力标签错误导致漏选 Reviewer，
 或新旧调度器竞争同一写租约。因此路径 Owner、风险 Reviewer 和最终 S1/用户

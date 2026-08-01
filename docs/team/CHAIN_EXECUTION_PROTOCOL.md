@@ -39,6 +39,7 @@ EXECUTION_MODE=ORDERED
 CONTRACT_CONTENT_DIGEST=sha256:<64hex>
 FINAL_GATE=S7-INTEGRATION->S1-ARCH
 MAX_LOCAL_REPAIR_ATTEMPTS=<number>
+CONTEXT_MODE_DEFAULT=DELTA
 ```
 
 每一步还必须写明：
@@ -55,6 +56,8 @@ WRITE_SCOPE=<paths>
 UNLOCK_CONDITION=<deterministic-condition>
 NEXT_ROLE=<role|S1-ARCH>
 REVIEWER=<consumer-role|S7-INTEGRATION|S1-ARCH>
+CONTEXT_BASE_COMMIT=<consumer-last-accepted-context-sha|none>
+CONTEXT_REQUIRED_READS=<authority,work-package,registry,direct-handoff>
 ```
 
 会话只能消费授权记录中已经存在的 Attempt、顺序和范围，不能自行添加
@@ -98,6 +101,8 @@ ESCALATE_TO_S1=no
 3. 上游变更未越过路径所有权，工作树洁净。
 4. `UNLOCK_CONDITION` 有可核验的代码、测试或证据支持。
 5. 未触发本约定第 7 节的停止条件。
+6. 按 `CONTEXT_BOOTSTRAP_PROTOCOL.md` 完成 Base→Target 增量校验；除明确例外外
+   不进行全量基线重读。
 
 校验通过后，消费者输出 `CONSUMER_VERDICT=ACCEPT`，并可在同一轮进入
 授权记录指定的 `MODE=IMPLEMENTATION`，不再等待 S1 重复派发。

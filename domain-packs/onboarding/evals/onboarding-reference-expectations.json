@@ -1,0 +1,34 @@
+{
+  "schema_version": "flowpilot.domain-pack.reference-expectations.v1",
+  "cases": [
+    {
+      "case_id": "onboarding_backend_shanghai_complete",
+      "expected_citations": [
+        {
+          "source_ref": "knowledge://tenant-a/onboarding-sop/device-standards/1.0#backend-laptop",
+          "document_version": "1.0",
+          "section": "Backend engineer laptop standard",
+          "content_hash": "sha256:5ca12a96a27674c3d82e1ce427714d5594f405d314ccf0c067496024689023ac"
+        },
+        {
+          "source_ref": "knowledge://tenant-a/onboarding-sop/permission-templates/1.0#backend-role",
+          "document_version": "1.0",
+          "section": "Backend engineer permission template",
+          "content_hash": "sha256:29fc8cf2476bbd3316709ddfe733af82cd4d2f2b3fd5aec0690a514288bbafaa"
+        }
+      ],
+      "excluded_source_refs": [
+        "knowledge://tenant-a/onboarding-sop/inventory/1.0#shanghai-thinkpad"
+      ]
+    },
+    {
+      "case_id": "onboarding_backend_missing_details",
+      "expected_citations": [],
+      "excluded_source_refs": [
+        "knowledge://tenant-a/onboarding-sop/device-standards/1.0#backend-laptop",
+        "knowledge://tenant-a/onboarding-sop/inventory/1.0#shanghai-thinkpad",
+        "knowledge://tenant-a/onboarding-sop/permission-templates/1.0#backend-role"
+      ]
+    }
+  ]
+}

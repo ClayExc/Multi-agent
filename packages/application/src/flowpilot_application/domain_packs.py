@@ -29,6 +29,16 @@ _DOMAIN_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _VERSION_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 _IDENTIFIER_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
+# M5-1 (AC-E2E-002): built-in domain pack roots relative to the repository.
+# Packs are declarative; registration is explicit — load the pack with
+# ``load_domain_pack`` and register the definition with ``DomainPackRegistry``
+# before serving intents for it.  This mapping makes the built-in packs
+# discoverable by callers without hard-coding machine-specific paths.
+BUILTIN_DOMAIN_PACK_ROOTS: Mapping[str, str] = {
+    "it-service": "domain-packs/it-service",
+    "onboarding": "domain-packs/onboarding",
+}
+
 
 class _NoAliasSafeLoader(yaml.SafeLoader):
     def compose_node(self, parent: Any, index: Any) -> yaml.Node:

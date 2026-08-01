@@ -1,0 +1,68 @@
+{
+  "fixture_version": "flowpilot.domain-pack.fixture.v2",
+  "case_id": "onboarding_backend_missing_details",
+  "domain_id": "onboarding",
+  "expected_intent": "onboarding_request",
+  "command": {
+    "command_id": "cmd_onbmissing01",
+    "command_type": "task.create.v1",
+    "tenant_id": "tenant-a",
+    "task_id": "task_onbmissing001",
+    "actor": {
+      "type": "user",
+      "id": "hr-operator-01"
+    },
+    "security_context": {
+      "context_id": "secctx_onb100101",
+      "context_ref": "security-context://tenant-a/hr-operator-01",
+      "context_hash": "sha256:82bd3b28b415c210fbc159926a0cbd84264c5cb45271370d16f5189164b173d6",
+      "tenant_id": "tenant-a",
+      "subject_id": "hr-operator-01",
+      "subject_type": "user",
+      "purpose": "onboarding",
+      "authentication": {
+        "method": "oidc",
+        "assurance_level": "high",
+        "session_id_hash": "sha256:e56d81c52ef3dd92ab048a762e0a425f0b2c6a58dfdabaa688717384afd33664"
+      },
+      "data_classification_ceiling": "confidential",
+      "issued_at": "2026-08-01T08:00:00Z",
+      "expires_at": "2026-08-01T09:30:00Z"
+    },
+    "expected_task_version": null,
+    "idempotency_key": "sha256:29495572b0323de6f70e628f77720707b7ac009be0fb94bf3ee096e61bbbc74d",
+    "command_digest": "sha256:ae4d2fdc7c1a9f3696047d8904832c9e6755e031c75e26948c735de59eb30f8f",
+    "payload": {
+      "initial_message_id": "msg_onbmissing01",
+      "initial_message_ref": "message://tenant-a/onboarding/backend/missing",
+      "channel": "web",
+      "purpose": "onboarding"
+    },
+    "issued_at": "2026-08-01T08:00:00Z",
+    "correlation_id": "corr-onb-onbmissing01"
+  },
+  "resolved_request": {
+    "query": {
+      "tenant_id": "tenant-a",
+      "task_id": "task_onbmissing001",
+      "message_id": "msg_onbmissing01",
+      "message_ref": "message://tenant-a/onboarding/backend/missing",
+      "purpose": "onboarding",
+      "security_context_ref": "security-context://tenant-a/hr-operator-01"
+    },
+    "observation_ref": "observation://tenant-a/onboarding_missing_001",
+    "source_digest": "sha256:ee494f3dd935596530e6b33f754248d218ce6153dd09651364d13bf52916852d",
+    "intent": "onboarding_request",
+    "fields": {
+      "full_name": "Chen Yi",
+      "department": "engineering"
+    },
+    "data_classification": "internal",
+    "observation_digest": "sha256:e48073e64e40a5047101d1a843be3695a324bb9aedc64598554a6d4e4792464a"
+  },
+  "expected_missing_fields": [
+    "manager",
+    "location",
+    "start_date"
+  ]
+}

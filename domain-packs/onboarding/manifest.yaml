@@ -1,0 +1,15 @@
+schema_version: flowpilot.domain-pack.v2
+domain_id: onboarding
+version: 0.1.0
+display_name: New Employee Onboarding
+intents_ref: intents.yaml
+required_fields_ref: required-fields.yaml
+risk_rules_ref: risk-rules.yaml
+fixture_refs:
+  - evals/onboarding-complete-request.json
+  - evals/onboarding-missing-fields.json
+knowledge_refs:
+  - knowledge/device-standards-current.json
+  - knowledge/inventory-available.json
+  - knowledge/permission-templates.json
+reference_expectations_ref: evals/onboarding-reference-expectations.json

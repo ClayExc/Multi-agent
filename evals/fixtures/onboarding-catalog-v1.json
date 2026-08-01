@@ -1,0 +1,64 @@
+{
+  "schema_version": "flowpilot.synthetic-onboarding-catalog.v1",
+  "fixture_id": "onboarding-catalog-v1",
+  "purpose": "Offline synthetic read-only onboarding catalog grounding the M5-1 new-employee composite request (AC-E2E-002): device standards per role, inventory availability per location, and permission templates per role. All identifiers, names, and values are fictional; nothing here references real employees or credentials.",
+  "synthetic": true,
+  "tenant": "tenant-a",
+  "device_standards": [
+    {
+      "standard_id": "DEV-STD-BE-01",
+      "role": "backend_engineer",
+      "model": "ThinkPad-X1-Carbon-G11",
+      "spec": "32GB RAM / 1TB SSD / Win11",
+      "assignable": true
+    },
+    {
+      "standard_id": "DEV-STD-FE-01",
+      "role": "frontend_engineer",
+      "model": "MacBook-Pro-14-M3",
+      "spec": "24GB RAM / 512GB SSD / macOS",
+      "assignable": true
+    }
+  ],
+  "inventory": [
+    {
+      "stock_id": "INV-001",
+      "location": "Shanghai",
+      "model": "ThinkPad-X1-Carbon-G11",
+      "available": 8,
+      "reserved": 0
+    },
+    {
+      "stock_id": "INV-002",
+      "location": "Shanghai",
+      "model": "MacBook-Pro-14-M3",
+      "available": 3,
+      "reserved": 0
+    },
+    {
+      "stock_id": "INV-003",
+      "location": "Beijing",
+      "model": "ThinkPad-X1-Carbon-G11",
+      "available": 0,
+      "reserved": 0
+    }
+  ],
+  "permission_templates": [
+    {
+      "template_id": "PT-BE-01",
+      "role": "backend_engineer",
+      "grants": ["repo:backend-read", "ci:pipeline-run", "vpn:office"],
+      "approval_required": true
+    },
+    {
+      "template_id": "PT-FE-01",
+      "role": "frontend_engineer",
+      "grants": ["repo:frontend-read", "ci:pipeline-run"],
+      "approval_required": true
+    }
+  ],
+  "role_by_department": {
+    "engineering": "backend_engineer",
+    "frontend": "frontend_engineer"
+  }
+}

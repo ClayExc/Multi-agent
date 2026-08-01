@@ -4,6 +4,12 @@
 
 按“垂直切片”推进：每个里程碑同时包含领域规则、API、Graph、工具、数据、测试和证据。禁止先铺满所有 Agent、页面和基础设施，最后才验证闭环。
 
+P2 完成后采用三条提前并行轨道：评测数据在 M3～M5 按固定类别逐步建设，
+Web 外壳在 API/SSE 契约稳定后并行，企业系统只预建 Vendor-neutral Port、Sandbox
+Adapter 与契约测试。详细路径、配额和汇合门禁见
+[`ACCELERATED_DELIVERY_PLAN.md`](./ACCELERATED_DELIVERY_PLAN.md)。该计划不自动
+批准 `g2/g3`，也不改变当前 P2 链。
+
 > 编号说明：本路线中的 M0～M8 是产品里程碑；历史
 > `CHAIN-M1-PLATFORM-01`、`CHAIN-M2-STUDIO-01` 是工程集成增量，二者不
 > 表示产品 M1/M2 已完成。自 VPN 切片起，链 ID 使用 `P1` 等产品前缀避免
@@ -139,6 +145,9 @@
 - Trace、Audit、Security Event 正确分流。
 
 ## 8. M6：评测与核心发布
+
+120+36 不再等到 M6 才开始编写：M3、M4、M5 分别形成 48+21、40+12、
+32+3 条增量候选，M6 负责最终配额校验、Hash 冻结、Judge 校准和可复现报告。
 
 交付：
 

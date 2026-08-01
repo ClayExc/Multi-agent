@@ -26,6 +26,8 @@ from flowpilot_persistence import (
     PersistenceErrorCode,
 )
 
+from .events import TaskEventPublisher
+
 _THREAD_ID = re.compile(r"^thread_[A-Za-z0-9_-]{8,128}$")
 
 
@@ -202,9 +204,11 @@ class PersistenceCheckpointAdapter(CheckpointPort):
         unit_of_work: DataUnitOfWorkFactory,
         *,
         clock: Callable[[], datetime] | None = None,
+        event_publisher: TaskEventPublisher | None = None,
     ) -> None:
         self._unit_of_work = unit_of_work
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._event_publisher = event_publisher
 
     async def load(self, tenant_id: str, task_id: str) -> GraphState | None:
         try:
@@ -259,6 +263,11 @@ class PersistenceCheckpointAdapter(CheckpointPort):
                     fence,
                     now=observed_at,
                 )
+                previous = await self._previous_state(
+                    unit_of_work,
+                    state,
+                    thread_id,
+                )
                 record = CheckpointRecord(
                     checkpoint_id=_checkpoint_id(
                         persisted_state,
@@ -280,6 +289,15 @@ class PersistenceCheckpointAdapter(CheckpointPort):
                     fence,
                     expected_sequence=expected_sequence,
                 )
+                if self._event_publisher is not None:
+                    await self._event_publisher.publish(
+                        unit_of_work,
+                        tenant_id=state.tenant_id,
+                        task_id=state.task_id,
+                        thread_id=thread_id,
+                        previous=previous,
+                        state=persisted_state,
+                    )
                 restored = _state_from_record(
                     stored,
                     tenant_id=state.tenant_id,
@@ -294,6 +312,32 @@ class PersistenceCheckpointAdapter(CheckpointPort):
         except Exception:
             raise _storage_unavailable("checkpoint could not be saved") from None
         return restored
+
+    async def _previous_state(
+        self,
+        unit_of_work: DataUnitOfWork,
+        state: GraphState,
+        thread_id: str,
+    ) -> GraphState | None:
+        """Return the checkpoint state preceding this save, if any.
+
+        The lookup runs before the current put, so a replayed save observes
+        its own record as the previous state and publishes no duplicate
+        event (the transition mapping is a no-op for identical states).
+        """
+        record = await unit_of_work.checkpoints.latest(
+            state.tenant_id,
+            state.task_id,
+            thread_id,
+        )
+        if record is None:
+            return None
+        return _state_from_record(
+            record,
+            tenant_id=state.tenant_id,
+            task_id=state.task_id,
+            thread_id=thread_id,
+        )
 
 
 def _lease_from_fence(fence: LeaseFence) -> LeaseToken:

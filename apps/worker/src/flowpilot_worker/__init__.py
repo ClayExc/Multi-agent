@@ -5,6 +5,7 @@ from .durable import (
     DurableRuntime,
     build_durable_runtime,
 )
+from .events import TaskEventPublisher
 from .persistence import (
     PersistenceCheckpointAdapter,
     PersistenceExecutionGuard,
@@ -41,6 +42,7 @@ __all__ = [
     "PersistenceRuntimeConfig",
     "RuntimeExecutionAdapter",
     "RuntimeWorker",
+    "TaskEventPublisher",
     "WorkerRun",
     "KNOWLEDGE_SCHEMA_PIN",
     "KNOWLEDGE_TOOL_NAME",

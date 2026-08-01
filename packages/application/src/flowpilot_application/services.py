@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import hashlib
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from flowpilot_domain import (
@@ -17,16 +20,21 @@ from .models import (
     ArtifactWriteDisposition,
     CommandAcceptance,
     ExecutionReceipt,
+    OutboxEventView,
     RequestObservation,
     RequestReferenceQuery,
     ResultArtifactDraft,
     ResultArtifactReceipt,
     StoredCommand,
+    TaskEventEnvelope,
 )
 from .ports import (
+    EventStreamPort,
     ExecutionPort,
     RequestReferenceResolverPort,
     ResultArtifactPort,
+    TaskEventUnitOfWork,
+    TaskEventUnitOfWorkFactory,
     TaskQueryUnitOfWorkFactory,
     UnitOfWorkFactory,
     VersionSlotReservation,
@@ -387,3 +395,206 @@ class ResultArtifactService:
                 "result artifact store returned a mismatched receipt",
             )
         return receipt
+
+
+@dataclass(frozen=True, slots=True)
+class TaskEventStreamConfig:
+    """Stream envelope defaults and subscription poll tuning."""
+
+    producer: str = "worker"
+    producer_principal_ref: str = "workload://worker/default"
+    data_classification: str = "internal"
+    consumer_id_prefix: str = "stream"
+    poll_interval: float = 0.25
+    poll_limit: int = 100
+
+    def __post_init__(self) -> None:
+        if not self.producer:
+            raise ValueError("producer must be non-empty")
+        if not self.producer_principal_ref:
+            raise ValueError("producer_principal_ref must be non-empty")
+        if not self.consumer_id_prefix:
+            raise ValueError("consumer_id_prefix must be non-empty")
+        if self.poll_interval <= 0:
+            raise ValueError("poll_interval must be positive")
+        if self.poll_limit < 1:
+            raise ValueError("poll_limit must be positive")
+
+
+class TaskEventSubscriptionService:
+    """Transactional-outbox consumer that drains task events onto the stream.
+
+    Guarantees:
+    - at-least-once: events are emitted before the consumer transaction
+      commits; a crash before commit leaves the event unpublished and the
+      inbox record unaccepted, so the next poll redelivers it.
+    - deduplication: the durable consumer inbox records accepted event
+      fingerprints; a committed redelivery is drained without re-emitting.
+    - ordering: unpublished events are polled in outbox order, so a task's
+      event sequence arrives in order; sequence_gaps reports any hole.
+    """
+
+    def __init__(
+        self,
+        *,
+        unit_of_work: TaskEventUnitOfWorkFactory,
+        stream: EventStreamPort,
+        config: TaskEventStreamConfig | None = None,
+        clock: Clock | None = None,
+    ) -> None:
+        self._unit_of_work = unit_of_work
+        self._stream = stream
+        self._config = config or TaskEventStreamConfig()
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._attachments: dict[str, int] = {}
+        self._poll_tasks: dict[str, asyncio.Task[None]] = {}
+        self.last_error: Exception | None = None
+
+    async def attach(self, tenant_id: str) -> None:
+        """Start the tenant poll loop on first attachment (reference counted)."""
+        _require_tenant(tenant_id)
+        previous = self._attachments.get(tenant_id, 0)
+        self._attachments[tenant_id] = previous + 1
+        if previous == 0:
+            loop = asyncio.get_running_loop()
+            task = loop.create_task(self._poll_loop(tenant_id))
+            self._poll_tasks[tenant_id] = task
+
+    async def detach(self, tenant_id: str) -> None:
+        """Stop the tenant poll loop when the last attachment releases."""
+        _require_tenant(tenant_id)
+        remaining = self._attachments.get(tenant_id, 0) - 1
+        if remaining < 0:
+            remaining = 0
+        self._attachments[tenant_id] = remaining
+        if remaining == 0:
+            task = self._poll_tasks.pop(tenant_id, None)
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+    async def gaps(self, tenant_id: str, task_id: str) -> tuple[int, ...]:
+        """Report missing outbox sequences for a task (hole detection)."""
+        _require_tenant(tenant_id)
+        async with self._unit_of_work() as unit_of_work:
+            gaps = await unit_of_work.outbox.sequence_gaps(
+                tenant_id, "task", task_id
+            )
+        return tuple(gaps)
+
+    async def close(self) -> None:
+        for tenant_id in tuple(self._poll_tasks):
+            await self.detach(tenant_id)
+
+    async def _poll_loop(self, tenant_id: str) -> None:
+        while True:
+            try:
+                await self._poll_once(tenant_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # keep the subscription alive
+                self.last_error = exc
+            await asyncio.sleep(self._config.poll_interval)
+
+    async def _poll_once(self, tenant_id: str) -> int:
+        consumer_id = f"{self._config.consumer_id_prefix}:{tenant_id}"
+        observed_at = self._clock()
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            raise ValueError("clock must be timezone-aware")
+        now = observed_at.astimezone(UTC)
+        emitted = 0
+        async with self._unit_of_work() as unit_of_work:
+            deliveries = await unit_of_work.outbox.unpublished(
+                tenant_id, now=now, limit=self._config.poll_limit
+            )
+            for delivery in deliveries:
+                view = self._as_view(delivery)
+                envelope = await self._enrich(unit_of_work, view)
+                if envelope is None:
+                    continue
+                accepted = await unit_of_work.consumer_inbox.accept_once(
+                    tenant_id,
+                    consumer_id,
+                    view.event_id,
+                    envelope.fingerprint(),
+                    processed_at=now,
+                )
+                if accepted:
+                    await self._stream.emit(tenant_id, envelope)
+                    emitted += 1
+                await unit_of_work.outbox.mark_published(
+                    tenant_id, view.event_id, published_at=now
+                )
+            await unit_of_work.commit()
+        return emitted
+
+    @staticmethod
+    def _enrich_trace_id(
+        tenant_id: str, task_id: str, event_type: str, sequence: int
+    ) -> str:
+        """Deterministic stream trace identity for one outbox event."""
+        seed = f"{tenant_id}:{task_id}:{event_type}:{sequence}"
+        return hashlib.sha256(seed.encode()).hexdigest()
+
+    @staticmethod
+    def _as_view(delivery: object) -> OutboxEventView:
+        """Normalize a persistence delivery (OutboxDelivery or view)."""
+        event = getattr(delivery, "event", delivery)
+        if isinstance(event, OutboxEventView):
+            return event
+        return OutboxEventView(
+            event_id=event.event_id,
+            tenant_id=event.tenant_id,
+            aggregate_type=event.aggregate_type,
+            aggregate_id=event.aggregate_id,
+            sequence=event.sequence,
+            event_type=event.event_type,
+            payload=event.payload,
+            occurred_at=event.occurred_at,
+            available_at=event.available_at,
+        )
+
+    async def _enrich(
+        self,
+        unit_of_work: TaskEventUnitOfWork,
+        view: OutboxEventView,
+    ) -> TaskEventEnvelope | None:
+        if view.aggregate_type != "task":
+            return None
+        task = await unit_of_work.tasks.get(view.tenant_id, view.aggregate_id)
+        if task is None:
+            return None
+        if task.tenant_id != view.tenant_id or task.task_id != view.aggregate_id:
+            return None
+        trace_id = self._enrich_trace_id(
+            view.tenant_id,
+            task.task_id,
+            view.event_type,
+            view.sequence,
+        )
+        return TaskEventEnvelope(
+            event_id=view.event_id,
+            event_type=view.event_type,
+            tenant_id=view.tenant_id,
+            task_id=task.task_id,
+            thread_id=task.thread_id,
+            task_version=task.version,
+            sequence=view.sequence,
+            trace_id=trace_id,
+            run_id=f"run_{trace_id[:16]}",
+            producer=self._config.producer,
+            producer_principal_ref=self._config.producer_principal_ref,
+            correlation_id=f"corr_{trace_id[:16]}",
+            causation_id=None,
+            data_classification=self._config.data_classification,
+            payload=view.payload,
+            occurred_at=view.occurred_at,
+        )
+
+
+def _require_tenant(tenant_id: str) -> None:
+    if not isinstance(tenant_id, str) or not tenant_id or len(tenant_id) > 128:
+        raise ValueError("tenant_id must be a bounded non-empty string")

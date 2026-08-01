@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from flowpilot_application import (
     ApplicationError,
     CommandAcceptance,
     CommandIntakeService,
     ErrorCode,
+    TaskEventEnvelope,
+    TaskEventSubscriptionService,
     TaskQueryService,
 )
 from flowpilot_domain import (
@@ -32,6 +35,7 @@ from .models import (
     TaskId,
 )
 from .security import RequestSecurityPort, TrustedRequestIdentity
+from .stream import InMemoryEventStream
 
 _CONFLICT_CODES = {
     ErrorCode.IDEMPOTENCY_CONFLICT,
@@ -61,6 +65,8 @@ def create_app(
     command_intake: CommandIntakeService | None = None,
     task_query: TaskQueryService | None = None,
     request_security: RequestSecurityPort | None = None,
+    task_event_subscription: TaskEventSubscriptionService | None = None,
+    event_stream: InMemoryEventStream | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="FlowPilot API",
@@ -150,6 +156,57 @@ def create_app(
         return _acceptance_body(acceptance)
 
     @app.get(
+        "/v1/tasks/events",
+        responses={
+            403: {"model": ErrorEnvelope},
+            422: {"model": ErrorEnvelope},
+            500: {"model": ErrorEnvelope},
+            503: {"model": ErrorEnvelope},
+        },
+        tags=["tasks"],
+        operation_id="streamTaskEventsV1",
+    )
+    async def stream_task_events(request: Request) -> StreamingResponse:
+        security = _require_dependency(
+            request_security, "request security is not configured"
+        )
+        subscription = _require_dependency(
+            task_event_subscription,
+            "task event subscription is not configured",
+        )
+        stream = _require_dependency(
+            event_stream, "task event stream is not configured"
+        )
+        identity = await security.authenticate(request)
+        await security.authorize_event_stream(identity)
+        tenant_id = identity.tenant_id
+        await subscription.attach(tenant_id)
+        queue = stream.subscribe(tenant_id)
+
+        async def event_source() -> Any:
+            try:
+                while True:
+                    try:
+                        envelope = await asyncio.wait_for(queue.get(), timeout=15)
+                    except asyncio.TimeoutError:
+                        yield ": ping\n\n"
+                        continue
+                    yield _sse_frame(envelope)
+            finally:
+                stream.unsubscribe(tenant_id, queue)
+                await subscription.detach(tenant_id)
+
+        return StreamingResponse(
+            event_source(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
+
+    @app.get(
         "/v1/tasks/{task_id}",
         response_model=TaskBody,
         response_model_exclude_unset=True,
@@ -236,6 +293,15 @@ def _acceptance_body(acceptance: CommandAcceptance) -> CommandAcceptanceBody:
 
 def _task_body(task: Task) -> TaskBody:
     return TaskBody.model_validate_json(json.dumps(task.to_mapping()))
+
+
+def _sse_frame(envelope: TaskEventEnvelope) -> str:
+    data = json.dumps(
+        envelope.to_mapping(),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return f"id: {envelope.event_id}\nevent: task.event\ndata: {data}\n\n"
 
 
 def _require_dependency[T](dependency: T | None, message: str) -> T:

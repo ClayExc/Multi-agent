@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -253,16 +255,12 @@ class ResultArtifactReceipt:
     task_id: str
     idempotency_key: str
     result_digest: str
-    disposition: ArtifactWriteDisposition
     result_ref: str | None
+    disposition: ArtifactWriteDisposition
 
     def __post_init__(self) -> None:
         _require_text(self.tenant_id, "tenant_id", maximum=128)
-        _require_identifier(
-            self.task_id,
-            "task_id",
-            r"^task_[A-Za-z0-9_-]{8,128}$",
-        )
+        _require_identifier(self.task_id, "task_id", r"^task_[A-Za-z0-9_-]{8,128}$")
         _require_sha256(self.idempotency_key, "idempotency_key")
         _require_sha256(self.result_digest, "result_digest")
         if self.disposition is ArtifactWriteDisposition.CONFLICT:
@@ -270,6 +268,150 @@ class ResultArtifactReceipt:
                 raise ValueError("conflict receipts must not expose a result_ref")
         else:
             _require_text(self.result_ref, "result_ref", maximum=512)
+
+
+@dataclass(frozen=True, slots=True)
+class OutboxEventView:
+    """Tenant-scoped outbox event projection used by the SSE subscription."""
+
+    event_id: str
+    tenant_id: str
+    aggregate_type: str
+    aggregate_id: str
+    sequence: int
+    event_type: str
+    payload: Mapping[str, Any]
+    occurred_at: datetime
+    available_at: datetime
+
+    def __post_init__(self) -> None:
+        _require_text(self.tenant_id, "tenant_id", maximum=128)
+        _require_text(self.event_id, "event_id", maximum=256)
+        _require_text(self.aggregate_type, "aggregate_type", maximum=256)
+        _require_text(self.aggregate_id, "aggregate_id", maximum=256)
+        if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
+            raise ValueError("sequence must be an integer")
+        if self.sequence < 1:
+            raise ValueError("outbox sequence must be positive")
+        _require_text(self.event_type, "event_type", maximum=256)
+        payload = _freeze_json(self.payload, "payload")
+        object.__setattr__(self, "payload", payload)
+        object.__setattr__(self, "occurred_at", _utc(self.occurred_at, "occurred_at"))
+        object.__setattr__(
+            self, "available_at", _utc(self.available_at, "available_at")
+        )
+
+
+_TASK_EVENT_TYPES = frozenset(
+    {
+        "task.created.v1",
+        "task.status.changed.v1",
+        "task.input.required.v1",
+        "task.approval.required.v1",
+        "task.approval.decided.v1",
+        "task.tool_execution.updated.v1",
+        "task.completed.v1",
+        "task.failed.v1",
+        "task.escalated.v1",
+    }
+)
+_TASK_EVENT_PRODUCERS = frozenset(
+    {"worker", "mcp_gateway", "approval_service", "reconciler"}
+)
+_CLASSIFICATIONS = frozenset(
+    {"public", "internal", "confidential", "restricted"}
+)
+_TRACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+_RUN_ID_PATTERN = re.compile(r"^run_[A-Za-z0-9_-]{8,128}$")
+
+
+@dataclass(frozen=True, slots=True)
+class TaskEventEnvelope:
+    """Full task-event.v1 envelope delivered to the SSE transport."""
+
+    event_id: str
+    event_type: str
+    tenant_id: str
+    task_id: str
+    thread_id: str
+    task_version: int
+    sequence: int
+    trace_id: str
+    run_id: str
+    producer: str
+    producer_principal_ref: str
+    correlation_id: str
+    causation_id: str | None
+    data_classification: str
+    payload: Mapping[str, Any]
+    occurred_at: datetime
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.event_id, "event_id", r"^evt_[A-Za-z0-9_-]{8,128}$")
+        if self.event_type not in _TASK_EVENT_TYPES:
+            raise ValueError(f"{self.event_type} is not a task-event.v1 type")
+        _require_text(self.tenant_id, "tenant_id", maximum=128)
+        _require_identifier(self.task_id, "task_id", r"^task_[A-Za-z0-9_-]{8,128}$")
+        _require_identifier(
+            self.thread_id, "thread_id", r"^thread_[A-Za-z0-9_-]{8,128}$"
+        )
+        if (
+            isinstance(self.task_version, bool)
+            or not isinstance(self.task_version, int)
+            or self.task_version < 0
+        ):
+            raise ValueError("task_version must be a non-negative integer")
+        if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
+            raise ValueError("sequence must be an integer")
+        if self.sequence < 1:
+            raise ValueError("sequence must be positive")
+        if _TRACE_ID_PATTERN.fullmatch(self.trace_id) is None:
+            raise ValueError("trace_id has an invalid format")
+        if _RUN_ID_PATTERN.fullmatch(self.run_id) is None:
+            raise ValueError("run_id has an invalid format")
+        if self.producer not in _TASK_EVENT_PRODUCERS:
+            raise ValueError(f"{self.producer} is not a task-event.v1 producer")
+        _require_text(
+            self.producer_principal_ref, "producer_principal_ref", maximum=512
+        )
+        _require_text(self.correlation_id, "correlation_id", maximum=128)
+        if self.causation_id is not None:
+            _require_text(self.causation_id, "causation_id", maximum=128)
+        if self.data_classification not in _CLASSIFICATIONS:
+            raise ValueError(
+                f"{self.data_classification} is not a task-event classification"
+            )
+        object.__setattr__(self, "payload", _freeze_json(self.payload, "payload"))
+        object.__setattr__(self, "occurred_at", _utc(self.occurred_at, "occurred_at"))
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "event_id": self.event_id,
+            "event_type": self.event_type,
+            "tenant_id": self.tenant_id,
+            "task_id": self.task_id,
+            "thread_id": self.thread_id,
+            "task_version": self.task_version,
+            "sequence": self.sequence,
+            "trace_id": self.trace_id,
+            "run_id": self.run_id,
+            "producer": self.producer,
+            "producer_principal_ref": self.producer_principal_ref,
+            "correlation_id": self.correlation_id,
+            "causation_id": self.causation_id,
+            "data_classification": self.data_classification,
+            "payload": dict(self.payload),
+            "occurred_at": _format_utc(self.occurred_at),
+        }
+
+    def fingerprint(self) -> str:
+        encoded = json.dumps(
+            self.to_mapping(),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def _freeze_fields(value: Mapping[str, str]) -> Mapping[str, str]:
@@ -299,3 +441,36 @@ def _require_identifier(value: object, field: str, pattern: str) -> None:
 def _require_sha256(value: object, field: str) -> None:
     if not isinstance(value, str) or _SHA256_PATTERN.fullmatch(value) is None:
         raise ValueError(f"{field} must be a lowercase sha256 digest")
+
+
+def _freeze_json(value: Any, field: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field} must be an object")
+    frozen: dict[str, Any] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ValueError(f"{field} keys must be strings")
+        frozen[key] = _freeze_json_value(item, f"{field}.{key}")
+    return MappingProxyType(frozen)
+
+
+def _freeze_json_value(value: Any, field: str) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        return _freeze_json(value, field)
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
+        return tuple(_freeze_json_value(item, f"{field}[{index}]") for index, item in enumerate(value))
+    raise ValueError(f"{field} must contain JSON values")
+
+
+def _utc(value: datetime, field: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field} must be timezone-aware")
+    return value.astimezone(UTC)
+
+
+def _format_utc(value: datetime) -> str:
+    return _utc(value, "timestamp").isoformat().replace("+00:00", "Z")

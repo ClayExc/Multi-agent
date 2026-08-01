@@ -26,9 +26,9 @@
 | FP-FLOW-007 | P0 | 可恢复失败重试、业务失败不盲重试 | `packages/application` | `tests/core/application/test_retry_matrix.py` | 每类错误调用次数 | DESIGNED |
 | FP-FLOW-008 | P1 | 显式补偿动作 | `packages/application` | `tests/core/application/test_compensation.py` | 原动作与补偿审计 | DESIGNED |
 | FP-FLOW-009 | P0 | 命令使用版本检查与逻辑去重，不能直接篡改任务状态 | `packages/application` | `tests/core/contract/test_command_concurrency.py` | 冲突与重复命令断言 | DESIGNED |
-| FP-AGT-001 | P0 | 知识/数据/规划 Agent 职责与工具隔离 | `packages/agent-runtime` | `tests/runtime/integration/test_agent_tool_scope.py` | 每 Agent 工具清单 | DESIGNED |
-| FP-AGT-002 | P0 | OpenAI/Claude Runtime 遵循统一端口 | `packages/agent-runtime` | `tests/runtime/contract/test_runtime_port.py` | Conformance 报告 | DESIGNED |
-| FP-AGT-003 | P0 | 一个节点只使用一个 Provider | `packages/graph` | `tests/runtime/integration/test_provider_selection.py` | Trace Provider 断言 | DESIGNED |
+| FP-AGT-001 | P0 | 知识/数据/规划 Agent 职责与工具隔离 | `packages/agent-runtime` | `tests/runtime/integration/test_agent_tool_scope.py` | 每 Agent 工具清单 | VERIFIED |
+| FP-AGT-002 | P0 | OpenAI/Claude Runtime 遵循统一端口 | `packages/agent-runtime` | `tests/runtime/contract/test_runtime_port.py` | Conformance 报告 | VERIFIED |
+| FP-AGT-003 | P0 | 一个节点只使用一个 Provider | `packages/graph` | `tests/runtime/integration/test_provider_selection.py` | Trace Provider 断言 | VERIFIED |
 | FP-AGT-004 | P1 | Handoff 不跨审批/执行边界 | `packages/agent-runtime` | `tests/runtime/integration/test_handoff_boundary.py` | Handoff 路径与拒绝事件 | DESIGNED |
 | FP-CTX-001 | P0 | 每次模型调用使用 ContextEnvelope | `packages/context` | `tests/runtime/contract/test_context_envelope.py` | Context Manifest | DESIGNED |
 | FP-CTX-002 | P0 | 分层摘要区分声称、验证与推断 | `packages/context` | `tests/runtime/unit/test_summary_contract.py` | 摘要 Schema 结果 | DESIGNED |

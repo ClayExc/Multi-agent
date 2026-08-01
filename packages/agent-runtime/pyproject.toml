@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "flowpilot-context",
     "flowpilot-domain",
+    "flowpilot-model-gateway",
 ]
 
 [build-system]
@@ -18,3 +19,4 @@ packages = ["src/flowpilot_agent_runtime"]
 [tool.uv.sources]
 flowpilot-context = { workspace = true }
 flowpilot-domain = { workspace = true }
+flowpilot-model-gateway = { workspace = true }

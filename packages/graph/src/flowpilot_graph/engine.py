@@ -46,6 +46,18 @@ class GraphRunOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderSelectionTrace:
+    """Trace-visible record of the provider used by one runtime node run."""
+
+    trace_id: str
+    run_id: str
+    node: GraphNode
+    provider: str
+    model: str
+    provider_run_ref: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedGraphRun:
     state: GraphState
     request: AgentRunRequest | None
@@ -79,6 +91,12 @@ class RuntimeGraphKernel:
         self._runtime = runtime
         self._checkpoints = checkpoints
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._provider_traces: list[ProviderSelectionTrace] = []
+
+    @property
+    def provider_selections(self) -> tuple[ProviderSelectionTrace, ...]:
+        """Trace-visible provider selections recorded by runtime node runs."""
+        return tuple(self._provider_traces)
 
     async def prepare(
         self,
@@ -184,7 +202,21 @@ class RuntimeGraphKernel:
         )
 
     async def invoke(self, request: AgentRunRequest) -> AgentRunResult:
-        return await self._runtime.run(request)
+        result = await self._runtime.run(request)
+        # One trace record per runtime node run: the single provider actually
+        # used for this node, taken from the runtime result (which the
+        # adapter reports for failures too).
+        self._provider_traces.append(
+            ProviderSelectionTrace(
+                trace_id=result.trace_id or request.trace_id,
+                run_id=request.run_id,
+                node=GraphNode.RUN_AGENT,
+                provider=result.provider_name or request.provider_selection.provider,
+                model=result.provider_model or request.provider_selection.model,
+                provider_run_ref=result.provider_run_ref,
+            )
+        )
+        return result
 
     async def finalize(
         self,

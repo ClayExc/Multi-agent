@@ -5,6 +5,7 @@ from .durable import (
     DurableRuntime,
     build_durable_runtime,
 )
+from .events import TaskEventPublisher
 from .persistence import (
     PersistenceCheckpointAdapter,
     PersistenceExecutionGuard,
@@ -24,6 +25,16 @@ from .vpn import (
     build_vpn_gateway_call,
     vpn_debug_projection,
 )
+from .vpn_write import (
+    TICKET_SCHEMA_PIN,
+    TICKET_TOOL_NAME,
+    VPN_WRITE_GRAPH_VERSION,
+    VpnTicketWriteConfig,
+    VpnTicketWriteGraph,
+    VpnTicketWriteState,
+    build_ticket_proposal,
+    build_vpn_ticket_gateway_call,
+)
 from .worker import ExecutionGuardPort, RuntimeWorker, WorkerRun
 
 __all__ = [
@@ -41,14 +52,23 @@ __all__ = [
     "PersistenceRuntimeConfig",
     "RuntimeExecutionAdapter",
     "RuntimeWorker",
+    "TaskEventPublisher",
     "WorkerRun",
     "KNOWLEDGE_SCHEMA_PIN",
     "KNOWLEDGE_TOOL_NAME",
+    "TICKET_SCHEMA_PIN",
+    "TICKET_TOOL_NAME",
     "VPN_GRAPH_VERSION",
+    "VPN_WRITE_GRAPH_VERSION",
     "VpnGraphConfig",
     "VpnGraphState",
     "VpnReadOnlyGraph",
+    "VpnTicketWriteConfig",
+    "VpnTicketWriteGraph",
+    "VpnTicketWriteState",
+    "build_ticket_proposal",
     "build_vpn_gateway_call",
+    "build_vpn_ticket_gateway_call",
     "build_durable_runtime",
     "vpn_debug_projection",
     "TrustedTenantInventory",

@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOTS = (
     ROOT / "apps" / "mcp-gateway" / "src",
     ROOT / "mcp-servers" / "knowledge" / "src",
+    ROOT / "mcp-servers" / "ticket" / "src",
     ROOT / "packages" / "application" / "src",
     ROOT / "packages" / "domain" / "src",
     ROOT / "packages" / "persistence" / "src",

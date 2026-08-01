@@ -1,0 +1,39 @@
+{
+  "schema_version": "flowpilot.synthetic-approval-ledger.v1",
+  "fixture_id": "synthetic-approval-ledger-v1",
+  "purpose": "Offline synthetic approval ledger that grounds the M6 incremental-A approval replay / tamper / duplicate-write candidates. Digests are fictional and never derived from real credentials.",
+  "synthetic": true,
+  "approvals": [
+    {
+      "approval_id": "AP-2026-0001",
+      "tenant": "synthetic-tenant-alpha",
+      "status": "approved",
+      "action": "itsm.ticket.create.v1",
+      "action_digest": "digest-synthetic-ap-0001",
+      "policy_version": "policy.v1.3",
+      "approved_by": "principal-it-approver",
+      "approved_at": "2026-07-28T09:00:00Z"
+    },
+    {
+      "approval_id": "AP-2026-0002",
+      "tenant": "synthetic-tenant-alpha",
+      "status": "revoked",
+      "action": "itsm.ticket.update.v1",
+      "action_digest": "digest-synthetic-ap-0002",
+      "policy_version": "policy.v1.3",
+      "approved_by": "principal-it-approver",
+      "approved_at": "2026-07-29T10:00:00Z",
+      "revoked_at": "2026-07-29T14:00:00Z"
+    },
+    {
+      "approval_id": "AP-2026-0003",
+      "tenant": "synthetic-tenant-alpha",
+      "status": "approved",
+      "action": "itsm.change.create.v1",
+      "action_digest": "digest-synthetic-ap-0003",
+      "policy_version": "policy.v1.3",
+      "approved_by": "principal-it-approver",
+      "approved_at": "2026-07-30T08:30:00Z"
+    }
+  ]
+}

@@ -30,3 +30,8 @@ class RequestSecurityPort(Protocol):
     async def authorize_task_read(
         self, identity: TrustedRequestIdentity, task_id: str
     ) -> None: ...
+
+    async def authorize_event_stream(
+        self, identity: TrustedRequestIdentity
+    ) -> None:
+        """Authorize a tenant-scoped subscription to the task event stream."""

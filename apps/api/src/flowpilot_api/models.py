@@ -171,6 +171,15 @@ class CommandAcceptanceBody(StrictModel):
     execution_receipt: ExecutionReceiptBody
 
 
+class ApprovalDecisionBody(StrictModel):
+    approval_id: ApprovalId
+    tenant_id: TenantId
+    task_id: TaskId
+    status: Literal["approved", "rejected", "revoked"]
+    action_digest: Sha256
+    decided_at: datetime
+
+
 class ReleaseBody(StrictModel):
     graph_version: Bounded128
     domain_pack_version: Bounded128

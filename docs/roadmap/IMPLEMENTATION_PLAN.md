@@ -7,8 +7,9 @@
 > 编号说明：本路线中的 M0～M8 是产品里程碑；历史
 > `CHAIN-M1-PLATFORM-01`、`CHAIN-M2-STUDIO-01` 是工程集成增量，二者不
 > 表示产品 M1/M2 已完成。自 VPN 切片起，链 ID 使用 `P1` 等产品前缀避免
-> 混淆。当前激活链为
-> [`CHAIN-P1-VPN-READONLY-01`](../team/chain-authorizations/CHAIN-P1-VPN-READONLY-01.md)。
+> 混淆。P1 已合并；当前激活链为
+> [`CHAIN-P2-DURABLE-RUNTIME-01`](../team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md)，
+> 只注册 S6 数据恢复、S2 持久化 Runtime 与 S7 独立验证三个能力。
 
 核心路径：
 
@@ -64,6 +65,10 @@
 - 基线报告包含逐 Case 结果，不要求预设成功率。
 
 ## 4. M2：持久化图与可靠运行
+
+当前状态：`ACTIVE_P2_DURABLE_RECOVERY`。Flow Lite `g1` 已获用户批准，并被
+收敛为 PostgreSQL Checkpoint、Lease/Fencing、Outbox/Redis 信号重建和 Worker
+重启恢复闭环；SSE 属于后续未批准目标，不进入本链。
 
 交付：
 

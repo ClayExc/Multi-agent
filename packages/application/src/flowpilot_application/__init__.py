@@ -1,3 +1,9 @@
+from .approvals import (
+    ApprovalDecisionResult,
+    ApprovalDecisionService,
+    ApprovalEventPort,
+    ApprovalRepositoryPort,
+)
 from .domain_packs import (
     DomainIntent,
     DomainKnowledgeSample,
@@ -49,6 +55,10 @@ __all__ = [
     "APPLICATION_PORT_VERSION",
     "REFERENCE_PORT_VERSION",
     "ApplicationError",
+    "ApprovalDecisionResult",
+    "ApprovalDecisionService",
+    "ApprovalEventPort",
+    "ApprovalRepositoryPort",
     "ArtifactWriteDisposition",
     "CommandAcceptance",
     "CommandInboxPort",

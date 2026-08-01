@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, replace
 from types import TracebackType
 from typing import Self
 
-from flowpilot_domain import Task, TaskCommand
+from flowpilot_domain import Approval, Task, TaskCommand
 
 from .models import (
     ArtifactWriteDisposition,
@@ -138,6 +138,39 @@ class FakeUnitOfWorkFactory:
 
     def __call__(self) -> FakeUnitOfWork:
         return FakeUnitOfWork(self.store)
+
+
+class FakeApprovalRepository:
+    """In-memory tenant-scoped approval store for deterministic tests."""
+
+    def __init__(self) -> None:
+        self.approvals: dict[tuple[str, str], Approval] = {}
+        self.saves: list[Approval] = []
+        self.failure: Exception | None = None
+
+    async def get(self, tenant_id: str, approval_id: str) -> Approval | None:
+        if self.failure is not None:
+            raise self.failure
+        return self.approvals.get((tenant_id, approval_id))
+
+    async def save(self, approval: Approval) -> None:
+        if self.failure is not None:
+            raise self.failure
+        self.approvals[(approval.tenant_id, approval.approval_id)] = approval
+        self.saves.append(approval)
+
+
+class FakeApprovalEventPort:
+    """Records ``task.approval.decided.v1`` event payloads for assertions."""
+
+    def __init__(self) -> None:
+        self.decisions: list[tuple[Approval, str]] = []
+        self.failure: Exception | None = None
+
+    async def publish_decided(self, *, approval: Approval, decision: str) -> None:
+        if self.failure is not None:
+            raise self.failure
+        self.decisions.append((approval, decision))
 
 
 class FakeExecutionPort:

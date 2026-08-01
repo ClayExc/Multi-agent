@@ -18,6 +18,7 @@ from flowpilot_application import (
     RequestReferenceQuery,
     ResolvedRequestReference,
     ResultArtifactService,
+    UnitOfWorkFactory,
 )
 from flowpilot_application.testing import (
     FakeExecutionPort,
@@ -481,7 +482,7 @@ async def _exercise_api_boundary(
     )
     app = create_app(
         command_intake=CommandIntakeService(
-            unit_of_work=unit_of_work,
+            unit_of_work=cast(UnitOfWorkFactory, unit_of_work),
             execution=execution,
             clock=lambda: FIXED_NOW,
         ),

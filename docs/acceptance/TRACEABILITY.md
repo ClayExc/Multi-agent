@@ -244,3 +244,34 @@
 | 目标 | 业务结果 | 实现路径 | 验收测试 | 状态 |
 |---|---|---|---|---|
 | M5-1 新员工入职复合申请（AC-E2E-002 业务面） | 澄清循环（WAITING_USER 五字段多轮，M4-2 硬预算）→ 三只读分支并行（设备标准/库存/权限模板，逐分支独立失败定位，Trace 区间重叠）→ 双子动作计划（同一 task 两个 PlannedAction，幂等键互异）→ 权限动作经理审批 Interrupt（FP-APR-001 卡片契约）→ 进程内批准恢复 → 双写闭环（action_digest 绑定/幂等重放/UNKNOWN 先回读/写后回读/Ledger）→ 关联工单创建与汇总（仅含实际创建并回读成功的工单）；任一子动作业务失败 → FAILED + failure_code 定位子动作，已成功子动作不重复执行 | `domain-packs/onboarding/`、`evals/fixtures/onboarding-catalog-v1.json`、`packages/graph`（parallel_reads 三分支 + reducer 逐分支失败 + 子动作计划 + 部分失败终态）、`packages/application/domain_packs.py`（BUILTIN_DOMAIN_PACK_ROOTS 注册） | `tests/acceptance/onboarding/test_onboarding_composite_flow.py`、`test_onboarding_clarify_loop.py`、`test_onboarding_parallel_reads.py` | IMPLEMENTED（本地 17/17 通过；待 S1 门禁与 S7 独立复算） |
+
+## 7. M6 评测候选登记（增量 C，目标 C1）
+
+> 投影说明：本表是 `evals/datasets/m6-incremental-c/`（机器清单）与
+> `evals/fixtures/`（数据源）的人读视图，登记行由机器数据生成，
+> 由 `tests/acceptance/evaluation/test_incremental_c_candidates.py` 的
+> `test_traceability_registration_rows_cover_every_candidate` 保持同步。
+> 16 条候选全部为候选态（candidate_only），未计入 120/36 发布配额；
+> 每条绑定 Feature、Fixture、规则断言与数据来源，
+> 经 evaluation-registry 校验（0 findings）。
+> 与增量 B 合计：approval_recovery 与 long_context_handoff 功能配额
+> 提前达成 16/16，累计功能候选 88→104。
+
+| 候选 ID | suite | category | Feature | Fixture | 规则断言 | 数据来源 | 安全分类 / gate | 场景 |
+|---|---|---|---|---|---|---|---|---|
+| m6c.func.ar.009 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | approval_ttl_resume_executes |
+| m6c.func.ar.010 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | resume_rejected_approval_blocked |
+| m6c.func.ar.011 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | unknown_approval_reconcile_not_found |
+| m6c.func.ar.012 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | timeout_resume_readback_no_duplicate |
+| m6c.func.ar.013 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | expired_approval_blocks_resume |
+| m6c.func.ar.014 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | restart_resume_reauthenticate |
+| m6c.func.ar.015 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | digest_match_resume_executes |
+| m6c.func.ar.016 | functional | approval_recovery | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.write_count.v1 | synthetic-approval-ledger-v1 | - / - | multi_step_recovery_partial_failure |
+| m6c.func.lh.009 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | cumulative_input_over_budget_blocked |
+| m6c.func.lh.010 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.allowed.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | handoff_whitelist_fields_only |
+| m6c.func.lh.011 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.allowed.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | budget_boundary_within_limit |
+| m6c.func.lh.012 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.allowed.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | long_context_then_readonly_handoff |
+| m6c.func.lh.013 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.allowed.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | handoff_drops_credential_fields |
+| m6c.func.lh.014 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.allowed.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | near_budget_summary_compaction |
+| m6c.func.lh.015 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.allowed.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | handoff_preserves_tenant_binding |
+| m6c.func.lh.016 | functional | long_context_handoff | FP-EVAL-001 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.tool.write_count.v1, assert.context.within_budget.v1, assert.handoff.fields_allowed.v1 | synthetic-ticket-store-v1 | - / - | budget_exhausted_write_denied |

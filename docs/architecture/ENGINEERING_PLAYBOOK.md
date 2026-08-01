@@ -292,6 +292,53 @@ WP-040-a5 的 S7 环境在验证前已有 `127.0.0.1:2024` Listener，但本次�
 所有本地服务、浏览器、容器和临时数据库测试都应采用“资源 Owner + Attempt
 身份 + 基线快照 + 精确清理”模型，不能使用面向整台宿主机的破坏性清理。
 
+### 4.15 动态 Interrupt 能恢复，但控制游标和业务事实混在了一起
+
+**关联功能：** FP-FLOW-002、FP-FLOW-005、FP-DATA-002
+
+**工程主题：** 控制 Checkpoint 与 Task 权威状态分离
+
+**证据等级：** VERIFIED
+
+动态 Interrupt 会暂停 LangGraph 的控制游标，但 Task 的业务状态、租户、
+请求引用和结果引用仍必须由 PostgreSQL 事实源决定。把控制 Checkpoint 当成
+Task 会导致游标丢失时无法恢复；只保存 Task 又会丢失节点内的暂停位置。
+
+P1 VPN 图采用双层恢复：Task/GraphState 只保存可验证的最小业务状态与脱敏
+引用，LangGraph Checkpointer 保存控制游标；控制游标丢失时从 Task 与引用
+重建，Gateway 和 Artifact Port 使用稳定幂等身份收敛重复节点执行。这样
+Clarification 后跨 Worker 恢复、Artifact 保存失败后节点重进以及重复终态
+投递都不会产生第二次逻辑知识检索或不同的 `result_ref`。
+
+WP-010-a3、20 条固定黑盒 Case 和 WP-040-a6 RELEASE 组合门禁共同验证了该
+结构。残余风险是真实耐久队列与生产 LangGraph Checkpointer 尚未接入；后续
+必须注入控制 Checkpoint 丢失、队列重复投递、旧 Worker 延迟复活和 Artifact
+写入超时，继续证明 Task 权威、租约 fencing 与外部调用幂等不会漂移。
+
+### 4.16 Agent 数量增加后，通信和重复读取吞掉了执行预算
+
+**关联功能：** FP-OPS-002
+
+**工程主题：** Agent 注册、最小调度与事件驱动交接
+
+**证据等级：** DESIGNED
+
+固定七会话解决了路径所有权，却也容易让控制面把“存在七个角色”误解为
+“每轮都要通知七个会话”。分钟级轮询、完整唤醒信封反复复制、下游重读未变
+治理文档和把测试日志粘进聊天，都会消耗 Token，却不增加新的工程证据。
+
+FlowPilot 改用注册制渐进迁移：角色保留为路径与风险档案，工作包按能力、
+写入范围、风险上限、可用性和证据契约选择最小 Agent 集合。正常执行不轮询，
+只在完成、P0/P1、权限请求和用户门禁时发送事件；消息只携带身份、Hash、
+证据引用与解锁条件。拆分工作时注册有退出条件的临时 Agent，不再默认增加
+永久编号会话。详细规则见
+[`AGENT_REGISTRY_PROTOCOL.md`](../team/AGENT_REGISTRY_PROTOCOL.md)。
+
+这一结构与产品 Agent 的 Context Engineering 相同：稳定事实放在外部状态，
+每次只注入当前动作所需上下文。残余风险是能力标签错误导致漏选 Reviewer，
+或新旧调度器竞争同一写租约。因此路径 Owner、风险 Reviewer 和最终 S1/用户
+门禁仍然强制存在，迁移期间禁止两个调度器同时写同一工作包。
+
 ## 5. S1～S7 如何使用
 
 | 会话 | 开始工作前重点阅读 | 交接时新增的学习材料 |

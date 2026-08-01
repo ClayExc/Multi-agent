@@ -107,7 +107,7 @@ CANCELLED 由用户或 S1 明确终止
 11. `[MERGED_M1]` MCP Gateway、Policy、Security、只读模拟 MCP、Workspace/Lock、安全黑盒和集成证据已通过 S7、S1 与用户门禁并原子进入主分支。
 12. `[MERGED_M2]` `CHAIN-M2-STUDIO-01` 已按 `S5 → S2 → S4 → S7 → S1` 完成 LangGraph Studio 非黑箱入口，并通过用户门禁原子进入主分支。
 13. `[IN_PROGRESS]` S4/WP-030 保留离线骨架和 M1 安全黑盒，继续为 Studio 与后续产品切片增加独立验收。
-14. `[ACTIVE_P1]` `CHAIN-P1-VPN-READONLY-01` 已按 `S5 → S3 → S2 → S4 → S7 → S1` 激活确定性 VPN 只读知识闭环；后序会话只由前序交接自动唤醒。
+14. `[USER_GATE_P1]` `CHAIN-P1-VPN-READONLY-01` 已按 `S5 → S3 → S2 → S4 → S7 → S1` 完成确定性 VPN 只读知识候选；S7 RELEASE 与 S1 FAST final gate 已通过，等待用户合并。
 
 发布级 `frozen` 仍等待 Registry、Dataset、Fixture 和 Traceability 完成，不前置阻塞实现。
 
@@ -182,6 +182,18 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 5. S1 选择性通知实际执行者和必要 Reviewer，不默认广播七个会话。
 6. 原始隐藏思考过程不得写入仓库、Trace、Audit、Security Event 或验收证据。
 7. S1 到达用户门禁时只报告“本轮完成 / 本轮问题 / 需要重大决策 / 下一步”；机器证据按需展开。
+
+### 注册制渐进迁移
+
+固定的 S1～S7 从现在起主要表示路径所有权、风险责任和能力档案，不再表示
+每条链都必须参与。新链按照
+[`AGENT_REGISTRY_PROTOCOL.md`](./AGENT_REGISTRY_PROTOCOL.md) 选择满足目标的
+最小 Agent 集合；未选中的会话不接收消息。需要拆分时注册临时 Agent，并以
+显式输入、输出、写入范围和汇合门禁退出，而不是继续增加永久编号会话。
+
+Flow Lite 可用于只读复杂度分析、计划草拟和本地验证；仓库的 Work Package、
+Git Head、Contract Digest、Evidence 与风险门禁仍是权威事实。迁移期间保留
+既有 Worktree 和角色映射作为兼容层，不允许新旧调度器同时写同一工作包。
 
 ## 7. RACI
 

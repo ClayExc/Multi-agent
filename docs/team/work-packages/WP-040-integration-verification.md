@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：`ACCEPTED`（`a1` M0、`a4` M1、`a5` M2 Studio 候选与 S1 final gate 已通过；M2 已进入主分支）
+- 状态：`ACCEPTED_CANDIDATE`（`a1` M0、`a4` M1、`a5` M2 已进入主分支；`a6` P1 VPN 已通过 RELEASE 与 S1 final gate，等待用户合并）
 - 责任会话：S7-INTEGRATION
 - 评审会话：S1-ARCH；按风险选择 S3-PLATFORM、S4-QUALITY 或 S5-CORE
 - 功能 ID：FP-FLOW-001、FP-SEC-004、FP-DATA-001、FP-OPS-002
@@ -11,6 +11,7 @@
 - S1 评审：[`WP-040-A0-S1-REVIEW.md`](../../review/WP-040-A0-S1-REVIEW.md)
 - S1 最终评审：[`WP-040-A1-S1-FINAL-REVIEW.md`](../../review/WP-040-A1-S1-FINAL-REVIEW.md)
 - M2 S1 最终评审：[`WP-040-A5-S1-FINAL-REVIEW.md`](../../review/WP-040-A5-S1-FINAL-REVIEW.md)
+- P1 S1 最终评审：[`WP-040-A6-S1-FINAL-REVIEW.md`](../../review/WP-040-A6-S1-FINAL-REVIEW.md)
 - 门禁分级：[`INTEGRATION_GATES.md`](../INTEGRATION_GATES.md)
 
 ## 目标

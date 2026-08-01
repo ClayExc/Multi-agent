@@ -26,6 +26,8 @@ from .ports import (
     ExecutionLedgerPort,
     LeasePort,
     OutboxPort,
+    RecoverySignalPort,
+    TaskPersistencePort,
 )
 from .postgres import (
     AsyncPostgresConnection,
@@ -33,6 +35,7 @@ from .postgres import (
     PostgresDataUnitOfWork,
     PostgresDataUnitOfWorkFactory,
 )
+from .recovery import CoordinationRebuilder
 from .redis_coordination import (
     AsyncRedisClient,
     MemoryRedisClient,
@@ -48,6 +51,7 @@ __all__ = [
     "CheckpointRecord",
     "ConsumerInboxPort",
     "CoordinationPort",
+    "CoordinationRebuilder",
     "CoordinationSignal",
     "DataUnitOfWork",
     "DataUnitOfWorkFactory",
@@ -70,5 +74,7 @@ __all__ = [
     "PostgresDataUnitOfWork",
     "PostgresDataUnitOfWorkFactory",
     "RedisCoordinationAdapter",
+    "RecoverySignalPort",
     "RetryBasis",
+    "TaskPersistencePort",
 ]

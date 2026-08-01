@@ -22,6 +22,17 @@ only by `checkpoint_sequence`. Conversion to S2 `GraphState`/`LeaseToken`
 belongs in the Worker assembly layer; this package never imports
 `flowpilot_graph`.
 
+`CoordinationRebuilder` reads the latest durable Task outbox event for each
+tenant-scoped task, restores and validates the current Task v1 projection, and
+recreates signals only for `RUNNABLE` tasks. Published outbox rows remain valid
+rebuild inputs, so Redis loss cannot erase the scheduling source. The caller
+must supply trusted tenant identities; request-supplied tenant identities are
+not an acceptable rebuild scope. Each tenant namespace is replaced
+independently so recovery cannot erase another tenant's scheduling hints.
+
+Lease release revokes the token but retains the database row, preserving a
+monotonic `run_generation` across clean handoff as well as expiry takeover.
+
 The PostgreSQL adapter depends on a small injected async connection protocol.
 This keeps the package importable before S5 accepts the driver dependency
 request in `DEPENDENCY_REQUEST.md`; it does not turn the protocol into another

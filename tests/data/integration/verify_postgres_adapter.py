@@ -25,13 +25,16 @@ from flowpilot_application.testing import FakeExecutionPort  # noqa: E402
 from flowpilot_domain import PlannedAction, Task, TaskCommand  # noqa: E402
 from flowpilot_persistence import (  # noqa: E402
     CheckpointRecord,
+    CoordinationRebuilder,
     ExecutionIntent,
     ExecutionOutcome,
     LedgerStatus,
+    MemoryRedisClient,
     OutboxEvent,
     PersistenceError,
     PersistenceErrorCode,
     PostgresDataUnitOfWorkFactory,
+    RedisCoordinationAdapter,
     RetryBasis,
 )
 
@@ -289,6 +292,41 @@ async def main() -> None:
         if await data.tasks.get("tenant-b", "task_12345678") is not None:
             raise AssertionError("cross-tenant Task query returned a projection")
 
+    recovery_event = OutboxEvent(
+        event_id=f"evt_recovery{suffix}",
+        tenant_id="tenant-a",
+        aggregate_type="task",
+        aggregate_id=lease_task_id,
+        sequence=1,
+        event_type="task.status.changed.v1",
+        payload={"from": "RECEIVED", "to": "RUNNABLE"},
+        occurred_at=datetime(2026, 7, 29, 3, 59, tzinfo=UTC),
+        available_at=datetime(2026, 7, 29, 4, 0, tzinfo=UTC),
+    )
+    async with unit_of_work() as data:
+        await data.outbox.append(recovery_event)
+        await data.outbox.mark_published(
+            "tenant-a",
+            recovery_event.event_id,
+            published_at=datetime(2026, 7, 29, 4, 1, tzinfo=UTC),
+        )
+        await data.commit()
+
+    redis_client = MemoryRedisClient()
+    redis_coordination = RedisCoordinationAdapter(redis_client)
+    rebuilt = await CoordinationRebuilder(
+        unit_of_work,
+        redis_coordination,
+    ).rebuild(
+        ["tenant-a"],
+        now=datetime(2026, 7, 29, 4, 2, tzinfo=UTC),
+    )
+    if rebuilt < 1 or redis_coordination.key(
+        "tenant-a",
+        lease_task_id,
+    ) not in redis_client.values:
+        raise AssertionError("published PostgreSQL outbox did not rebuild Redis")
+
     lease_time = datetime(2026, 7, 29, 4, 0, tzinfo=UTC)
     async with unit_of_work() as data:
         decoy_fence = await data.leases.acquire(
@@ -456,6 +494,22 @@ async def main() -> None:
         )
         if second_checkpoint.checkpoint_sequence != 2:
             raise AssertionError("second checkpoint did not advance sequence")
+        await data.commit()
+
+    async with unit_of_work() as data:
+        await data.leases.release(second_fence)
+        await data.commit()
+
+    async with unit_of_work() as data:
+        third_fence = await data.leases.acquire(
+            "tenant-a",
+            lease_task_id,
+            "worker-c",
+            now=recovered_at + timedelta(seconds=1),
+            ttl=timedelta(seconds=30),
+        )
+        if third_fence.run_generation != second_fence.run_generation + 1:
+            raise AssertionError("clean release reset the fencing generation")
         await data.commit()
 
     async with unit_of_work() as data:
@@ -629,7 +683,7 @@ async def main() -> None:
         "POSTGRES_ADAPTER_OK "
         f"command_id={command.command_id} dispatches={len(execution.calls)} "
         f"checkpoint={latest.checkpoint_id} "
-        f"generation={latest.run_generation} "
+        f"generation={third_fence.run_generation} rebuilt={rebuilt} "
         f"ledger={verified.status.value} attempts={verified.attempt_count}"
     )
 

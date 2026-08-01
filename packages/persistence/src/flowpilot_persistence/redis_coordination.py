@@ -57,8 +57,11 @@ class RedisCoordinationAdapter:
         await self._client.delete(self.key(tenant_id, task_id))
 
     async def clear(self) -> None:
+        await self._clear_match(f"{self._namespace}:*")
+
+    async def _clear_match(self, match: str) -> None:
         keys: list[str] = []
-        async for key in self._client.scan_iter(match=f"{self._namespace}:*"):
+        async for key in self._client.scan_iter(match=match):
             keys.append(key.decode("utf-8") if isinstance(key, bytes) else key)
         if keys:
             await self._client.delete(*keys)
@@ -75,6 +78,27 @@ class RedisCoordinationAdapter:
             seen.add(identity)
             count += 1
         return count
+
+    async def rebuild_tenant(
+        self,
+        tenant_id: str,
+        signals: Iterable[CoordinationSignal],
+    ) -> int:
+        validated: list[CoordinationSignal] = []
+        seen_tasks: set[str] = set()
+        for signal in signals:
+            if signal.tenant_id != tenant_id:
+                raise ValueError("tenant rebuild source contains another tenant")
+            if signal.task_id in seen_tasks:
+                raise ValueError("tenant rebuild source contains a duplicate task")
+            validated.append(signal)
+            seen_tasks.add(signal.task_id)
+        await self._clear_match(
+            f"{self._namespace}:tenant:{_segment(tenant_id)}:*"
+        )
+        for signal in validated:
+            await self.signal(signal)
+        return len(validated)
 
 
 class MemoryRedisClient:

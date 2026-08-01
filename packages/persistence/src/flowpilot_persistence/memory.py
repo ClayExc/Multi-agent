@@ -13,11 +13,12 @@ from flowpilot_application import (
     StoredCommand,
     VersionSlotReservation,
 )
-from flowpilot_domain import Task
+from flowpilot_domain import Task, TaskStatus
 
 from .errors import PersistenceError, PersistenceErrorCode
 from .models import (
     CheckpointRecord,
+    CoordinationSignal,
     ExecutionIntent,
     ExecutionOutcome,
     ExecutionRecord,
@@ -411,7 +412,12 @@ class MemoryLeaseRepository:
                 PersistenceErrorCode.LEASE_LOST,
                 "worker lease is no longer owned by this fence",
             )
-        del self._snapshot.leases[(fence.tenant_id, fence.task_id)]
+        self._snapshot.leases[(fence.tenant_id, fence.task_id)] = replace(
+            fence,
+            lease_token=f"released_{fence.lease_token}",
+            acquired_at=fence.acquired_at - timedelta(microseconds=1),
+            expires_at=fence.acquired_at,
+        )
 
     async def assert_fence(self, fence: LeaseFence, *, now: datetime) -> None:
         current = self._snapshot.leases.get((fence.tenant_id, fence.task_id))
@@ -640,6 +646,70 @@ class MemoryOutboxRepository:
         )
 
 
+class MemoryRecoverySignalRepository:
+    def __init__(
+        self,
+        snapshot: _Snapshot,
+        tasks: MemoryTaskRepository,
+    ) -> None:
+        self._snapshot = snapshot
+        self._tasks = tasks
+
+    async def runnable_signals(
+        self,
+        tenant_id: str,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> Sequence[CoordinationSignal]:
+        normalized = utc(now, "now")
+        if limit < 1:
+            return ()
+        latest_by_task: dict[str, OutboxEvent] = {}
+        for (
+            record_tenant,
+            _,
+        ), delivery in self._snapshot.outbox_by_id.items():
+            event = delivery.event
+            if record_tenant != tenant_id or event.aggregate_type != "task":
+                continue
+            if event.tenant_id != tenant_id:
+                raise PersistenceError(
+                    PersistenceErrorCode.DRIVER_PROTOCOL,
+                    "outbox recovery event does not match its tenant identity",
+                )
+            current = latest_by_task.get(event.aggregate_id)
+            if current is None or event.sequence > current.sequence:
+                latest_by_task[event.aggregate_id] = event
+
+        signals: list[CoordinationSignal] = []
+        for event in sorted(
+            latest_by_task.values(),
+            key=lambda item: (item.available_at, item.aggregate_id),
+        ):
+            if event.available_at > normalized:
+                continue
+            task = await self._tasks.get(tenant_id, event.aggregate_id)
+            if task is None:
+                raise PersistenceError(
+                    PersistenceErrorCode.DRIVER_PROTOCOL,
+                    "outbox recovery event references a missing task",
+                )
+            if task.status is not TaskStatus.RUNNABLE:
+                continue
+            signals.append(
+                CoordinationSignal(
+                    tenant_id=tenant_id,
+                    task_id=task.task_id,
+                    run_generation=task.run_generation,
+                    available_at=event.available_at,
+                )
+            )
+            if len(signals) == limit:
+                break
+        return tuple(signals)
+
+
 class MemoryConsumerInbox:
     def __init__(self, snapshot: _Snapshot) -> None:
         self._snapshot = snapshot
@@ -683,6 +753,7 @@ class MemoryDataUnitOfWork:
         self.checkpoints: MemoryCheckpointRepository
         self.outbox: MemoryOutboxRepository
         self.consumer_inbox: MemoryConsumerInbox
+        self.recovery: MemoryRecoverySignalRepository
 
     async def __aenter__(self) -> Self:
         await self._database.lock.acquire()
@@ -694,6 +765,10 @@ class MemoryDataUnitOfWork:
         self.checkpoints = MemoryCheckpointRepository(self._working, self.leases)
         self.outbox = MemoryOutboxRepository(self._working)
         self.consumer_inbox = MemoryConsumerInbox(self._working)
+        self.recovery = MemoryRecoverySignalRepository(
+            self._working,
+            self.tasks,
+        )
         self._committed = False
         return self
 

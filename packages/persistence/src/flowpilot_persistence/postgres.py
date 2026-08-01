@@ -18,6 +18,7 @@ from flowpilot_domain import DomainViolation, Task
 from .errors import PersistenceError, PersistenceErrorCode
 from .models import (
     CheckpointRecord,
+    CoordinationSignal,
     ExecutionIntent,
     ExecutionOutcome,
     ExecutionRecord,
@@ -140,25 +141,116 @@ class PostgresTaskRepository:
         )
         if row is None:
             return None
-        try:
-            projection = _json_object(row["projection"], "task.projection")
-            task = Task.from_mapping(projection)
-        except (DomainViolation, KeyError, TypeError, ValueError) as exc:
-            raise PersistenceError(
-                PersistenceErrorCode.DRIVER_PROTOCOL,
-                "stored task projection violates the Task v1 contract",
-            ) from exc
-        if (
-            row.get("tenant_id") != tenant_id
-            or row.get("task_id") != task_id
-            or task.tenant_id != tenant_id
-            or task.task_id != task_id
-        ):
-            raise PersistenceError(
-                PersistenceErrorCode.DRIVER_PROTOCOL,
-                "stored task projection does not match its identity",
+        return _task_from_row(row, tenant_id=tenant_id, task_id=task_id)
+
+
+def _task_from_row(row: Row, *, tenant_id: str, task_id: str) -> Task:
+    try:
+        projection = _json_object(row["projection"], "task.projection")
+        task = Task.from_mapping(projection)
+        row_generation = (
+            int(row["run_generation"])
+            if "run_generation" in row
+            else task.run_generation
+        )
+    except (DomainViolation, KeyError, TypeError, ValueError) as exc:
+        raise PersistenceError(
+            PersistenceErrorCode.DRIVER_PROTOCOL,
+            "stored task projection violates the Task v1 contract",
+        ) from exc
+    if (
+        row.get("tenant_id") != tenant_id
+        or row.get("task_id") != task_id
+        or task.tenant_id != tenant_id
+        or task.task_id != task_id
+        or ("thread_id" in row and row["thread_id"] != task.thread_id)
+        or ("status" in row and row["status"] != task.status.value)
+        or row_generation != task.run_generation
+    ):
+        raise PersistenceError(
+            PersistenceErrorCode.DRIVER_PROTOCOL,
+            "stored task projection does not match its identity",
+        )
+    return task
+
+
+class PostgresRecoverySignalRepository:
+    def __init__(self, transaction: _TenantTransaction) -> None:
+        self._transaction = transaction
+
+    async def runnable_signals(
+        self,
+        tenant_id: str,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> Sequence[CoordinationSignal]:
+        await self._transaction.bind(tenant_id)
+        if limit < 1:
+            return ()
+        rows = await self._transaction.connection.fetch_all(
+            """
+            WITH latest_task_event AS (
+                SELECT DISTINCT ON (aggregate_id)
+                       tenant_id,
+                       aggregate_id AS task_id,
+                       sequence,
+                       available_at
+                FROM flowpilot.outbox_events
+                WHERE tenant_id = %(tenant_id)s
+                  AND aggregate_type = 'task'
+                ORDER BY aggregate_id, sequence DESC
             )
-        return task
+            SELECT task.tenant_id,
+                   task.task_id,
+                   task.thread_id,
+                   task.status,
+                   task.run_generation,
+                   task.projection,
+                   latest.available_at
+            FROM latest_task_event AS latest
+            JOIN flowpilot.tasks AS task
+              ON task.tenant_id = latest.tenant_id
+             AND task.task_id = latest.task_id
+            WHERE task.tenant_id = %(tenant_id)s
+              AND task.status = 'RUNNABLE'
+              AND latest.available_at <= %(now)s
+            ORDER BY latest.available_at, task.task_id
+            LIMIT %(limit)s
+            """,
+            {
+                "tenant_id": tenant_id,
+                "now": utc(now, "now"),
+                "limit": limit,
+            },
+        )
+        signals: list[CoordinationSignal] = []
+        for row in rows:
+            task_id = row.get("task_id")
+            if not isinstance(task_id, str):
+                raise PersistenceError(
+                    PersistenceErrorCode.DRIVER_PROTOCOL,
+                    "durable recovery row has no task identity",
+                )
+            task = _task_from_row(
+                row,
+                tenant_id=tenant_id,
+                task_id=task_id,
+            )
+            try:
+                signal = CoordinationSignal(
+                    tenant_id=tenant_id,
+                    task_id=task.task_id,
+                    run_generation=task.run_generation,
+                    available_at=row["available_at"],
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PersistenceError(
+                    PersistenceErrorCode.DRIVER_PROTOCOL,
+                    "durable recovery row has an invalid availability window",
+                ) from exc
+            signals.append(signal)
+        return tuple(signals)
 
 
 class PostgresCommandInbox:
@@ -1035,7 +1127,10 @@ class PostgresLeaseRepository:
         await self._transaction.bind(fence.tenant_id)
         affected = await self._transaction.connection.execute(
             """
-            DELETE FROM flowpilot.task_leases
+            UPDATE flowpilot.task_leases
+            SET lease_token = 'released_' || lease_token,
+                acquired_at = acquired_at - INTERVAL '1 microsecond',
+                expires_at = acquired_at
             WHERE tenant_id = %(tenant_id)s
               AND task_id = %(task_id)s
               AND holder_id = %(holder_id)s
@@ -1561,6 +1656,7 @@ class PostgresDataUnitOfWork:
         self.checkpoints: PostgresCheckpointRepository
         self.outbox: PostgresOutboxRepository
         self.consumer_inbox: PostgresConsumerInbox
+        self.recovery: PostgresRecoverySignalRepository
 
     async def __aenter__(self) -> Self:
         self._connection = await self._connection_factory()
@@ -1574,6 +1670,7 @@ class PostgresDataUnitOfWork:
         )
         self.outbox = PostgresOutboxRepository(transaction)
         self.consumer_inbox = PostgresConsumerInbox(transaction)
+        self.recovery = PostgresRecoverySignalRepository(transaction)
         self._committed = False
         return self
 

@@ -7,6 +7,7 @@ from typing import Protocol, Self
 
 from flowpilot_application import (
     CommandInboxPort,
+    TaskQueryPort,
     TaskRepositoryPort,
     UnitOfWork,
 )
@@ -128,15 +129,38 @@ class CoordinationPort(Protocol):
 
     async def rebuild(self, signals: Iterable[CoordinationSignal]) -> int: ...
 
+    async def rebuild_tenant(
+        self,
+        tenant_id: str,
+        signals: Iterable[CoordinationSignal],
+    ) -> int: ...
+
+
+class TaskPersistencePort(TaskRepositoryPort, TaskQueryPort, Protocol):
+    """Combined command-intake and trusted runtime Task boundary."""
+
+
+class RecoverySignalPort(Protocol):
+    """Read rebuildable scheduling signals from durable PostgreSQL facts."""
+
+    async def runnable_signals(
+        self,
+        tenant_id: str,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> Sequence[CoordinationSignal]: ...
+
 
 class DataUnitOfWork(UnitOfWork, Protocol):
-    tasks: TaskRepositoryPort
+    tasks: TaskPersistencePort
     commands: CommandInboxPort
     ledger: ExecutionLedgerPort
     checkpoints: CheckpointPort
     leases: LeasePort
     outbox: OutboxPort
     consumer_inbox: ConsumerInboxPort
+    recovery: RecoverySignalPort
 
     async def __aenter__(self) -> Self: ...
 

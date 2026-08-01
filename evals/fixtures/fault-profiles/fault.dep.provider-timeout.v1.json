@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dep.provider-timeout.v1",
+  "profile_version": "1.0.0",
+  "description": "Provider timeout fault: the first model-provider call times out; the run must retry within the hard budget and complete without duplicate writes.",
+  "synthetic": true,
+  "payload": {
+    "kind": "provider_timeout",
+    "retry_count": 2,
+    "mechanism": "Provider 调用超时后重试"
+  }
+}

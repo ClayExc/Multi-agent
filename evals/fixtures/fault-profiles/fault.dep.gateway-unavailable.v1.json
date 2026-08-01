@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dep.gateway-unavailable.v1",
+  "profile_version": "1.0.0",
+  "description": "MCP gateway unavailable fault: the single tool entry point is unreachable, so no write tool may be invoked and the run must fail with a complete event sequence.",
+  "synthetic": true,
+  "payload": {
+    "kind": "gateway_unavailable",
+    "component": "mcp-gateway",
+    "mechanism": "MCP Gateway 不可用，工具调用被阻断"
+  }
+}

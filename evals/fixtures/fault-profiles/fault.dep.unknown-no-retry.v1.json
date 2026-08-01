@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dep.unknown-no-retry.v1",
+  "profile_version": "1.0.0",
+  "description": "UNKNOWN-no-automatic-retry fault: a previous write ended UNKNOWN; the run must not auto-retry the write and must escalate for human confirmation instead.",
+  "synthetic": true,
+  "payload": {
+    "kind": "unknown_no_retry",
+    "auto_retry": false,
+    "mechanism": "UNKNOWN 状态不自动重试写，升级人工确认"
+  }
+}

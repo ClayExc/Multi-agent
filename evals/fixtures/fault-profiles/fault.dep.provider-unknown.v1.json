@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dep.provider-unknown.v1",
+  "profile_version": "1.0.0",
+  "description": "Provider error with UNKNOWN outcome fault: the provider returns an error after the action may have committed, so the ledger status becomes UNKNOWN and the run must reconcile against the ledger before retrying.",
+  "synthetic": true,
+  "payload": {
+    "kind": "provider_error_unknown",
+    "ledger_status": "UNKNOWN",
+    "mechanism": "Provider 错误导致执行状态 UNKNOWN，需对账后继续"
+  }
+}

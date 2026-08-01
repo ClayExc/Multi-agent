@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dep.downstream-timeout.v1",
+  "profile_version": "1.0.0",
+  "description": "Persistent downstream timeout fault: three retries all time out, so the write must not occur and the run must fail with a complete event sequence.",
+  "synthetic": true,
+  "payload": {
+    "kind": "downstream_timeout",
+    "retry_count": 3,
+    "mechanism": "下游持续超时，重试三次仍失败"
+  }
+}

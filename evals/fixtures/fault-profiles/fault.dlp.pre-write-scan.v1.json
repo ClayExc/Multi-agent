@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dlp.pre-write-scan.v1",
+  "profile_version": "1.0.0",
+  "description": "Pre-write DLP scan fault: a write payload contains a masked placeholder resembling a credential; the write must be blocked before execution and audited.",
+  "synthetic": true,
+  "payload": {
+    "kind": "secret_in_write_payload",
+    "tool": "itsm.ticket.create.v1",
+    "mechanism": "写入载荷含疑似凭据占位符，写前扫描阻断"
+  }
+}

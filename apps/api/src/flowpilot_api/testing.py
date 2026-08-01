@@ -12,6 +12,7 @@ class StaticRequestSecurity(RequestSecurityPort):
         self.identity = identity
         self.command_calls: list[TaskCommand] = []
         self.task_read_calls: list[str] = []
+        self.event_stream_calls: list[str] = []
         self.failure: ApiError | None = None
 
     async def authenticate(self, _request: Request) -> TrustedRequestIdentity:
@@ -32,3 +33,10 @@ class StaticRequestSecurity(RequestSecurityPort):
         if self.failure is not None:
             raise self.failure
         self.task_read_calls.append(task_id)
+
+    async def authorize_event_stream(
+        self, identity: TrustedRequestIdentity
+    ) -> None:
+        if self.failure is not None:
+            raise self.failure
+        self.event_stream_calls.append(identity.tenant_id)

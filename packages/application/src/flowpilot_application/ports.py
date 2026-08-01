@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from datetime import datetime
 from enum import StrEnum
 from types import TracebackType
 from typing import Protocol, Self
@@ -8,11 +10,13 @@ from flowpilot_domain import Task, TaskCommand
 
 from .models import (
     ExecutionReceipt,
+    OutboxEventView,
     RequestReferenceQuery,
     ResolvedRequestReference,
     ResultArtifactDraft,
     ResultArtifactReceipt,
     StoredCommand,
+    TaskEventEnvelope,
 )
 
 
@@ -122,3 +126,68 @@ class UnitOfWork(Protocol):
 
 class UnitOfWorkFactory(Protocol):
     def __call__(self) -> UnitOfWork: ...
+
+
+class TaskEventOutboxPort(Protocol):
+    """Outbox read/drain boundary consumed by the SSE subscription use case."""
+
+    async def unpublished(
+        self, tenant_id: str, *, now: datetime, limit: int
+    ) -> Sequence[OutboxEventView]: ...
+
+    async def mark_published(
+        self, tenant_id: str, event_id: str, *, published_at: datetime
+    ) -> OutboxEventView: ...
+
+    async def sequence_gaps(
+        self, tenant_id: str, aggregate_type: str, aggregate_id: str
+    ) -> Sequence[int]: ...
+
+
+class TaskEventConsumerInboxPort(Protocol):
+    """Durable consumer deduplication boundary for outbox redeliveries."""
+
+    async def accept_once(
+        self,
+        tenant_id: str,
+        consumer_id: str,
+        event_id: str,
+        payload_hash: str,
+        *,
+        processed_at: datetime,
+    ) -> bool:
+        """Return True once and False for an identical redelivery."""
+
+
+class TaskEventUnitOfWork(Protocol):
+    """Transaction boundary for the tenant-scoped event subscription poll."""
+
+    @property
+    def tasks(self) -> TaskQueryPort: ...
+
+    @property
+    def outbox(self) -> TaskEventOutboxPort: ...
+
+    @property
+    def consumer_inbox(self) -> TaskEventConsumerInboxPort: ...
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+
+class TaskEventUnitOfWorkFactory(Protocol):
+    def __call__(self) -> TaskEventUnitOfWork: ...
+
+
+class EventStreamPort(Protocol):
+    """Outbound task-event delivery boundary implemented by the SSE transport."""
+
+    async def emit(self, tenant_id: str, event: TaskEventEnvelope) -> None: ...

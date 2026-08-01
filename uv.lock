@@ -16,6 +16,7 @@ members = [
     "flowpilot-graph",
     "flowpilot-mcp-gateway",
     "flowpilot-mcp-knowledge",
+    "flowpilot-mcp-ticket",
     "flowpilot-model-gateway",
     "flowpilot-persistence",
     "flowpilot-policy",
@@ -464,6 +465,23 @@ requires-dist = [
 name = "flowpilot-mcp-knowledge"
 version = "0.1.0"
 source = { editable = "mcp-servers/knowledge" }
+dependencies = [
+    { name = "flowpilot-mcp-gateway" },
+    { name = "flowpilot-security" },
+    { name = "flowpilot-tool-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "flowpilot-mcp-gateway", editable = "apps/mcp-gateway" },
+    { name = "flowpilot-security", editable = "packages/security" },
+    { name = "flowpilot-tool-contracts", editable = "packages/tool-contracts" },
+]
+
+[[package]]
+name = "flowpilot-mcp-ticket"
+version = "0.1.0"
+source = { editable = "mcp-servers/ticket" }
 dependencies = [
     { name = "flowpilot-mcp-gateway" },
     { name = "flowpilot-security" },

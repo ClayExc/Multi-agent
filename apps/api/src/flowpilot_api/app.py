@@ -9,6 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from flowpilot_application import (
     ApplicationError,
+    ApprovalDecisionResult,
+    ApprovalDecisionService,
     CommandAcceptance,
     CommandIntakeService,
     ErrorCode,
@@ -17,6 +19,7 @@ from flowpilot_application import (
     TaskQueryService,
 )
 from flowpilot_domain import (
+    CommandType,
     DomainErrorCode,
     DomainViolation,
     Task,
@@ -25,6 +28,7 @@ from flowpilot_domain import (
 
 from .errors import ApiError, ApiErrorCode
 from .models import (
+    ApprovalDecisionBody,
     CommandAcceptanceBody,
     ErrorBody,
     ErrorEnvelope,
@@ -47,6 +51,7 @@ _CONFLICT_CODES = {
 _BAD_REQUEST_CODES = {
     ErrorCode.CONTRACT_INVALID,
     ErrorCode.COMMAND_DIGEST_MISMATCH,
+    ErrorCode.APPROVAL_BINDING_MISMATCH,
 }
 _UNAVAILABLE_CODES = {
     ErrorCode.EXECUTION_UNAVAILABLE,
@@ -67,6 +72,7 @@ def create_app(
     request_security: RequestSecurityPort | None = None,
     task_event_subscription: TaskEventSubscriptionService | None = None,
     event_stream: InMemoryEventStream | None = None,
+    approval_decisions: ApprovalDecisionService | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="FlowPilot API",
@@ -128,13 +134,14 @@ def create_app(
             version="0.1.0",
             configured=all(
                 dependency is not None
-                for dependency in (command_intake, task_query, request_security)
-            ),
+                for dependency in (task_query, request_security)
+            )
+            and (command_intake is not None or approval_decisions is not None),
         )
 
     @app.post(
         "/v1/task-commands",
-        response_model=CommandAcceptanceBody,
+        response_model=CommandAcceptanceBody | ApprovalDecisionBody,
         responses=_COMMAND_ERROR_RESPONSES,
         status_code=202,
         tags=["commands"],
@@ -142,16 +149,22 @@ def create_app(
     )
     async def submit_task_command(
         body: TaskCommandBody, request: Request
-    ) -> CommandAcceptanceBody:
+    ) -> CommandAcceptanceBody | ApprovalDecisionBody:
         security = _require_dependency(
             request_security, "request security is not configured"
         )
-        intake = _require_dependency(command_intake, "command intake is not configured")
         identity = await security.authenticate(request)
         command = _to_domain_command(body)
         _assert_request_binding(identity, command)
         _assert_command_integrity(command)
         await security.authorize_command(identity, command)
+        if command.command_type is CommandType.DECIDE_APPROVAL:
+            decisions = _require_dependency(
+                approval_decisions, "approval decisions are not configured"
+            )
+            result = await decisions.decide(command)
+            return _approval_decision_body(result)
+        intake = _require_dependency(command_intake, "command intake is not configured")
         acceptance = await intake.accept(command)
         return _acceptance_body(acceptance)
 
@@ -291,6 +304,19 @@ def _acceptance_body(acceptance: CommandAcceptance) -> CommandAcceptanceBody:
     )
 
 
+def _approval_decision_body(
+    result: ApprovalDecisionResult,
+) -> ApprovalDecisionBody:
+    return ApprovalDecisionBody(
+        approval_id=result.approval_id,
+        tenant_id=result.tenant_id,
+        task_id=result.task_id,
+        status=result.status.value,
+        action_digest=result.action_digest,
+        decided_at=result.decided_at,
+    )
+
+
 def _task_body(task: Task) -> TaskBody:
     return TaskBody.model_validate_json(json.dumps(task.to_mapping()))
 
@@ -318,11 +344,17 @@ def _require_dependency[T](dependency: T | None, message: str) -> T:
 def _application_status(code: ErrorCode) -> int:
     if code in _BAD_REQUEST_CODES:
         return 400
-    if code is ErrorCode.SECURITY_BINDING_MISMATCH:
+    if code in {
+        ErrorCode.SECURITY_BINDING_MISMATCH,
+        ErrorCode.APPROVAL_DUTIES_VIOLATION,
+    }:
         return 403
-    if code is ErrorCode.TASK_NOT_FOUND:
+    if code is ErrorCode.TASK_NOT_FOUND or code is ErrorCode.APPROVAL_NOT_FOUND:
         return 404
-    if code in _CONFLICT_CODES:
+    if code in _CONFLICT_CODES or code in {
+        ErrorCode.APPROVAL_CONFLICT,
+        ErrorCode.APPROVAL_EXPIRED,
+    }:
         return 409
     if code in _UNAVAILABLE_CODES:
         return 503

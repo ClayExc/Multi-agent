@@ -33,6 +33,7 @@ members = [
     "apps/mcp-gateway",
     "apps/worker",
     "mcp-servers/knowledge",
+    "mcp-servers/ticket",
     "packages/agent-runtime",
     "packages/application",
     "packages/context",
@@ -54,6 +55,7 @@ flowpilot-domain = { workspace = true }
 flowpilot-graph = { workspace = true }
 flowpilot-mcp-gateway = { workspace = true }
 flowpilot-mcp-knowledge = { workspace = true }
+flowpilot-mcp-ticket = { workspace = true }
 flowpilot-model-gateway = { workspace = true }
 flowpilot-persistence = { workspace = true }
 flowpilot-policy = { workspace = true }

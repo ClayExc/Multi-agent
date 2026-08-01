@@ -10,9 +10,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
-from conftest import FIXTURES, validate_against
+
+# 路径自推导：不依赖裸 import conftest（testpaths 多目录收集时
+# conftest 模块名解析不稳定），直接按本文件位置定位 web/fixtures 与
+# contracts/jsonschema。
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = ROOT / "web" / "fixtures"
+CONTRACTS = ROOT / "contracts" / "jsonschema"
 
 SCHEMA_BY_FIXTURE = {
     "tasks.v1.json": "task.v1.schema.json",
@@ -21,6 +28,16 @@ SCHEMA_BY_FIXTURE = {
     "planned-actions.v1.json": "planned-action.v1.schema.json",
     "commands.v1.json": "task-command.v1.schema.json",
 }
+
+
+def _validate_against(registry, schema_name: str, instance) -> None:
+    """用 contracts/jsonschema 官方契约校验 fixture 条目。"""
+    from jsonschema import Draft202012Validator, FormatChecker
+
+    schema = json.loads((CONTRACTS / schema_name).read_text(encoding="utf-8"))
+    Draft202012Validator(
+        schema, registry=registry, format_checker=FormatChecker()
+    ).validate(instance)
 
 
 @pytest.mark.parametrize("name", sorted(SCHEMA_BY_FIXTURE))
@@ -41,7 +58,7 @@ def test_fixture_validates_against_official_schema(
         else payload["commands"]
     )
     for entry in entries:
-        validate_against(registry, SCHEMA_BY_FIXTURE[name], entry)
+        _validate_against(registry, SCHEMA_BY_FIXTURE[name], entry)
 
 
 def test_fixture_tasks_parse_as_api_and_domain_models(fixture_files) -> None:

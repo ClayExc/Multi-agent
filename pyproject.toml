@@ -65,7 +65,8 @@ flowpilot-worker = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers -p no:cacheprovider"
-testpaths = ["tests/core", "tests/runtime", "tests/data", "tests/platform"]
+testpaths = ["tests/core", "tests/runtime", "tests/data", "tests/platform",
+             "tests/acceptance", "tests/experience"]
 
 [tool.ruff]
 line-length = 88

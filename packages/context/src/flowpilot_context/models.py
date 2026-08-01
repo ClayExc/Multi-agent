@@ -274,3 +274,213 @@ class HandoffManifest:
 class HandoffBundle:
     context: ContextEnvelope
     manifest: HandoffManifest
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "context": self.context.to_mapping(),
+            "manifest": {
+                "source_agent_id": self.manifest.source_agent_id,
+                "target_agent_id": self.manifest.target_agent_id,
+                "context_policy_version": (
+                    self.manifest.context_policy_version
+                ),
+                "included_fields": list(self.manifest.included_fields),
+                "included_refs": list(self.manifest.included_refs),
+                "excluded_categories": list(
+                    self.manifest.excluded_categories
+                ),
+                "allowed_tools": list(self.manifest.allowed_tools),
+                "input_tokens": self.manifest.input_tokens,
+            },
+        }
+
+
+class SummaryKind(StrEnum):
+    """Evidence status of a conversation summary item (FP-CTX-002)."""
+
+    CLAIMED = "claimed"
+    VERIFIED = "verified"
+    INFERRED = "inferred"
+
+
+@dataclass(frozen=True, slots=True)
+class SummaryItem:
+    kind: SummaryKind
+    text: str
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.text or not self.text.strip():
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "summary items require non-empty text",
+            )
+        if not self.source_refs or any(not item for item in self.source_refs):
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "summary items require at least one non-empty source reference",
+            )
+        if len(self.source_refs) != len(set(self.source_refs)):
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "summary item source references must be unique",
+            )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind.value,
+            "text": self.text,
+            "source_refs": list(self.source_refs),
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> SummaryItem:
+        try:
+            return cls(
+                kind=SummaryKind(str(value["kind"])),
+                text=str(value["text"]),
+                source_refs=tuple(str(item) for item in value["source_refs"]),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "summary item does not match the v1 schema",
+            ) from exc
+
+
+@dataclass(frozen=True, slots=True)
+class LayeredSummary:
+    """Strictly partitioned conversation summary (FP-CTX-002).
+
+    Items are bucketed by evidence status: ``claimed`` (stated by a party,
+    not yet confirmed), ``verified`` (confirmed by a tool result or an
+    authoritative source), and ``inferred`` (derived by the runtime). The
+    buckets are mutually exclusive; one text cannot appear in two buckets.
+    """
+
+    items: tuple[SummaryItem, ...]
+
+    def __post_init__(self) -> None:
+        seen: set[tuple[SummaryKind, str]] = set()
+        for item in self.items:
+            identity = (item.kind, item.text)
+            if identity in seen:
+                raise ContextError(
+                    ContextErrorCode.INVALID_CONTEXT,
+                    "layered summary items must be unique per kind and text",
+                )
+            seen.add(identity)
+
+    def sections(self) -> dict[SummaryKind, tuple[SummaryItem, ...]]:
+        return {
+            kind: tuple(item for item in self.items if item.kind is kind)
+            for kind in SummaryKind
+        }
+
+    def merge(self, other: LayeredSummary) -> LayeredSummary:
+        """Append items without duplicating existing (kind, text) pairs."""
+        known = {(item.kind, item.text) for item in self.items}
+        merged = list(self.items)
+        for item in other.items:
+            if (item.kind, item.text) not in known:
+                merged.append(item)
+                known.add((item.kind, item.text))
+        return LayeredSummary(items=tuple(merged))
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {"items": [item.to_mapping() for item in self.items]}
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> LayeredSummary:
+        try:
+            return cls(
+                items=tuple(
+                    SummaryItem.from_mapping(item) for item in value["items"]
+                )
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "layered summary does not match the v1 schema",
+            ) from exc
+
+
+@dataclass(frozen=True, slots=True)
+class TokenUsageRecord:
+    """One model-call accounting entry (FP-CTX-004)."""
+
+    turn_index: int
+    request_id: str
+    context_id: str
+    agent_id: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    layer_tokens: tuple[tuple[str, int], ...]
+
+    def __post_init__(self) -> None:
+        if self.turn_index < 0:
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "turn index cannot be negative",
+            )
+        if any(
+            value < 0
+            for value in (
+                self.input_tokens,
+                self.output_tokens,
+                self.total_tokens,
+            )
+        ):
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "token usage cannot be negative",
+            )
+        if self.total_tokens != self.input_tokens + self.output_tokens:
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "total tokens must equal input plus output tokens",
+            )
+        layer_names = [name for name, _ in self.layer_tokens]
+        if len(layer_names) != len(set(layer_names)):
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "layer token breakdown must be unique per layer",
+            )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "turn_index": self.turn_index,
+            "request_id": self.request_id,
+            "context_id": self.context_id,
+            "agent_id": self.agent_id,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_tokens": self.total_tokens,
+            "layer_tokens": [
+                {"layer": name, "tokens": tokens}
+                for name, tokens in self.layer_tokens
+            ],
+        }
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> TokenUsageRecord:
+        try:
+            return cls(
+                turn_index=int(value["turn_index"]),
+                request_id=str(value["request_id"]),
+                context_id=str(value["context_id"]),
+                agent_id=str(value["agent_id"]),
+                input_tokens=int(value["input_tokens"]),
+                output_tokens=int(value["output_tokens"]),
+                total_tokens=int(value["total_tokens"]),
+                layer_tokens=tuple(
+                    (str(item["layer"]), int(item["tokens"]))
+                    for item in value["layer_tokens"]
+                ),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ContextError(
+                ContextErrorCode.INVALID_CONTEXT,
+                "token usage record does not match the v1 schema",
+            ) from exc

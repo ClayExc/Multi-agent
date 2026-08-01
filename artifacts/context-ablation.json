@@ -1,0 +1,1189 @@
+{
+  "schema": "flowpilot.context-ablation.v1",
+  "run_id": "ablation_9bf379e71d16",
+  "generated_at": "2026-08-01T14:42:09.085117+00:00",
+  "rounds": 20,
+  "messages_per_round": 3,
+  "recent_window": 3,
+  "baseline": {
+    "total_input_tokens": 38859,
+    "total_output_tokens": 140,
+    "total_tokens": 38999,
+    "final_round_input_tokens": 3532,
+    "turns": [
+      {
+        "round": 1,
+        "input_tokens": 354,
+        "output_tokens": 7,
+        "total_tokens": 361,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 2,
+        "input_tokens": 521,
+        "output_tokens": 7,
+        "total_tokens": 528,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 373
+        }
+      },
+      {
+        "round": 3,
+        "input_tokens": 688,
+        "output_tokens": 7,
+        "total_tokens": 695,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 540
+        }
+      },
+      {
+        "round": 4,
+        "input_tokens": 856,
+        "output_tokens": 7,
+        "total_tokens": 863,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 708
+        }
+      },
+      {
+        "round": 5,
+        "input_tokens": 1023,
+        "output_tokens": 7,
+        "total_tokens": 1030,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 875
+        }
+      },
+      {
+        "round": 6,
+        "input_tokens": 1190,
+        "output_tokens": 7,
+        "total_tokens": 1197,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 1042
+        }
+      },
+      {
+        "round": 7,
+        "input_tokens": 1358,
+        "output_tokens": 7,
+        "total_tokens": 1365,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 1209
+        }
+      },
+      {
+        "round": 8,
+        "input_tokens": 1525,
+        "output_tokens": 7,
+        "total_tokens": 1532,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 1377
+        }
+      },
+      {
+        "round": 9,
+        "input_tokens": 1692,
+        "output_tokens": 7,
+        "total_tokens": 1699,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 1544
+        }
+      },
+      {
+        "round": 10,
+        "input_tokens": 1859,
+        "output_tokens": 7,
+        "total_tokens": 1866,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 1711
+        }
+      },
+      {
+        "round": 11,
+        "input_tokens": 2027,
+        "output_tokens": 7,
+        "total_tokens": 2034,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 1878
+        }
+      },
+      {
+        "round": 12,
+        "input_tokens": 2194,
+        "output_tokens": 7,
+        "total_tokens": 2201,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 2046
+        }
+      },
+      {
+        "round": 13,
+        "input_tokens": 2361,
+        "output_tokens": 7,
+        "total_tokens": 2368,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 2213
+        }
+      },
+      {
+        "round": 14,
+        "input_tokens": 2528,
+        "output_tokens": 7,
+        "total_tokens": 2535,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 2380
+        }
+      },
+      {
+        "round": 15,
+        "input_tokens": 2696,
+        "output_tokens": 7,
+        "total_tokens": 2703,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 2547
+        }
+      },
+      {
+        "round": 16,
+        "input_tokens": 2863,
+        "output_tokens": 7,
+        "total_tokens": 2870,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 2715
+        }
+      },
+      {
+        "round": 17,
+        "input_tokens": 3030,
+        "output_tokens": 7,
+        "total_tokens": 3037,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 2882
+        }
+      },
+      {
+        "round": 18,
+        "input_tokens": 3197,
+        "output_tokens": 7,
+        "total_tokens": 3204,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 3049
+        }
+      },
+      {
+        "round": 19,
+        "input_tokens": 3365,
+        "output_tokens": 7,
+        "total_tokens": 3372,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 3216
+        }
+      },
+      {
+        "round": 20,
+        "input_tokens": 3532,
+        "output_tokens": 7,
+        "total_tokens": 3539,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L4_RECENT_MESSAGES": 3384
+        }
+      }
+    ]
+  },
+  "optimized": {
+    "total_input_tokens": 10375,
+    "total_output_tokens": 140,
+    "total_tokens": 10515,
+    "final_round_input_tokens": 586,
+    "turns": [
+      {
+        "round": 1,
+        "input_tokens": 419,
+        "output_tokens": 7,
+        "total_tokens": 426,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 65,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 2,
+        "input_tokens": 419,
+        "output_tokens": 7,
+        "total_tokens": 426,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 65,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 3,
+        "input_tokens": 419,
+        "output_tokens": 7,
+        "total_tokens": 426,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 65,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 4,
+        "input_tokens": 419,
+        "output_tokens": 7,
+        "total_tokens": 426,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 65,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 5,
+        "input_tokens": 419,
+        "output_tokens": 7,
+        "total_tokens": 426,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 65,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 6,
+        "input_tokens": 518,
+        "output_tokens": 7,
+        "total_tokens": 525,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 164,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 7,
+        "input_tokens": 518,
+        "output_tokens": 7,
+        "total_tokens": 525,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 164,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 8,
+        "input_tokens": 518,
+        "output_tokens": 7,
+        "total_tokens": 525,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 164,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 9,
+        "input_tokens": 518,
+        "output_tokens": 7,
+        "total_tokens": 525,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 164,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 10,
+        "input_tokens": 518,
+        "output_tokens": 7,
+        "total_tokens": 525,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 164,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 11,
+        "input_tokens": 552,
+        "output_tokens": 7,
+        "total_tokens": 559,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 198,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 12,
+        "input_tokens": 552,
+        "output_tokens": 7,
+        "total_tokens": 559,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 198,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 13,
+        "input_tokens": 552,
+        "output_tokens": 7,
+        "total_tokens": 559,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 198,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 14,
+        "input_tokens": 552,
+        "output_tokens": 7,
+        "total_tokens": 559,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 198,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 15,
+        "input_tokens": 552,
+        "output_tokens": 7,
+        "total_tokens": 559,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 198,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 16,
+        "input_tokens": 586,
+        "output_tokens": 7,
+        "total_tokens": 593,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 232,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 17,
+        "input_tokens": 586,
+        "output_tokens": 7,
+        "total_tokens": 593,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 232,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 18,
+        "input_tokens": 586,
+        "output_tokens": 7,
+        "total_tokens": 593,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 232,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 19,
+        "input_tokens": 586,
+        "output_tokens": 7,
+        "total_tokens": 593,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 232,
+          "L4_RECENT_MESSAGES": 206
+        }
+      },
+      {
+        "round": 20,
+        "input_tokens": 586,
+        "output_tokens": 7,
+        "total_tokens": 593,
+        "layers": {
+          "L0_SYSTEM_POLICY": 44,
+          "L1_SECURITY_VIEW": 59,
+          "L2_TASK_STATE": 46,
+          "L3_CONVERSATION_SUMMARY": 232,
+          "L4_RECENT_MESSAGES": 206
+        }
+      }
+    ],
+    "ledger": {
+      "schema": "flowpilot.context-budget-ledger.v1.report",
+      "cumulative_token_budget": 10000000,
+      "maximum_rounds": 20,
+      "round_count": 20,
+      "restored_rounds": 0,
+      "restored_input_tokens": 0,
+      "restored_output_tokens": 0,
+      "used_input_tokens": 10375,
+      "used_output_tokens": 140,
+      "used_total_tokens": 10515,
+      "remaining_tokens": 9989485,
+      "is_exhausted": true,
+      "turns": [
+        {
+          "turn_index": 0,
+          "request_id": "arq_1",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 419,
+          "output_tokens": 7,
+          "total_tokens": 426,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 65
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 1,
+          "request_id": "arq_2",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 419,
+          "output_tokens": 7,
+          "total_tokens": 426,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 65
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 2,
+          "request_id": "arq_3",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 419,
+          "output_tokens": 7,
+          "total_tokens": 426,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 65
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 3,
+          "request_id": "arq_4",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 419,
+          "output_tokens": 7,
+          "total_tokens": 426,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 65
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 4,
+          "request_id": "arq_5",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 419,
+          "output_tokens": 7,
+          "total_tokens": 426,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 65
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 5,
+          "request_id": "arq_6",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 518,
+          "output_tokens": 7,
+          "total_tokens": 525,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 164
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 6,
+          "request_id": "arq_7",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 518,
+          "output_tokens": 7,
+          "total_tokens": 525,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 164
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 7,
+          "request_id": "arq_8",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 518,
+          "output_tokens": 7,
+          "total_tokens": 525,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 164
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 8,
+          "request_id": "arq_9",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 518,
+          "output_tokens": 7,
+          "total_tokens": 525,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 164
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 9,
+          "request_id": "arq_10",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 518,
+          "output_tokens": 7,
+          "total_tokens": 525,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 164
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 10,
+          "request_id": "arq_11",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 552,
+          "output_tokens": 7,
+          "total_tokens": 559,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 198
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 11,
+          "request_id": "arq_12",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 552,
+          "output_tokens": 7,
+          "total_tokens": 559,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 198
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 12,
+          "request_id": "arq_13",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 552,
+          "output_tokens": 7,
+          "total_tokens": 559,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 198
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 13,
+          "request_id": "arq_14",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 552,
+          "output_tokens": 7,
+          "total_tokens": 559,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 198
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 14,
+          "request_id": "arq_15",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 552,
+          "output_tokens": 7,
+          "total_tokens": 559,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 198
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 15,
+          "request_id": "arq_16",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 586,
+          "output_tokens": 7,
+          "total_tokens": 593,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 232
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 16,
+          "request_id": "arq_17",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 586,
+          "output_tokens": 7,
+          "total_tokens": 593,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 232
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 17,
+          "request_id": "arq_18",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 586,
+          "output_tokens": 7,
+          "total_tokens": 593,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 232
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 18,
+          "request_id": "arq_19",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 586,
+          "output_tokens": 7,
+          "total_tokens": 593,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 232
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        },
+        {
+          "turn_index": 19,
+          "request_id": "arq_20",
+          "context_id": "ctx_optimized",
+          "agent_id": "optimized-agent",
+          "input_tokens": 586,
+          "output_tokens": 7,
+          "total_tokens": 593,
+          "layer_tokens": [
+            {
+              "layer": "L0_SYSTEM_POLICY",
+              "tokens": 44
+            },
+            {
+              "layer": "L1_SECURITY_VIEW",
+              "tokens": 59
+            },
+            {
+              "layer": "L2_TASK_STATE",
+              "tokens": 46
+            },
+            {
+              "layer": "L3_CONVERSATION_SUMMARY",
+              "tokens": 232
+            },
+            {
+              "layer": "L4_RECENT_MESSAGES",
+              "tokens": 206
+            }
+          ]
+        }
+      ],
+      "layer_totals": {
+        "L0_SYSTEM_POLICY": 880,
+        "L1_SECURITY_VIEW": 1180,
+        "L2_TASK_STATE": 920,
+        "L3_CONVERSATION_SUMMARY": 3295,
+        "L4_RECENT_MESSAGES": 4120
+      }
+    }
+  },
+  "handoff": {
+    "baseline": {
+      "input_tokens": 3561,
+      "forwarded_fields": 5,
+      "leak_count": 3,
+      "leaked_fields": [
+        "approval",
+        "session_ref",
+        "tool_credentials"
+      ]
+    },
+    "optimized": {
+      "input_tokens": 150,
+      "included_fields": 2,
+      "excluded_categories": 4,
+      "tools_before_filter": 2,
+      "tools_after_filter": 1,
+      "leak_count": 0,
+      "leaked_fields": []
+    }
+  },
+  "measured_reduction_input_pct": 73.3
+}

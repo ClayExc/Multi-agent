@@ -1,9 +1,7 @@
 # flowpilot-agent-runtime
 
-Provider-neutral bounded Agent Runtime models, validation, and deterministic
-test adapter.
+与 Provider 无关的有界 Agent Runtime 模型、校验逻辑与确定性测试适配器。
 
-The runtime owns one bounded call only. It does not own task state, approval,
-authorization, checkpoint recovery, or business terminal decisions. Provider
-sessions and run references are diagnostic continuity hints and must never be
-used as graph checkpoints.
+Runtime 只负责一次有界调用，不拥有任务状态、审批、授权、Checkpoint 恢复或业务
+终态决策。Provider Session 与 Run Reference 只用于诊断连续性提示，绝不能作为
+Graph Checkpoint。

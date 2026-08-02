@@ -1,9 +1,7 @@
 # flowpilot-model-gateway
 
-Provider-neutral routing seam for model calls that do not require an Agent
-loop. The M0 implementation is a deterministic, network-free fake and routing
-policy. LiteLLM integration remains behind this port and is not part of
-WP-010-a1.
+为不需要 Agent 循环的模型调用提供与 Provider 无关的路由接缝。M0 实现由确定性、
+无网络的 Fake 与路由策略组成。LiteLLM 集成继续置于该 Port 之后，不属于
+WP-010-a1 范围。
 
-The gateway cannot widen a Context provider allowlist, classification ceiling,
-or token/cost budget.
+Gateway 不得放宽 Context 的 Provider Allowlist、数据分类上限或 Token/成本预算。

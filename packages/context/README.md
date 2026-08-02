@@ -1,15 +1,13 @@
 # flowpilot-context
 
-Deterministic construction and handoff rebuilding for the public
-`ContextEnvelope v1` boundary.
+面向公共 `ContextEnvelope v1` 边界的确定性构建与 Handoff 重建。
 
-The package:
+该包：
 
-- consumes the trusted `SecurityContextRef` from `flowpilot-domain`;
-- always emits exactly one L0, L1, and L2 layer;
-- enforces classification and input-token ceilings before provider use;
-- treats L3-L6 as data rather than instructions; and
-- rebuilds handoff context instead of copying a transcript or tool authority.
+- 使用来自 `flowpilot-domain` 的可信 `SecurityContextRef`；
+- 始终各输出且仅输出一个 L0、L1 和 L2 层；
+- 在调用 Provider 前强制执行数据分类与输入 Token 上限；
+- 将 L3-L6 作为数据而非指令处理；
+- 在 Handoff 时重建 Context，不复制对话记录或工具权限。
 
-It does not load provider sessions, credentials, raw attachments, or complete
-tool responses.
+它不加载 Provider Session、凭据、原始附件或完整工具响应。

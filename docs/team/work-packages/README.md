@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-- 里程碑：产品 P2 持久化图与可靠运行
-- 阶段状态：`MERGED_P2_DURABLE_RECOVERY`
+- 里程碑：M6 验收可信度修复
+- 阶段状态：`M6_ACCEPTANCE_REMEDIATION_ACTIVE`
 - 架构责任：`S1-ARCH`
 - 已接受基线：M0 Core/Runtime/Data、M1 Platform、M2 Studio
-- 当前有序链：无；[`CHAIN-P2-DURABLE-RUNTIME-01`](../chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md) 已完成
-- 批准来源：Flow Lite `g1`，仅批准持久化恢复闭环；`g2/g3` 未批准
-- 发布状态：未发布、未 frozen；真实 Provider、写工单与完整业务 E2E 尚未完成
+- 当前有序链：[`CHAIN-M6-ACCEPTANCE-REMEDIATION-01`](../chain-authorizations/CHAIN-M6-ACCEPTANCE-REMEDIATION-01.md)
+- 批准来源：用户批准 S1 审核报告中的有序修复方案
+- 发布状态：未发布、未 frozen；M6 验收器假阳性、契约审签和类型门禁待修复
 
 ## 工作包状态
 
@@ -21,6 +21,7 @@
 | [WP-020](./WP-020-platform-bootstrap.md) | S3-PLATFORM | ACCEPTED_M1 / MERGED_P1 | P1 已合并 | Gateway/Policy/Security；P1 知识工具 Attempt `a2` |
 | [WP-021](./WP-021-data-bootstrap.md) | S6-DATA | MERGED_P2 | P1 已合并 | Persistence 恢复边界与负向证据 Attempt `a3` |
 | [WP-030](./WP-030-quality-bootstrap.md) | S4-QUALITY | MERGED_P1 | P1 已合并 | 20 条候选 Case、黑盒质量与证据 Attempt `a4` |
+| [WP-031](./WP-031-acceptance-remediation.md) | S4-QUALITY | READY | M6 候选已合并 | 真实 Case 执行、Gate 一致性与验收证据修复 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 

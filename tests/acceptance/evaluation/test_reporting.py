@@ -8,6 +8,7 @@ from packages.evaluation.reporting import (
     AssertionOutcome,
     CaseResult,
     CaseStatus,
+    GateCheck,
     aggregate_results,
     generate_acceptance_bundle,
 )
@@ -132,4 +133,61 @@ def test_bundle_rejects_secret_like_evidence(tmp_path: Path) -> None:
             metadata=metadata,
             declared_case_ids=[],
             results=[],
+        )
+
+
+def test_failed_required_check_fails_manifest_report_and_aggregate(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "suite-failed"
+    junit = output / "test-results" / "integration.xml"
+    junit.parent.mkdir(parents=True)
+    junit.write_text("<testsuite failures='1'/>", encoding="utf-8")
+
+    manifest = generate_acceptance_bundle(
+        output_dir=output,
+        metadata=_metadata(),
+        declared_case_ids=["case-one"],
+        results=[_result("case-one", CaseStatus.PASSED)],
+        extra_artifacts={"test-results/integration.xml": junit},
+        gate_checks=(
+            GateCheck(
+                check_id="test-suite:integration",
+                passed=False,
+                evidence_ref="test-results/integration.xml",
+                detail="one intentional failure",
+            ),
+        ),
+    )
+
+    aggregate = (output / "eval" / "aggregate.json").read_text(encoding="utf-8")
+    report = (output / "REPORT.md").read_text(encoding="utf-8")
+    assert manifest["gate_result"] == "fail"
+    assert '"gate_result": "fail"' in aggregate
+    assert "- Gate: `fail`" in report
+    assert "`test-suite:integration`: `FAIL`" in report
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("fixture_manifest_hash", "sha256:unknown"),
+        ("fixture_manifest_hash", "sha256:sha256:" + "0" * 64),
+        ("dataset_manifest_hash", "unknown"),
+    ],
+)
+def test_bundle_rejects_unknown_or_double_prefixed_hashes(
+    tmp_path: Path,
+    field: str,
+    value: str,
+) -> None:
+    metadata = _metadata()
+    metadata[field] = value
+
+    with pytest.raises(ValueError, match=field):
+        generate_acceptance_bundle(
+            output_dir=tmp_path / field,
+            metadata=metadata,
+            declared_case_ids=["case-one"],
+            results=[_result("case-one", CaseStatus.PASSED)],
         )

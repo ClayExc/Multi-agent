@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -18,6 +19,24 @@ class CaseStatus(StrEnum):
     FAILED = "failed"
     SKIPPED = "skipped"
     QUARANTINED = "quarantined"
+
+
+@dataclass(frozen=True, slots=True)
+class GateCheck:
+    """A non-case acceptance gate, such as a required test suite."""
+
+    check_id: str
+    passed: bool
+    evidence_ref: str
+    detail: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "check_id": self.check_id,
+            "passed": self.passed,
+            "evidence_ref": self.evidence_ref,
+            "detail": self.detail,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +113,7 @@ class AggregateReport:
     success_rate: str | None
     gate_result: str
     report_state: str
+    gate_checks: tuple[GateCheck, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -108,12 +128,14 @@ class AggregateReport:
             "success_rate": self.success_rate,
             "gate_result": self.gate_result,
             "report_state": self.report_state,
+            "gate_checks": [item.to_dict() for item in self.gate_checks],
         }
 
 
 def aggregate_results(
     declared_case_ids: Iterable[str],
     results: Iterable[CaseResult],
+    gate_checks: Iterable[GateCheck] = (),
 ) -> AggregateReport:
     declared = list(declared_case_ids)
     if len(declared) != len(set(declared)):
@@ -140,10 +162,18 @@ def aggregate_results(
             )
         counts[result.status] += 1
     declared_count = len(declared)
+    check_list = tuple(gate_checks)
+    check_ids = [item.check_id for item in check_list]
+    if len(check_ids) != len(set(check_ids)):
+        raise ValueError("gate check IDs must be unique")
+    if any(not item.check_id or not item.evidence_ref for item in check_list):
+        raise ValueError("gate checks require IDs and evidence references")
+    failed_gate_checks = sum(not item.passed for item in check_list)
     failure_count = (
         counts[CaseStatus.FAILED]
         + counts[CaseStatus.SKIPPED]
         + counts[CaseStatus.QUARANTINED]
+        + failed_gate_checks
     )
     if declared_count == 0:
         success_rate = None
@@ -165,6 +195,7 @@ def aggregate_results(
         success_rate=success_rate,
         gate_result=gate_result,
         report_state=report_state,
+        gate_checks=check_list,
     )
 
 
@@ -175,6 +206,7 @@ def generate_acceptance_bundle(
     declared_case_ids: Iterable[str],
     results: Iterable[CaseResult],
     extra_artifacts: Mapping[str, Path] | None = None,
+    gate_checks: Iterable[GateCheck] = (),
 ) -> dict[str, Any]:
     """Generate a deterministic offline bundle from explicit inputs.
 
@@ -185,7 +217,14 @@ def generate_acceptance_bundle(
 
     declared = list(declared_case_ids)
     result_list = list(results)
-    aggregate = aggregate_results(declared, result_list)
+    check_list = tuple(gate_checks)
+    aggregate = aggregate_results(declared, result_list, check_list)
+    artifact_inputs = dict(extra_artifacts or {})
+    for check in check_list:
+        if check.evidence_ref not in artifact_inputs:
+            raise ValueError(
+                f"gate check evidence is not an extra artifact: {check.evidence_ref}"
+            )
     ordered_by_id = {item.case_id: item for item in result_list}
     ordered_results = [ordered_by_id[case_id] for case_id in declared]
     required_metadata = {
@@ -205,8 +244,10 @@ def generate_acceptance_bundle(
     missing = required_metadata - set(metadata)
     if missing:
         raise ValueError(f"acceptance metadata missing fields: {sorted(missing)}")
+    _validate_metadata_hashes(metadata)
     require_safe_evidence(metadata)
     require_safe_evidence([item.to_dict() for item in ordered_results])
+    require_safe_evidence([item.to_dict() for item in check_list])
 
     output_dir.mkdir(parents=True, exist_ok=True)
     eval_dir = output_dir / "eval"
@@ -236,7 +277,7 @@ def generate_acceptance_bundle(
         "eval/aggregate.json": sha256_file(aggregate_path),
         "eval/case-results.jsonl": sha256_file(result_path),
     }
-    for name, path in sorted((extra_artifacts or {}).items()):
+    for name, path in sorted(artifact_inputs.items()):
         resolved = Path(path)
         if not resolved.is_file():
             raise ValueError(f"extra artifact missing: {name} at {resolved}")
@@ -251,6 +292,7 @@ def generate_acceptance_bundle(
         "artifact_hashes": artifact_hashes,
         "gate_result": aggregate.gate_result,
         "report_state": aggregate.report_state,
+        "gate_checks": [item.to_dict() for item in check_list],
     }
     require_safe_evidence(manifest)
     (output_dir / "manifest.json").write_bytes(stable_json_bytes(manifest))
@@ -263,6 +305,13 @@ def _render_report(run_id: str, aggregate: AggregateReport) -> str:
         if aggregate.success_rate is not None
         else "NOT_MEASURED"
     )
+    checks = "".join(
+        f"  - `{item.check_id}`: `{'PASS' if item.passed else 'FAIL'}` "
+        f"(`{item.evidence_ref}`){f' — {item.detail}' if item.detail else ''}\n"
+        for item in aggregate.gate_checks
+    )
+    if not checks:
+        checks = "  - none\n"
     return (
         "# FlowPilot Offline Acceptance Report\n\n"
         f"- Run: `{run_id}`\n"
@@ -274,5 +323,34 @@ def _render_report(run_id: str, aggregate: AggregateReport) -> str:
         f"- Failed: `{aggregate.failed}`\n"
         f"- Skipped (failure): `{aggregate.skipped}`\n"
         f"- Quarantined (failure): `{aggregate.quarantined}`\n"
+        f"- Total gate failures: `{aggregate.failure_count}`\n"
         f"- Success rate: `{rate}`\n"
+        "- Required checks:\n"
+        f"{checks}"
     )
+
+
+_SHA256_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
+
+
+def _validate_metadata_hashes(metadata: Mapping[str, Any]) -> None:
+    scalar_fields = (
+        "contract_content_digest",
+        "dataset_manifest_hash",
+        "fixture_manifest_hash",
+        "traceability_hash",
+        "evaluation_registry_hash",
+    )
+    for field in scalar_fields:
+        value = metadata.get(field)
+        if not isinstance(value, str) or not _SHA256_RE.fullmatch(value):
+            raise ValueError(f"acceptance metadata {field} must be sha256:<64hex>")
+    dataset_hashes = metadata.get("dataset_hashes")
+    if not isinstance(dataset_hashes, Mapping):
+        raise ValueError("acceptance metadata dataset_hashes must be an object")
+    for dataset_id, value in dataset_hashes.items():
+        if not isinstance(value, str) or not _SHA256_RE.fullmatch(value):
+            raise ValueError(
+                "acceptance metadata dataset hash must be sha256:<64hex>: "
+                f"{dataset_id}"
+            )

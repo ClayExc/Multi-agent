@@ -4,9 +4,9 @@
 1. 收集 156 候选（A 69 + B 52 + C 35 = 120 功能 + 36 安全），按类型
    （suite × category）枚举校验配额；任一类型缺失/超量 -> 报错退出并留痕
    （collection-errors.json）。
-2. 逐候选做确定性静态判定（OfflineRepositoryValidator，0 findings
-   -> PASS；否则 FAIL 且保留失败证据；显式 skip 标记 -> SKIPPED），
-   结构化判定清单 eval/verdicts.json 落盘（156 候选每项一条记录）。
+2. 逐候选先做静态预检，再通过显式 CaseExecutor 执行产品场景。未注册
+   执行器、缺少执行证据或 Judge 未校准一律失败关闭；静态文件存在不构成
+   执行成功。结构化执行结果与判定清单分别落盘。
 3. 跑六类测试（unit/contract/integration/e2e/recovery/security）生成
    junit XML 到 test-results/；六类中任一无可用目标目录 -> 报错退出并留痕。
 4. 收集 environment.json 与测试结果快照。
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import os
 import subprocess
 import sys
@@ -36,6 +37,12 @@ from packages.evaluation.canonical import (  # noqa: E402
     sha256_file,
     stable_json_bytes,
 )
+from packages.evaluation.execution import (  # noqa: E402
+    CaseExecutionResult,
+    CaseExecutorRegistry,
+    ExecutionState,
+    failed_execution,
+)
 from packages.evaluation.incremental_a import load_cases as load_a  # noqa: E402
 from packages.evaluation.incremental_b import load_cases as load_b  # noqa: E402
 from packages.evaluation.incremental_c import load_cases as load_c  # noqa: E402
@@ -43,6 +50,7 @@ from packages.evaluation.reporting import (  # noqa: E402
     AssertionOutcome,
     CaseResult,
     CaseStatus,
+    GateCheck,
     generate_acceptance_bundle,
 )
 from packages.evaluation.validation import (  # noqa: E402
@@ -139,53 +147,98 @@ def _skip_reason(case: dict[str, Any]) -> str | None:
 
 
 def evaluate_case(
-    validator: OfflineRepositoryValidator, case: dict[str, Any]
-) -> tuple[CaseResult, list[str], str | None]:
-    """单候选确定性判定：结构/绑定/引用 0 findings -> PASS；
-    显式 skip 标记 -> SKIPPED；否则 FAIL 并保留失败证据。"""
+    validator: OfflineRepositoryValidator,
+    case: dict[str, Any],
+    *,
+    executors: CaseExecutorRegistry,
+    evidence_root: Path,
+    judge_calibrated: bool,
+) -> tuple[CaseResult, CaseExecutionResult, list[str], str | None]:
+    """Preflight, execute, then score one case without trusting expectations."""
     skip_reason = _skip_reason(case)
-    assertions = tuple(
-        AssertionOutcome(
-            assertion_id=item["assertion_id"],
-            gate_domain=_gate_domain(item["assertion_id"]),
-            passed=False,
-        )
-        for item in case.get("deterministic_assertions", [])
-    )
     if skip_reason is not None:
+        execution = failed_execution(
+            case,
+            failure_code="CASE_DECLARED_SKIP",
+            failure_detail=skip_reason,
+        )
         result = CaseResult(
             case_id=case["case_id"],
             suite=case["suite"],
             category=case["category"],
             status=CaseStatus.SKIPPED,
-            assertions=assertions,
+            assertions=_assertion_outcomes(case, execution),
             judge_scores={},
         )
-        return result, [], skip_reason
+        return result, execution, [], skip_reason
 
     findings = validator.validate_evaluation_cases([case])
     failed = [f.message for f in findings]
-    evidence_path = _evidence_path_of(case)
-    if not evidence_path.is_file():
-        failed.append(f"evidence file missing: {evidence_path}")
-    passed_assertions = tuple(
-        AssertionOutcome(
-            assertion_id=item["assertion_id"],
-            gate_domain=_gate_domain(item["assertion_id"]),
-            passed=not failed,
+    if failed:
+        execution = failed_execution(
+            case,
+            executor_id="repository-preflight",
+            executor_version="wp031-v1",
+            failure_code="CASE_PREFLIGHT_FAILED",
+            failure_detail=f"{len(failed)} repository validation finding(s)",
         )
-        for item in case.get("deterministic_assertions", [])
+    else:
+        execution = executors.dispatch(case, evidence_root)
+        if execution.failure_code:
+            failed.append(
+                f"{execution.failure_code}: "
+                f"{execution.failure_detail or 'execution failed'}"
+            )
+
+    rubrics = tuple(
+        str(item["rubric_id"])
+        for item in case.get("judge_rubrics", [])
+        if isinstance(item, dict) and "rubric_id" in item
     )
-    status = CaseStatus.FAILED if failed else CaseStatus.PASSED
+    if case.get("suite") != "functional" and execution.judge_scores:
+        failed.append("JUDGE_FORBIDDEN_FOR_NON_FUNCTIONAL_GATE")
+    if rubrics:
+        if not judge_calibrated:
+            failed.append("JUDGE_NOT_CALIBRATED")
+        missing_scores = set(rubrics) - set(execution.judge_scores)
+        unknown_scores = set(execution.judge_scores) - set(rubrics)
+        if missing_scores or unknown_scores:
+            failed.append(
+                "JUDGE_SCORE_BINDING_MISMATCH: "
+                f"missing={sorted(missing_scores)} unknown={sorted(unknown_scores)}"
+            )
+    elif execution.judge_scores:
+        failed.append("JUDGE_SCORE_WITHOUT_DECLARED_RUBRIC")
+
+    assertion_outcomes = _assertion_outcomes(case, execution)
+    completed = execution.state is ExecutionState.COMPLETED
+    status = (
+        CaseStatus.PASSED
+        if completed and not failed and all(item.passed for item in assertion_outcomes)
+        else CaseStatus.FAILED
+    )
     result = CaseResult(
         case_id=case["case_id"],
         suite=case["suite"],
         category=case["category"],
         status=status,
-        assertions=passed_assertions,
-        judge_scores={},
+        assertions=assertion_outcomes,
+        judge_scores=execution.judge_scores,
     )
-    return result, failed, None
+    return result, execution, failed, None
+
+
+def _assertion_outcomes(
+    case: dict[str, Any], execution: CaseExecutionResult
+) -> tuple[AssertionOutcome, ...]:
+    return tuple(
+        AssertionOutcome(
+            assertion_id=item["assertion_id"],
+            gate_domain=_gate_domain(item["assertion_id"]),
+            passed=execution.assertion_results.get(item["assertion_id"], False),
+        )
+        for item in case.get("deterministic_assertions", [])
+    )
 
 
 def _gate_domain(assertion_id: str) -> str:
@@ -200,15 +253,16 @@ def _dataset_of(case_id: str) -> str:
     return DATASET_BY_PREFIX.get(prefix, "m6-incremental-c")
 
 
-def _evidence_path_of(case: dict[str, Any]) -> Path:
-    case_id = case["case_id"]
+def _case_definition_path_of(case: dict[str, Any]) -> Path:
+    case_id = str(case["case_id"])
+    suite = str(case["suite"])
     return (
         ROOT
         / "evals"
         / "datasets"
         / _dataset_of(case_id)
         / "cases"
-        / case["suite"]
+        / suite
         / f"{case_id}.json"
     )
 
@@ -276,7 +330,7 @@ def collect_environment() -> dict[str, Any]:
 
 
 def hash_of(path: Path) -> str:
-    return f"sha256:{sha256_file(path)}"
+    return str(sha256_file(path))
 
 
 def main() -> int:
@@ -319,12 +373,24 @@ def main() -> int:
 
     print("== 2/4 候选确定性判定（156 逐候选） ==")
     validator = OfflineRepositoryValidator(ROOT)
+    executors = CaseExecutorRegistry()
+    execution_evidence_root = output / "execution"
+    execution_evidence_root.mkdir(parents=True, exist_ok=True)
+    judge_calibrated = _judge_is_calibrated()
     results: list[CaseResult] = []
+    execution_results: list[CaseExecutionResult] = []
     verdicts: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     for case in cases:
-        result, failed, skip_reason = evaluate_case(validator, case)
+        result, execution, failed, skip_reason = evaluate_case(
+            validator,
+            case,
+            executors=executors,
+            evidence_root=execution_evidence_root,
+            judge_calibrated=judge_calibrated,
+        )
         results.append(result)
+        execution_results.append(execution)
         verdicts.append({
             "case_id": result.case_id,
             "suite": result.suite,
@@ -339,12 +405,17 @@ def main() -> int:
             ],
             "findings": failed,
             "skip_reason": skip_reason,
-            "evidence_path": str(_evidence_path_of(case).relative_to(ROOT)),
+            "case_definition_path": str(
+                _case_definition_path_of(case).relative_to(ROOT)
+            ),
+            "execution": execution.to_dict(),
         })
         if failed:
             failures.append({
                 "case_id": case["case_id"], "findings": failed,
-                "evidence_path": str(_evidence_path_of(case).relative_to(ROOT)),
+                "case_definition_path": str(
+                    _case_definition_path_of(case).relative_to(ROOT)
+                ),
             })
     counts = {status: 0 for status in CaseStatus}
     for result in results:
@@ -358,13 +429,30 @@ def main() -> int:
     eval_dir.mkdir(parents=True, exist_ok=True)
     verdicts_path = eval_dir / "verdicts.json"
     verdicts_path.write_bytes(stable_json_bytes(verdicts))
+    execution_results_path = eval_dir / "execution-results.jsonl"
+    execution_results_path.write_bytes(
+        b"".join(
+            json.dumps(
+                item.to_dict(),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            + b"\n"
+            for item in execution_results
+        )
+    )
     print(f"  判定清单: {verdicts_path}")
     if failures:
         failures_path = output / "failures.json"
         failures_path.write_bytes(stable_json_bytes({"failures": failures}))
         print("  失败保留（failures.json）:")
-        for f in failures:
+        display_limit = 12
+        for f in failures[:display_limit]:
             print(f"    - {f['case_id']}: {f['findings'][0][:80]}")
+        remaining = len(failures) - display_limit
+        if remaining > 0:
+            print(f"    - ... 其余 {remaining} 条见 failures.json")
 
     print("== 3/4 跑六类测试 ==")
     try:
@@ -418,7 +506,19 @@ def main() -> int:
     test_summary_path.write_bytes(
         stable_json_bytes({"suites": test_results}))
 
-    extra_artifacts: dict[str, Path] = {"eval/verdicts.json": verdicts_path}
+    gate_checks = tuple(
+        GateCheck(
+            check_id=f"test-suite:{suite_result['name']}",
+            passed=suite_result["passed"],
+            evidence_ref=suite_result["xml"],
+            detail=f"return_code={suite_result['rc']}",
+        )
+        for suite_result in test_results
+    )
+    extra_artifacts: dict[str, Path] = {
+        "eval/verdicts.json": verdicts_path,
+        "eval/execution-results.jsonl": execution_results_path,
+    }
     for suite_result in test_results:
         extra_artifacts[suite_result["xml"]] = (
             output / suite_result["xml"])
@@ -432,13 +532,20 @@ def main() -> int:
         declared_case_ids=declared,
         results=results,
         extra_artifacts=extra_artifacts,
+        gate_checks=gate_checks,
     )
     gate = manifest["gate_result"]
     print(f"\n== 完成: run_id={run_id} gate={gate} ==")
     print(f"  manifest: {output / 'manifest.json'}")
     print(f"  REPORT:   {output / 'REPORT.md'}")
     print(f"  aggregate: {output / 'eval' / 'aggregate.json'}")
-    return 0 if gate == "pass" and not test_failed else 1
+    return exit_code_for_manifest(manifest)
+
+
+def exit_code_for_manifest(manifest: dict[str, Any]) -> int:
+    """Use the persisted overall gate as the single process-exit authority."""
+
+    return 0 if manifest.get("gate_result") == "pass" else 1
 
 
 def _contract_digest() -> str:
@@ -455,8 +562,27 @@ def _contract_digest() -> str:
 
 
 def _fixture_hash() -> str:
-    manifest = ROOT / "evals" / "fixtures" / "manifest.json"
-    return hash_of(manifest) if manifest.is_file() else "sha256:unknown"
+    return hash_of(
+        ROOT / "contracts" / "registries" / "evaluation-fixture-manifest.v1.json"
+    )
+
+
+def _judge_is_calibrated() -> bool:
+    """Only a completed non-proxy calibration may unlock Judge-required cases."""
+
+    try:
+        calibration = load_json_strict(ROOT / "evals" / "runners" / "calibration.json")
+    except (OSError, UnicodeError, ValueError):
+        return False
+    status = calibration.get("status")
+    gate = calibration.get("gate")
+    backend = calibration.get("judge_backend")
+    return (
+        status in {"calibrated", "human_calibrated"}
+        and isinstance(gate, dict)
+        and gate.get("gate_met") is True
+        and backend != "deterministic_proxy"
+    )
 
 
 if __name__ == "__main__":

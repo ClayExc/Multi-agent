@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：READY
+- 状态：ACCEPTED
 - Attempt ID：WP-034-a1
 - 风险等级：R2
 - 责任角色：S2-RUNTIME～S6-DATA
@@ -38,3 +38,10 @@
 
 严格使用 DELTA 指令中的机器块。五份结果由 S1 统一落盘为新 Attestation，更新
 ContractSet 生命周期 Review 字段并复跑同一门禁；该写入不改变稳定内容摘要。
+
+## S1 汇合结论
+
+- S2～S6：同一摘要 `ACCEPT + GATE=PASS`，阻断项为 0。
+- S3/S4 在前序候选发现的 Gate 绑定缺口已修复并由两者复审接受。
+- 新 Attestation 已分别落盘并通过内容、文件 Hash、角色、结论、摘要和 Gate 校验。
+- S6 的 `ACCEPT_WITH_RFC` 独立负例建议记为 P2，不阻断当前 ACCEPT 路径。

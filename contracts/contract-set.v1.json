@@ -23,43 +23,43 @@
   "reviews": [
     {
       "role": "S2-RUNTIME",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+      "reviewed_at": "2026-08-02T07:38:08.470Z",
+      "evidence_ref": "docs/review/attestations/RC2-1CAD-S2-RUNTIME.md",
+      "evidence_sha256": "sha256:983876c3bb1f18123554bf5d68bff393decfd8c8cf4a2a86bdfccf70794237d7"
     },
     {
       "role": "S3-PLATFORM",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+      "reviewed_at": "2026-08-02T07:38:08.470Z",
+      "evidence_ref": "docs/review/attestations/RC2-1CAD-S3-PLATFORM.md",
+      "evidence_sha256": "sha256:86d72307918c0bbba96e870e5c3d78b416d9e90a061f7e1b293821e4c01a63c6"
     },
     {
       "role": "S4-QUALITY",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+      "reviewed_at": "2026-08-02T07:38:08.470Z",
+      "evidence_ref": "docs/review/attestations/RC2-1CAD-S4-QUALITY.md",
+      "evidence_sha256": "sha256:81104e62b83c6d93aa46f690e1d162d7104491e8d9855320bcc1b1424e31710c"
     },
     {
       "role": "S5-CORE",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+      "reviewed_at": "2026-08-02T07:38:08.470Z",
+      "evidence_ref": "docs/review/attestations/RC2-1CAD-S5-CORE.md",
+      "evidence_sha256": "sha256:11b3a64ae7e9162d8b12d851788d3cebfa14386673a6bc868a0c5e9eb149a47d"
     },
     {
       "role": "S6-DATA",
-      "decision": "PENDING",
-      "reviewed_content_digest": null,
-      "reviewed_at": null,
-      "evidence_ref": null,
-      "evidence_sha256": null
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+      "reviewed_at": "2026-08-02T07:38:08.470Z",
+      "evidence_ref": "docs/review/attestations/RC2-1CAD-S6-DATA.md",
+      "evidence_sha256": "sha256:75e8f59a6c42960715268bce39d2e08b5cfe23b38f10c2885a72b71d3bf788e1"
     }
   ],
   "freeze_requirements": [

@@ -39,7 +39,9 @@ async def outbox_items(fixture):
 
 
 @pytest.mark.asyncio
-async def test_approved_write_reaches_verified_with_complete_audit_correlation() -> None:
+async def test_approved_write_reaches_verified_with_complete_audit_correlation() -> (
+    None
+):
     fixture = make_fixture(decision_kind=PolicyDecisionKind.REQUIRE_APPROVAL)
     assert isinstance(fixture.adapter, WriteAdapter)
 

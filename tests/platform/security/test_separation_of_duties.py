@@ -171,7 +171,9 @@ async def test_cross_tenant_write_stays_at_zero() -> None:
 
 
 @pytest.mark.asyncio
-async def test_approval_cannot_be_attached_to_a_policy_that_does_not_require_it() -> None:
+async def test_approval_cannot_be_attached_to_a_policy_that_does_not_require_it() -> (
+    None
+):
     fixture = make_fixture()
     assert isinstance(fixture.adapter, WriteAdapter)
     invocation = fixture.replace_invocation(

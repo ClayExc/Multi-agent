@@ -39,7 +39,8 @@ async def outbox_items(fixture):
 
 
 @pytest.mark.asyncio
-async def test_timeout_but_executed_is_unknown_and_reconcile_verifies_no_duplicate() -> None:
+async def test_timeout_but_executed_is_unknown_and_reconcile_verifies_no_duplicate(
+) -> None:
     fixture = make_fixture()
     assert isinstance(fixture.adapter, WriteAdapter)
     fixture.adapter.mode = "unknown_executed"

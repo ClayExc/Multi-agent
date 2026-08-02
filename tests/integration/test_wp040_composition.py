@@ -48,6 +48,51 @@ def test_candidate_is_exact_and_dependency_complete(verifier: ModuleType) -> Non
     )
 
 
+def test_historical_m0_manifest_ignores_current_contract_drift(
+    verifier: ModuleType,
+) -> None:
+    historical = verifier.load_revision_json(
+        ROOT,
+        verifier.BASE_COMMIT,
+        "contracts/contract-set.v1.json",
+    )
+    current = verifier.load_json(ROOT / "contracts/contract-set.v1.json")
+
+    assert historical["content_digest"] == verifier.CONTRACT_DIGEST
+    assert current["content_digest"] != verifier.CONTRACT_DIGEST
+
+
+def test_historical_m0_manifest_rejects_tampered_contract(
+    verifier: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = verifier.load_revision_json
+
+    def load_tampered_revision(
+        repo: Path,
+        revision: str,
+        path: str,
+    ) -> object:
+        value = original(repo, revision, path)
+        if revision == verifier.BASE_COMMIT and path == (
+            "contracts/contract-set.v1.json"
+        ):
+            value = dict(value)
+            value["published_on"] = "2099-01-01"
+        return value
+
+    monkeypatch.setattr(verifier, "load_revision_json", load_tampered_revision)
+
+    manifest = verifier.build_manifest(ROOT)
+    contract_check = next(
+        check
+        for check in manifest["checks"]
+        if check["check_id"] == "contract.content_digest"
+    )
+
+    assert contract_check["outcome"] == "FAIL"
+
+
 def test_manifest_and_report_are_deterministic(
     verifier: ModuleType,
     tmp_path: Path,

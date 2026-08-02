@@ -171,8 +171,9 @@ def test_restart_with_lost_thread_checkpoint_resumes_same_thread() -> None:
         # task_id / thread_id stable; run identity replaced.
         assert state.task_id == harness_a.create.task_id
         assert state.task_id == outcome_a.state.task_id
-        assert harness_b.graph._thread_id(harness_b.create) == harness_a.graph._thread_id(
-            harness_a.create
+        assert (
+            harness_b.graph._thread_id(harness_b.create)
+            == harness_a.graph._thread_id(harness_a.create)
         )
         assert state.run_id == "run_onb_recover_decide"
         assert state.run_id != outcome_a.state.run_id

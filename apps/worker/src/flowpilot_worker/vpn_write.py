@@ -865,7 +865,9 @@ class _VpnWriteNodes:
     def route_after_result(state: Mapping[str, Any]) -> str | Sequence[str]:
         if state.get("route") == "finalize":
             return "finalize"
-        raise GraphError(GraphErrorCode.STATE_INVALID, "VPN write result route is invalid")
+        raise GraphError(
+            GraphErrorCode.STATE_INVALID, "VPN write result route is invalid"
+        )
 
     async def retry(self, _state: Mapping[str, Any]) -> Mapping[str, Any]:
         # Retry is reached only for retryable failures; the approval binding

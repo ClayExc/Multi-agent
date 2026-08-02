@@ -24,10 +24,11 @@ import copy
 import hashlib
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
@@ -235,7 +236,9 @@ def _run_handoff_baseline(
         )
     )
     # The naive path forwards the full field set verbatim.
-    forwarded = dict(source.layer(LayerName.TASK_STATE).content)
+    forwarded = dict(
+        cast(Mapping[str, Any], source.layer(LayerName.TASK_STATE).content)
+    )
     leaks = forbidden_field_scan(forwarded)
     return {
         "input_tokens": source.manifest.input_tokens_estimated,

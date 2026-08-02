@@ -8,7 +8,6 @@ from packages.evaluation.canonical import load_json_strict
 from packages.evaluation.reporting import CaseStatus
 from packages.evaluation.scoring import DeterministicScorer
 
-
 ROOT = Path(__file__).resolve().parents[3]
 REGISTRY = load_json_strict(
     ROOT / "contracts" / "registries" / "evaluation-registry.v1.json"

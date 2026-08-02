@@ -7,7 +7,6 @@ import pytest
 from packages.evaluation.canonical import load_json_strict
 from packages.evaluation.evidence import build_evidence_record
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 

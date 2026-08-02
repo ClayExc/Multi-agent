@@ -16,7 +16,7 @@ import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 
 import httpx
 from flowpilot_api import TrustedRequestIdentity, create_app
@@ -50,7 +50,7 @@ from flowpilot_graph import (
     InMemoryCheckpointStore,
     InMemoryLeaseStore,
 )
-from flowpilot_mcp_gateway import GatewayAdapterError, GatewayAdapterDisposition
+from flowpilot_mcp_gateway import GatewayAdapterDisposition, GatewayAdapterError
 from flowpilot_mcp_ticket import TICKET_UPDATE_SCOPE, TicketMcpAdapter
 from flowpilot_security import CapabilityHandle
 from flowpilot_tool_contracts import (

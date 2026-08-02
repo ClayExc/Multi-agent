@@ -8,7 +8,6 @@ from pathlib import Path
 from packages.evaluation.canonical import load_json_strict
 from packages.evaluation.validation import OfflineRepositoryValidator
 
-
 ROOT = Path(__file__).resolve().parents[3]
 FUNCTIONAL_CASE = (
     ROOT / "evals" / "fixtures" / "minimal-functional-case.v1.json"

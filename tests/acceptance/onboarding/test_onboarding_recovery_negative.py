@@ -19,7 +19,6 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-
 from flowpilot_domain import Approval
 from flowpilot_graph import GraphStatus, OnboardingCompositeGraph, OnboardingGraphConfig
 

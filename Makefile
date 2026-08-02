@@ -3,7 +3,7 @@ STUDIO_CONFIG ?= langgraph.json
 STUDIO_HOST ?= 127.0.0.1
 STUDIO_PORT ?= 2024
 
-.PHONY: bootstrap studio studio-smoke test test-contract test-security
+.PHONY: bootstrap studio studio-smoke test test-contract test-security acceptance
 
 bootstrap:
 	$(UV) sync --all-packages --all-groups --locked
@@ -23,3 +23,6 @@ test-contract:
 
 test-security:
 	$(UV) run --all-packages --all-groups --locked python -B -m pytest tests/platform
+
+acceptance:
+	$(UV) run --frozen python -B scripts/acceptance/run_acceptance.py

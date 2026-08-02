@@ -173,8 +173,14 @@ def generate_acceptance_bundle(
     metadata: Mapping[str, Any],
     declared_case_ids: Iterable[str],
     results: Iterable[CaseResult],
+    extra_artifacts: Mapping[str, Path] | None = None,
 ) -> dict[str, Any]:
-    """Generate a deterministic offline bundle from explicit inputs."""
+    """Generate a deterministic offline bundle from explicit inputs.
+
+    ``extra_artifacts`` maps manifest-relative names to already-written files
+    (e.g. ``{"eval/verdicts.json": path}``); each entry is hashed into
+    ``artifact_hashes`` so the manifest accounts for every bundle artifact.
+    """
 
     declared = list(declared_case_ids)
     result_list = list(results)
@@ -227,6 +233,11 @@ def generate_acceptance_bundle(
         "eval/aggregate.json": sha256_file(aggregate_path),
         "eval/case-results.jsonl": sha256_file(result_path),
     }
+    for name, path in sorted((extra_artifacts or {}).items()):
+        resolved = Path(path)
+        if not resolved.is_file():
+            raise ValueError(f"extra artifact missing: {name} at {resolved}")
+        artifact_hashes[name] = sha256_file(resolved)
     manifest = {
         **dict(metadata),
         "commands": list(metadata.get("commands", [])),

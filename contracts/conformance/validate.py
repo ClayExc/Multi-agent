@@ -276,7 +276,9 @@ def main() -> int:
         )
         actual_valid = not list(validator.iter_errors(instance))
         if actual_valid != case["expect_valid"]:
-            raise AssertionError(f"{case['case_id']}: schema mutation expectation mismatch")
+            raise AssertionError(
+                f"{case['case_id']}: schema mutation expectation mismatch"
+            )
         mutation_positive += int(actual_valid)
         mutation_negative += int(not actual_valid)
 
@@ -319,7 +321,10 @@ def main() -> int:
     }
     for item in assertion_registry.values():
         Draft202012Validator.check_schema(item["parameters_schema"])
-    if any(item["gate_domain"] != "semantic_only" for item in evaluation_registry["judge_rubrics"]):
+    if any(
+        item["gate_domain"] != "semantic_only"
+        for item in evaluation_registry["judge_rubrics"]
+    ):
         raise AssertionError("Judge rubric escaped semantic_only boundary")
     all_categories = [
         category
@@ -380,7 +385,9 @@ def main() -> int:
             )
     feature_ids = [item["feature_id"] for item in traceability["features"]]
     test_ids = [
-        test["test_id"] for feature in traceability["features"] for test in feature["tests"]
+        test["test_id"]
+        for feature in traceability["features"]
+        for test in feature["tests"]
     ]
     evidence_ids = [
         evidence["evidence_id"]
@@ -423,14 +430,16 @@ def main() -> int:
             layer_rank = classification_rank[layer["classification"]]
             if layer_rank > context_ceiling_rank:
                 errors.append(
-                    f"context layer exceeds context classification ceiling: {layer['name']}"
+                    f"context layer exceeds context classification ceiling: "
+                    f"{layer['name']}"
                 )
             if (
                 security_ceiling is not None
                 and layer_rank > classification_rank[security_ceiling]
             ):
                 errors.append(
-                    f"context layer exceeds security classification ceiling: {layer['name']}"
+                    f"context layer exceeds security classification ceiling: "
+                    f"{layer['name']}"
                 )
         estimated = instance["manifest"]["input_tokens_estimated"]
         actual = instance["manifest"]["input_tokens_actual"]
@@ -562,7 +571,9 @@ def main() -> int:
             if set(policy["required_assertions_by_category"]) != category_set:
                 errors.append(f"category gate keys mismatch: {suite_name}")
             if sum(policy["category_counts"].values()) != policy["expected_case_count"]:
-                errors.append(f"category counts do not sum to suite total: {suite_name}")
+                errors.append(
+                    f"category counts do not sum to suite total: {suite_name}"
+                )
             expected_count = primary_expected_counts.get(suite_name)
             if (
                 expected_count is not None
@@ -602,9 +613,13 @@ def main() -> int:
                 if prompt_ref is None or prompt_hash is None:
                     errors.append(f"frozen Judge prompt missing: {rubric['rubric_id']}")
                     continue
-                prompt_path = (ROOT / prompt_ref.removeprefix("repo://").split("#", 1)[0]).resolve()
+                prompt_path = (
+                    ROOT / prompt_ref.removeprefix("repo://").split("#", 1)[0]
+                ).resolve()
                 if not prompt_path.is_relative_to(ROOT) or not prompt_path.is_file():
-                    errors.append(f"Judge prompt reference missing: {rubric['rubric_id']}")
+                    errors.append(
+                        f"Judge prompt reference missing: {rubric['rubric_id']}"
+                    )
                 elif prompt_hash != sha256(prompt_path):
                     errors.append(f"Judge prompt hash mismatch: {rubric['rubric_id']}")
                 for ref_name in ("output_schema_ref", "calibration_policy_ref"):
@@ -775,7 +790,10 @@ def main() -> int:
             errors.append("unknown rubric_id")
         for rubric in instance.get("judge_rubrics", []):
             registry_entry = rubric_registry.get(rubric["rubric_id"])
-            if registry_entry is not None and suite not in registry_entry["allowed_suites"]:
+            if (
+                registry_entry is not None
+                and suite not in registry_entry["allowed_suites"]
+            ):
                 errors.append(f"rubric not allowed in suite: {rubric['rubric_id']}")
         registry_ref = instance["registry_ref"]
         if (
@@ -877,14 +895,18 @@ def main() -> int:
 
     policy_fixture = cases_by_id["policy.single_approval.valid"]["instance"]
     approval_fixture = cases_by_id["approval.sod.valid"]["instance"]
-    tool_request_fixture = cases_by_id["tool_request.bound_identities.valid"]["instance"]
+    tool_request_fixture = cases_by_id["tool_request.bound_identities.valid"][
+        "instance"
+    ]
 
     def policy_decision_semantic_errors(instance: dict[str, Any]) -> list[str]:
         errors: list[str] = []
         context = tool_request_fixture["security_context"]
         action = tool_request_fixture["planned_action"]
         approval = approval_fixture
-        if len({instance["tenant_id"], action["tenant_id"], approval["tenant_id"]}) != 1:
+        if len(
+            {instance["tenant_id"], action["tenant_id"], approval["tenant_id"]}
+        ) != 1:
             errors.append("policy tenant binding mismatch")
         if len({instance["task_id"], action["task_id"], approval["task_id"]}) != 1:
             errors.append("policy task binding mismatch")
@@ -988,9 +1010,18 @@ def main() -> int:
         agent = instance["agent_principal"]
         policy = policy_fixture
         approval = approval_fixture
-        if len({context["tenant_id"], action["tenant_id"], policy["tenant_id"], approval["tenant_id"]}) != 1:
+        if len(
+            {
+                context["tenant_id"],
+                action["tenant_id"],
+                policy["tenant_id"],
+                approval["tenant_id"],
+            }
+        ) != 1:
             errors.append("tool request tenant binding mismatch")
-        if len({context["subject_id"], action["requester_id"], approval["requester_id"]}) != 1:
+        if len(
+            {context["subject_id"], action["requester_id"], approval["requester_id"]}
+        ) != 1:
             errors.append("tool request requester binding mismatch")
         if len({action["task_id"], policy["task_id"], approval["task_id"]}) != 1:
             errors.append("tool request task binding mismatch")
@@ -1043,16 +1074,18 @@ def main() -> int:
             }
         ) != 1:
             errors.append("action approval policy expiry mismatch")
-        if policy["decision"] == "require_approval":
-            if (
+        if (
+            policy["decision"] == "require_approval"
+            and (
                 instance.get("approval_id") != approval["approval_id"]
                 or approval["status"] != "approved"
                 or approval["policy_decision_id"] != policy["decision_id"]
                 or approval["action_id"] != action["action_id"]
                 or approval["separation_of_duties_result"] is not True
                 or approval["approver_id"] == approval["requester_id"]
-            ):
-                errors.append("approval binding mismatch")
+            )
+        ):
+            errors.append("approval binding mismatch")
         return errors
 
     def tool_result_semantic_errors(instance: dict[str, Any]) -> list[str]:
@@ -1072,7 +1105,7 @@ def main() -> int:
         return errors
 
     audit_fixture = cases_by_id["audit.denied_linked.valid"]["instance"]
-    audit_second_fixture = cases_by_id["audit.chain_second.valid"]["instance"]
+
     security_event_fixture = cases_by_id["security_event.blocked.valid"]["instance"]
 
     def audit_event_semantic_errors(instance: dict[str, Any]) -> list[str]:
@@ -1114,7 +1147,7 @@ def main() -> int:
                 errors.append("AUDIT_STREAM_TENANT_MISMATCH")
             if event["integrity"]["event_hash"] != audit_event_hash(event):
                 errors.append("AUDIT_HASH_MISMATCH")
-        for stream_id, stream_events in streams.items():
+        for _, stream_events in streams.items():
             ordered = sorted(stream_events, key=lambda item: item["sequence"])
             sequences = [item["sequence"] for item in ordered]
             if duplicate_values([str(value) for value in sequences]):
@@ -1288,11 +1321,17 @@ def main() -> int:
                 if review["reviewed_content_digest"] != instance["content_digest"]:
                     errors.append(f"review digest mismatch: {review['role']}")
                 evidence_path = (ROOT / review["evidence_ref"]).resolve()
-                if not evidence_path.is_relative_to(ROOT) or not evidence_path.is_file():
+                if (
+                    not evidence_path.is_relative_to(ROOT)
+                    or not evidence_path.is_file()
+                ):
                     errors.append(f"review evidence missing: {review['role']}")
                 elif review["evidence_sha256"] != sha256(evidence_path):
                     errors.append(f"review evidence hash mismatch: {review['role']}")
-        for dependency_name, (source_path, source_instance) in dependency_sources.items():
+        for (
+            dependency_name,
+            (source_path, source_instance),
+        ) in dependency_sources.items():
             dependency = instance["release_dependencies"][dependency_name]
             if (
                 dependency["sha256"] != sha256(source_path)

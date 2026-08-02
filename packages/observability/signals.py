@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Mapping
+from typing import Any
 
 from packages.evaluation.safety import require_safe_evidence
 
@@ -52,8 +53,13 @@ class SignalRouter:
         ]
         if missing:
             raise ValueError(f"signal correlation fields missing: {missing}")
-        if signal.kind in {SignalKind.AUDIT, SignalKind.SECURITY} and not signal.retained:
-            raise ValueError(f"{signal.kind.value} signals cannot be sampled out")
+        if (
+            signal.kind in {SignalKind.AUDIT, SignalKind.SECURITY}
+            and not signal.retained
+        ):
+            raise ValueError(
+                f"{signal.kind.value} signals cannot be sampled out"
+            )
         require_safe_evidence(signal.payload)
         return RoutedSignal(
             kind=signal.kind,

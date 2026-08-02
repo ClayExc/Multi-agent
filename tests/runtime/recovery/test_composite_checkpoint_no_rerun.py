@@ -23,16 +23,14 @@ from flowpilot_graph import (
     TICKET_CREATE_TOOL,
     GraphStatus,
 )
-
 from onboarding_harness import (
     MANAGER,
-    OnboardingCrash,
     TENANT_A,
+    OnboardingCrash,
     build_approval_from_card,
     build_decide_command,
     build_harness,
     execute,
-    interrupt_card,
     rebuild_harness,
     run_until_approval,
 )
@@ -83,7 +81,9 @@ def test_restart_skips_completed_read_branches() -> None:
     asyncio.run(scenario())
 
 
-def test_crash_between_sub_actions_replays_idempotency_key_with_zero_duplicates() -> None:
+def test_crash_between_sub_actions_replays_idempotency_key_with_zero_duplicates() -> (
+    None
+):
     """The device write committed upstream, then the Worker died.
 
     Recovery replays the device write under the same idempotency key: zero
@@ -189,9 +189,13 @@ def test_crash_after_verified_sub_action_skips_it_and_never_duplicates_ticket() 
         # Device verified + Checkpointed, then the process died on the
         # permission write.
         with pytest.raises(OnboardingCrash):
-            await execute(harness_a, decide, run_id="run_onb_crash_permission")
+            await execute(
+                harness_a, decide, run_id="run_onb_crash_permission"
+            )
 
-        checkpoint = await harness_a.checkpoints.load(TENANT_A, harness_a.create.task_id)
+        checkpoint = await harness_a.checkpoints.load(
+            TENANT_A, harness_a.create.task_id
+        )
         assert checkpoint is not None
         assert {item["action_id"] for item in checkpoint.sub_action_progress} == {
             # Only the device progress was persisted before the crash.

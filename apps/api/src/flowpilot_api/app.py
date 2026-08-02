@@ -201,7 +201,7 @@ def create_app(
                 while True:
                     try:
                         envelope = await asyncio.wait_for(queue.get(), timeout=15)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         yield ": ping\n\n"
                         continue
                     yield _sse_frame(envelope)

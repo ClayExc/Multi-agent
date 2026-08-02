@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -471,10 +472,8 @@ class TaskEventSubscriptionService:
             task = self._poll_tasks.pop(tenant_id, None)
             if task is not None:
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
 
     async def gaps(self, tenant_id: str, task_id: str) -> tuple[int, ...]:
         """Report missing outbox sequences for a task (hole detection)."""

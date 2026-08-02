@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -18,7 +17,6 @@ from packages.evaluation.validation import (  # noqa: E402
     OfflineRepositoryValidator,
     ValidationFinding,
 )
-
 
 DEFAULT_CASES = (
     ROOT / "evals" / "fixtures" / "minimal-functional-case.v1.json",

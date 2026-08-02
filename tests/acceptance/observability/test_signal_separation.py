@@ -14,7 +14,6 @@ from packages.observability.signals import (
     validate_linked_security_pair,
 )
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 

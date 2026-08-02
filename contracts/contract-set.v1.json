@@ -3,7 +3,7 @@
   "contract_set_id": "flowpilot-m0-contracts-v1-rc2",
   "version": "1.0.0-rc.2",
   "digest_profile": "flowpilot.contract-set-content-rfc8785-sha256-v1",
-  "content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+  "content_digest": "sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56",
   "status": "candidate",
   "published_on": "2026-07-28",
   "frozen_at": null,
@@ -24,7 +24,7 @@
     {
       "role": "S2-RUNTIME",
       "decision": "ACCEPT",
-      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_content_digest": "sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56",
       "reviewed_at": "2026-07-28T15:14:40.919Z",
       "evidence_ref": "docs/review/attestations/RC2-0A82-S2-RUNTIME.md",
       "evidence_sha256": "sha256:efa4208a5ac3bccd1e1d91a3370cd7f8ce49d996b85ea63ba907bda2f8d9b78f"
@@ -32,7 +32,7 @@
     {
       "role": "S3-PLATFORM",
       "decision": "ACCEPT",
-      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_content_digest": "sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56",
       "reviewed_at": "2026-07-28T15:14:40.919Z",
       "evidence_ref": "docs/review/attestations/RC2-0A82-S3-PLATFORM.md",
       "evidence_sha256": "sha256:c0ea6f98f17de379ae3b8396133631e2bf3ca2513b542777b37c3694376e1ccb"
@@ -40,7 +40,7 @@
     {
       "role": "S4-QUALITY",
       "decision": "ACCEPT",
-      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_content_digest": "sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56",
       "reviewed_at": "2026-07-28T15:14:40.919Z",
       "evidence_ref": "docs/review/attestations/RC2-0A82-S4-QUALITY.md",
       "evidence_sha256": "sha256:e67de8b40a4d577f6a77be9d24d5544baea2969c4a41ccca1bf4a5ac14a84f28"
@@ -48,7 +48,7 @@
     {
       "role": "S5-CORE",
       "decision": "ACCEPT",
-      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_content_digest": "sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56",
       "reviewed_at": "2026-07-28T15:14:40.919Z",
       "evidence_ref": "docs/review/attestations/RC2-0A82-S5-CORE.md",
       "evidence_sha256": "sha256:949b46607ca8295660cfdc2cb265482b292774126c0c736c071661083b8a8780"
@@ -56,7 +56,7 @@
     {
       "role": "S6-DATA",
       "decision": "ACCEPT",
-      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "reviewed_content_digest": "sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56",
       "reviewed_at": "2026-07-28T15:14:40.919Z",
       "evidence_ref": "docs/review/attestations/RC2-0A82-S6-DATA.md",
       "evidence_sha256": "sha256:451d08a17799d4c79129e39aad460ad8f6d3b09a5d38b73b1aa655295a1ce396"
@@ -216,7 +216,7 @@
     {
       "name": "ContractConformanceValidator",
       "path": "conformance/validate.py",
-      "sha256": "sha256:68369cfed446f92f9dcccd62d8403f8f0f6069f39f8e0d711e6964a0701a4053"
+      "sha256": "sha256:bd184a88f19a98f3d72ee5dc864446cadc82068e1c30b9973bb74e0f63db957e"
     },
     {
       "name": "FeatureTraceabilityInstance",

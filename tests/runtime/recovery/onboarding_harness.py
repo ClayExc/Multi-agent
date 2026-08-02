@@ -34,10 +34,7 @@ from flowpilot_domain import (
     canonical_sha256,
 )
 from flowpilot_graph import (
-    DEVICE_STANDARD_SCHEMA_PIN,
-    INVENTORY_SCHEMA_PIN,
     PERMISSION_GRANT_SCHEMA_PIN,
-    PERMISSION_TEMPLATE_SCHEMA_PIN,
     InMemoryCheckpointStore,
     InMemoryLeaseStore,
     OnboardingArtifactDraft,

@@ -10,9 +10,9 @@ replays are deterministic and idempotent.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any
 
 from flowpilot_domain import TaskStatus
 from flowpilot_graph import GraphState, GraphStatus

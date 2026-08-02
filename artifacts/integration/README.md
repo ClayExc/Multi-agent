@@ -1,8 +1,7 @@
-# Integration evidence artifacts
+# 集成证据产物
 
-`scripts/integration/verify_wp040.py` writes deterministic composition manifests
-and evidence reports below `artifacts/integration/runs/`.
+`scripts/integration/verify_wp040.py` 会在 `artifacts/integration/runs/` 下生成
+可确定性复现的组合清单和证据报告。
 
-Generated run output is intentionally ignored. The S7 Handoff records the exact
-command, candidate commit, and SHA-256 values needed to reproduce a run from a
-clean checkout.
+生成的运行结果不会纳入版本控制。S7 Handoff 会记录从干净检出状态复现本次运行所需的
+准确命令、候选提交以及 SHA-256 值。

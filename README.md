@@ -1,58 +1,45 @@
 # 流程领航（FlowPilot）
 
-> 面向企业 IT 服务台的可恢复、可审计智能工单 Agent 平台。
-
-## 仓库状态
-
-当前主分支已经完成 **M0～M6 工程候选**：公共契约与 Python Workspace、安全 MCP 平台、LangGraph Studio、持久化恢复、VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结均已进入仓库。
-
-这里的“完成”指代码、测试和候选证据已经合入，不等于产品发布。当前仍缺少真实模型 Provider、Web/API/Worker/数据平面的完整装配、真实企业 Connector 和 156 条任务的产品执行器；因此 `RELEASED=false`、整体 `FROZEN=false`。`make acceptance` 已经存在，但在没有注册产品执行器时会按设计失败，不能据此报告任务成功率。
-
-下一阶段采用 M7～M10 路线，先把现有模块接成可以实际使用和观察的本地产品，再完成两条业务闭环和正式评测。首个真实模型入口确定为 **LiteLLM + DeepSeek V4 Flash**；具体 LiteLLM 模型标识和供应端配置将在 M7 实现时锁定并验证。完整状态和证据入口见 [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md)。
-
-| 能力 | 当前状态 | 可宣称范围 | 
-|---|---|---|
-| 架构、契约与安全边界 | M0 基线及后续兼容性门禁已合入 | 可描述企业级架构和可执行契约；整体契约尚未发布为最终版本 |
-| 14 包 Python Workspace | 锁文件、构建、类型检查和公共测试入口已合入 | 可描述工程基线，不代表所有模块已完成产品装配 |
-| LangGraph Runtime 与 Studio | 同源图、Interrupt/Resume、Handoff、重试、Checkpoint 和安全投影已验证 | 可体验非黑箱流程；默认仍是合成状态和 Fake 工具 |
-| PostgreSQL、Redis 与恢复 | RLS、Inbox/Outbox、Lease/Fencing、Checkpoint CAS 和 Redis 丢失恢复已验证 | 可描述可靠性候选；生产备份、扩容和灾备未验证 |
-| MCP Gateway 与安全写入 | 默认拒绝、策略、审批绑定、执行账本、幂等和回读测试已合入 | 可描述安全写入候选；尚未接入真实企业工单系统 |
-| VPN 业务场景 | 只读知识闭环和安全工单写入代码已合入 | 当前依赖合成知识与 Ticket Store，不是企业生产闭环 |
-| Context 与受限 Handoff | 分层上下文、硬预算、字段过滤和安全投影已合入 | 可描述机制，不得宣称 24% Token 降幅 |
-| Provider Adapter | 零凭据、零网络的 Sandbox Adapter 已合入 | 真实 Provider 未接入，不可宣称 OpenAI/Claude/DeepSeek 已可用 |
-| Web 产品面 | 任务、时间线、补全、审批、恢复和 SSE 交互外壳已合入 | 当前使用 Fixture，尚未接通真实 API 与 Agent Runtime |
-| 新员工复合申请 | 澄清、并行读取、双动作审批、部分失败和汇总测试已合入 | 属于合成端到端候选，尚未形成可操作的真实产品链路 |
-| 120+36 评测语料 | 三个数据集共 120 功能 + 36 安全/故障 Case，内容 Hash 已冻结 | 产品执行器未注册，正式成功率与 Judge 结论尚不存在 |
-| `make acceptance` | 编排器、失败保留、证据 Manifest 和报告生成已实现 | 当前 156 条产品执行会失败关闭，不能标记发布通过 |
-| 本地 Compose | PostgreSQL、Redis、迁移、RLS 与恢复组合验证通过 | 应用服务尚未形成一键可用的完整产品拓扑 |
-| 800 条路由样本及 LoRA | 未构建 | 不可报告 Macro-F1 |
-| Token 降幅、任务成功率提升 | 未测量 | 仅作为待验证假设 |
-
-原方案中的“输入 Token 降低 24%”“任务成功率由 82.5% 提升至 90.0%”“Macro-F1 由 0.86 提升至 0.91”均为目标方向的参考值，不是本仓库已经取得的结果。只有生成可复现的测试报告后，才允许将真实数值写入 README、简历或演示材料。
+> 把 IT 服务台的知识查询、信息补全、审批和工单执行放进一条可恢复、可审计的流程。
 
 ## 项目目标
 
-FlowPilot 将知识问答、信息补全、工单创建、人工审批和业务工具执行整合成一个任务闭环：
+FlowPilot 先解决企业 IT 服务台里最常见的一类问题：员工提交的信息不完整，服务台需要反复追问、查知识库、确认权限、走审批，再到不同系统里创建工单。
 
-1. 识别用户意图并补全必要信息。
-2. 并行检索企业知识和授权范围内的业务数据。
-3. 生成带证据的回答或结构化执行计划。
-4. 对有副作用的动作执行实时策略判定。
-5. 在需要时中断任务并等待人工审批。
-6. 使用幂等键执行工具，回读验证结果。
-7. 在重启、超时或审批等待后安全续跑。
-8. 记录可关联但相互隔离的 Trace、Audit Log 和 Security Event。
+以 VPN 故障为例，员工只需要描述现象。系统会补问网络位置、设备和报错信息，查询企业知识库并给出带来源的处理建议。问题仍未解决时，系统生成工单计划，展示将要写入的内容，取得确认后再调用工单工具。任务在等待回复、等待审批或 Worker 重启后仍能继续。
 
-首个可交付范围只覆盖 IT 服务台：
+第二个场景是新员工入职。设备标准、库存和权限模板可以并行查询，设备申请与权限申请分别审批、分别执行。一个动作失败时，已经成功的动作不会被重复提交。
 
-- VPN 故障自助排障，失败后创建工单。
-- 新员工设备与系统权限申请，包含并行查询、人工审批和多个关联工单。
+项目当前只做这两条 IT 服务流程。采购、HR、客服、多模态附件和 LoRA 放在核心版本之后。
 
-采购、HR、客服、多模态附件和 LoRA 均为后续增量，不进入首个核心闭环的完成定义。
+## 当前状态
 
-## 架构结论
+`master` 已包含 M0～M6 的代码和测试，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
-FlowPilot 采用“**一个持久化业务状态机、两个执行适配层、一个安全工具入口**”：
+- 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
+- 启动 Fixture Web，查看任务列表、时间线、补全表单、审批卡和 SSE 重连。
+- 启动 FastAPI 外壳，查看健康检查和 OpenAPI。
+- 用 Docker Compose 启动 PostgreSQL、Redis 等本地依赖，并运行恢复与隔离测试。
+
+尚未接通的部分也很明确：Web 仍使用 Fixture，真实模型尚未接入，企业工单和资产系统只有中立接口与 Sandbox，120+36 评测也缺少产品执行器。下一阶段 M7 会先把 Web、API、Worker、LangGraph、数据库和真实模型接成一条本地链路；首个模型入口采用 **LiteLLM + DeepSeek V4 Flash**。
+
+## M0～M6 做了什么
+
+| 阶段 | 已进入主分支的内容 | 当前限制 |
+|---|---|---|
+| M0 工程底座 | 14 包 Python Workspace、公共 JSON Schema、领域与应用端口、API/Runtime/Persistence 骨架 | 模块可以独立测试，还没有连成产品 |
+| M1 VPN 只读 | 信息补全、知识检索、租户与 ACL 过滤、引用回答 | 使用合成知识源，没有真实模型 |
+| M2 持久化运行 | PostgreSQL Checkpoint、Lease/Fencing、Inbox/Outbox、Redis 丢失恢复 | 已验证恢复行为，生产备份和扩容未覆盖 |
+| M3 安全写入 | MCP Gateway、策略判定、审批绑定、执行账本、幂等、回读和 SSE | 使用 Sandbox Ticket Store，没有企业 Connector |
+| M4 Agent 与上下文 | Sandbox Provider、分层 Context、硬预算、受限 Handoff、多 Agent 节点 | 没有真实 Token 和效果对比数据 |
+| M5 产品外壳与第二场景 | Fixture Web、新员工设备与权限复合申请、部分失败处理 | Web 尚未接通真实 API 和运行时 |
+| M6 评测工具链 | 120 条功能 Case、36 条安全/故障 Case、Hash 冻结、Judge 工具和 `make acceptance` | 产品执行器与人工 Judge 校准尚未完成 |
+
+当前仓库状态为 `RELEASED=false`、整体 `FROZEN=false`。原方案中的 Token 降低 24%、任务成功率 82.5%→90.0%、Macro-F1 0.86→0.91 都是参考目标，不是已有结果。项目在产生可复现报告前不会使用这些数字。
+
+## 系统怎么工作
+
+一次任务从 Web 或 API 进入队列，由 Worker 交给 LangGraph。LangGraph 保存流程状态并决定下一步；模型负责理解文本和生成候选内容，权限、审批和最终状态由确定性代码处理。所有知识查询和业务写入都经过 MCP Gateway。
 
 ```mermaid
 flowchart LR
@@ -79,27 +66,24 @@ flowchart LR
     MCP --> AUDIT[("Append-only Audit Store")]
 ```
 
-- **LangGraph** 是跨业务节点的唯一流程控制器，负责状态、条件路由、并行分支、Interrupt、Checkpoint、恢复与补偿。
-- **Agents SDK** 只在有边界的节点内执行专业 Agent 循环、结构化输出、Guardrail 和受限 Handoff，不成为第二套业务状态机。
-- **LiteLLM** 位于通用模型调用端口后，用于分类、摘要、评审等模型调用的路由、预算和计量；是否代理某个 Agents SDK 的 Provider 流量由具体适配器决定，不能破坏统一审计。
-- **MCP Gateway** 是所有业务工具的唯一入口，执行 Schema 固定、工具白名单、RBAC + ABAC、审批绑定、凭据交换、幂等、回读校验和审计。
-- **PostgreSQL** 保存业务任务、LangGraph Checkpoint、审批、工具执行账本和事务型 Outbox；Redis 不是任务事实源。
+- **LangGraph** 管理跨节点流程，包括条件路由、并行任务、暂停审批、Checkpoint、恢复和补偿。
+- **Agents SDK Adapter** 只在单个节点内运行受限 Agent，不另外保存一套业务状态。
+- **LiteLLM** 统一模型路由、预算和用量记录。模型调用仍要经过项目自己的端口和审计。
+- **MCP Gateway** 检查工具 Schema、调用者身份、租户、策略、审批和幂等键，再决定是否访问上游工具。
+- **PostgreSQL** 保存任务、Checkpoint、审批、执行账本和 Outbox。Redis 只负责可重建的队列信号、缓存和限流。
 
-OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有界 Agent 工作流，并提供 Agent loop、Handoff、Session、可恢复审批和 Trace。FlowPilot 仍在平台层负责跨业务状态、租户授权和合规审计，详见 [OpenAI Agents SDK](https://developers.openai.com/api/docs/guides/agents)。
+## 工程底线
 
-## 不可破坏的架构约束
-
-1. Agent 不得直接连接数据库、企业业务网络、密钥服务或上游 MCP Server。
-2. 模型只能提出动作，不能决定自身权限、审批结果或最终授权。
-3. 每次有副作用的工具调用都必须绑定 `tenant_id`、`task_id`、`action_digest`、`policy_decision_id` 和 `idempotency_key`。
-4. 审批只对确定的 `action_digest` 有效；参数、主体、工具、资源或策略版本变化后必须重新审批。
-5. LangGraph Interrupt 恢复会重新进入节点，因此 Interrupt 之前的副作用必须为零或天然幂等。
-6. Checkpoint 只保存恢复所需最小状态与安全上下文引用，不保存长期凭据或完整敏感资料。
-7. Handoff 后重新计算上下文和工具集合，不继承上游 Agent 的全部消息、凭据或权限。
-8. Trace 可以采样，Audit Log 与 Security Event 不可采样；三者都不得记录隐藏思维链或明文密钥。
-9. LLM-as-Judge 只评估语义质量，不能替代权限、安全、状态和工具结果的确定性断言。
-10. 跨租户成功读取和写入必须为 0。
-11. 所有量化结论必须关联代码版本、数据集版本、配置版本、原始结果和可复现命令。
+1. Agent 不能直连业务数据库、企业网络、密钥服务或上游 MCP Server。
+2. 模型可以建议动作，不能给自己授权，也不能决定审批结果和任务终态。
+3. 写操作必须带上租户、任务、动作摘要、策略决策和幂等键。
+4. 审批只对当时展示的动作有效。参数、执行人、工具或策略发生变化后要重新审批。
+5. Interrupt 恢复会再次进入节点，因此暂停前不能留下不可重复的副作用。
+6. Checkpoint 只保存恢复所需的数据，不保存长期凭据和完整敏感内容。
+7. Agent Handoff 时重新计算上下文和工具权限，不直接继承上一个 Agent 的全部消息与凭据。
+8. Trace 可以采样，Audit Log 和 Security Event 不能采样；三者都不能保存隐藏思维链或明文密钥。
+9. LLM-as-Judge 只评文本质量。权限是否正确、工具是否成功、数据是否落库都由代码和证据判断。
+10. 跨租户成功读取或写入必须为 0。
 
 ## 文档导航
 
@@ -140,26 +124,26 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | [ADR-0004](./docs/decisions/ADR-0004-reproducible-acceptance-and-freeze.md) | 稳定内容摘要、评测分母、Feature 证据与 Audit 哈希链 |
 | [原始方案总稿](./企业智能工单与流程协同平台项目方案（企业级优化版）.md) | 历史设计输入，不再作为实施唯一事实源 |
 
-## 验收优先，而不是数字优先
+## 怎么判断功能真的完成
 
-核心版本首先通过可观察的技术行为验收：
+FlowPilot 不用“模型看起来回答得不错”作为完成标准。下面这些行为必须能由测试或运行证据复现：
 
 - 进程重启后从持久化 Checkpoint 恢复。
 - 同一写动作重放十次只产生一次业务写入。
 - 审批后篡改任一参数会使审批失效。
 - 跨租户、越权 Agent、恶意 MCP 输出和 Prompt Injection 用例被阻断并产生安全事件。
-- 并行只读分支可在 Trace 中证明并发执行并正确汇总。
-- 每个知识结论包含可回查的文档、章节和版本。
-- 所有写操作都有策略决策、审批/确认、执行账本、回读结果和审计事件。
-- Handoff 后上下文与工具权限满足最小化策略。
+- Trace 能看出只读分支是否并行，以及结果如何汇总。
+- 知识回答能回查到文档、章节和版本。
+- 写操作能找到对应的策略决策、审批、执行账本、回读结果和审计事件。
+- Handoff 后只保留下一个 Agent 真正需要的上下文和工具。
 
-质量数字作为第二层证据：
+质量指标等产品链路接通后再计算：
 
 - 固定 120 条功能任务和 36 条安全/故障任务。
 - 单 Agent 基线与多 Agent 方案使用相同数据、模型预算和判定规则。
-- Context 裁剪对比记录每条样本的输入 Token，而不是只报告平均百分比。
-- LLM-as-Judge 结果必须与规则断言分开，并报告人工校准一致率。
-- LoRA 仅在 800 条路由样本具备来源、脱敏、分割与版本清单后启动。
+- Context 对比保留每条样本的输入 Token，不能只给一个平均降幅。
+- LLM-as-Judge 与规则断言分开统计，并报告人工校准结果。
+- 800 条路由样本具备来源、脱敏、数据切分和版本清单后，才开始 LoRA。
 
 详细门槛与证据格式见 [功能验收标准](./docs/acceptance/ACCEPTANCE.md)。
 

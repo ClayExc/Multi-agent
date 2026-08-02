@@ -176,6 +176,51 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 
 M0 Python Workspace 的依赖已经由 `uv.lock` 固定；其余技术栈仍在各工作包中逐步锁定。README 不提前承诺未经兼容性测试的具体版本。
 
+## 本地体验入口（当前能力）
+
+在 Windows PowerShell 中执行：
+
+```powershell
+uv sync --all-packages --all-groups --locked
+$env:PYTHONUTF8 = "1"
+$env:LANGSMITH_TRACING = "false"
+uv run --all-packages --all-groups --locked langgraph dev --config langgraph.json --host 127.0.0.1 --port 2024 --no-browser
+```
+
+命令启动后会输出本地 API、API Docs 与 LangGraph Studio URL。打开 Studio，选择
+`flowpilot_it_service`，输入 `{"scenario":"full_demo"}`，可以观察稳定图拓扑、
+clarification/approval 两次 Interrupt 与 Resume、并行只读分支、Handoff、一次重试、
+Checkpoint 序号和失败关闭状态。该入口固定使用 `studio-safe`：只运行合成状态和
+Fake 只读工具，不连接生产凭据、外部模型、企业系统或公网 Tunnel。
+
+可单独体验 FastAPI 外壳：
+
+```powershell
+uv run --all-packages --all-groups --locked python -m uvicorn flowpilot_api.main:app --host 127.0.0.1 --port 8000
+```
+
+打开 `http://127.0.0.1:8000/docs`。当前模块级 App 的 `/health` 与 OpenAPI 可用，
+但会返回 `configured=false`；业务命令和查询在 Security/Application/Persistence
+端口未完成组合装配时按设计失败关闭，不能把它当成完整工单后端。
+
+本地依赖平面可以从示例配置启动：
+
+```powershell
+Copy-Item .env.example .env
+docker compose --env-file .env -f infra/compose/compose.yaml up -d --wait
+docker compose --env-file .env -f infra/compose/compose.yaml ps
+```
+
+体验结束后运行：
+
+```powershell
+docker compose --env-file .env -f infra/compose/compose.yaml down
+```
+
+当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。Web UI、
+真实 Provider/企业系统、完整业务 API 组合、第二业务场景、120+36 真实执行报告和
+经人工双轮校准的 Judge 尚不可体验。
+
 ## 目标开发命令
 
 当前已经提供：

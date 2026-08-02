@@ -23,8 +23,9 @@ FINAL_USER_GATE_REQUIRED=yes
 ## 当前授权
 
 - Step 1 已由 S1 验收并以 `--ff-only` 集成至 `71afa72a4975a506796e1e02d8d475d142616652`。
-- 现授权 Step 2 按 [`WP-032`](../work-packages/WP-032-strict-type-hardening.md) 的三个互斥分片 `PARALLEL` 执行。
-- Step 3～6 仍由前一步 S1 验收结果逐步解锁，不允许提前写入。
+- Step 2 已由 S1 完成三分片组合验收，接受 Head 为 `e0bc54d8de50f0965163efb54247ce3f11b2d939`。
+- 现授权 S1 执行 Step 3 [`WP-033`](../work-packages/WP-033-contract-attestation-integrity.md)。
+- Step 4～6 仍由前一步 S1 验收结果逐步解锁，不允许提前写入。
 
 ## 停止条件
 

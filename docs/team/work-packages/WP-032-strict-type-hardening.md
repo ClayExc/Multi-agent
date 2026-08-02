@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：READY
+- 状态：ACCEPTED
 - Attempt ID：WP-032-a1
 - 风险等级：R1
 - 责任会话：S2-RUNTIME、S4-QUALITY、S5-CORE（互斥路径并行）
@@ -89,3 +89,11 @@ uv run --all-packages --all-groups --locked ruff check packages/application apps
 - 上述 116 源码文件严格 Mypy 为 0 errors。
 - 三个分片的测试与 Ruff 通过，且没有新增广义忽略。
 - S1 完成组合复核并记录后，才解锁 `M6-REM-03-S1-CONTRACT`。
+
+## S1 组合结论
+
+- S2/S4/S5 三个分片均来自同一激活提交，修改路径互斥且工作树干净。
+- Canonical strict Mypy：116 source files，0 errors。
+- 联合 Runtime/Experience/Core：274 passed。
+- 责任范围 Ruff 与 Contract Conformance：PASS。
+- 接受组合 Head：`e0bc54d8de50f0965163efb54247ce3f11b2d939`。

@@ -1,3 +1,7 @@
+# 历史占位产物（无效，不得用于校准）
+
+此表来自 Case 输入/Expected 代理流水线，不能通过 v2 verify。
+
 # Judge 盲测评审表（answer_relevance / judge.semantic.answer_relevance.v1）
 
 规则：对每个匿名样本判定 0（不合格）或 1（合格）；

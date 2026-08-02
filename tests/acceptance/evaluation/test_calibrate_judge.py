@@ -1,13 +1,6 @@
-"""FP-EVAL-004: blind-test Judge calibration runner tests.
-
-Covers the statistics (Wilson CI, Cohen's kappa, Youden threshold), the
-anonymized stratified blind-set construction, the calibration computation,
-and the committed artifacts (blind set reproducibility, calibration.json
-three required elements, M6 hash freeze consistency with executor trail).
-"""
-
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -16,315 +9,185 @@ import pytest
 
 from evals.runners.calibrate_judge import (
     BLIND_SET_PROFILE,
-    CALIBRATION_PROFILE,
-    EXECUTOR_IDENTITY,
-    FREEZE_PROFILE,
-    KAPPA_GATE,
     MIN_BLIND_SAMPLE_SIZE,
-    BlindSample,
-    ConfusionMatrix,
     build_blind_samples,
-    build_freeze_record,
-    cohens_kappa,
     compute_calibration,
-    default_verdicts,
-    iter_cases,
-    reference_label,
-    verify_freeze,
-    wilson_interval,
-    youden_threshold,
+    verify_artifacts,
 )
 
-ROOT = Path(__file__).resolve().parents[3]
-DATASETS = ROOT / "evals" / "datasets"
-RUNNERS = ROOT / "evals" / "runners"
+
+def digest(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
 
 
-# ---------------------------------------------------------------------------
-# Statistics
-# ---------------------------------------------------------------------------
-
-
-def test_wilson_interval_zero_and_full() -> None:
-    # Wilson(0, 10) upper bound: p=0, n=10, z=1.96 -> ~0.2775.
-    assert wilson_interval(0, 10) == (0.0, pytest.approx(0.2775, abs=1e-3))
-    assert wilson_interval(10, 10)[0] == pytest.approx(0.7225, abs=1e-3)
-    assert wilson_interval(0, 0) == (0.0, 0.0)
-    lo, hi = wilson_interval(15, 30)
-    assert 0.0 <= lo < 0.5 < hi <= 1.0
-
-
-def test_wilson_interval_contains_sample_proportion() -> None:
-    lo, hi = wilson_interval(3, 30)
-    assert lo <= 0.1 <= hi
-
-
-def test_cohens_kappa_perfect_and_negative() -> None:
-    assert cohens_kappa([1, 1, 0, 0], [1, 1, 0, 0]) == pytest.approx(1.0)
-    # Systematic disagreement cannot be chance: kappa must be < 0.
-    kappa = cohens_kappa([1, 1, 0, 0], [0, 0, 1, 1])
-    assert kappa is not None and kappa < 0
-    assert cohens_kappa([], []) is None
-
-
-def test_youden_threshold_perfect_separation() -> None:
-    scores = [0.9, 0.8, 0.7, 0.2, 0.1, 0.05]
-    labels = [1, 1, 1, 0, 0, 0]
-    threshold, youden = youden_threshold(scores, labels)
-    assert youden == pytest.approx(1.0)
-    assert 0.2 <= threshold <= 0.7
-
-
-def test_youden_threshold_degenerate_scores() -> None:
-    threshold, youden = youden_threshold([0.5, 0.5, 0.5], [1, 0, 1])
-    assert threshold == 0.5
-    assert youden == 0.0
-
-
-def test_confusion_matrix_from_labels() -> None:
-    matrix = ConfusionMatrix.from_labels([1, 1, 0, 0, 1], [1, 0, 0, 0, 1])
-    assert matrix.to_dict() == {"tp": 2, "fp": 1, "fn": 0, "tn": 2}
-
-
-# ---------------------------------------------------------------------------
-# Blind-set construction
-# ---------------------------------------------------------------------------
-
-
-def _make_case(
-    case_id: str,
-    suite: str,
-    category: str,
-    terminal_status: str,
-    *,
-    with_output: bool = True,
-) -> dict[str, Any]:
-    messages = [{"role": "user", "content": f"prompt for {case_id}"}]
-    if with_output:
-        messages.append({"role": "assistant", "content": f"answer for {case_id}"})
-    return {
-        "case_id": case_id,
-        "suite": suite,
-        "category": category,
-        "input": messages,
-        "expected": {"terminal_status": terminal_status},
-        "dataset_ref": {
-            "dataset_id": "synthetic-test",
-            "dataset_hash": "sha256:0000",
-        },
-    }
-
-
-def _write_synthetic_corpus(root: Path, count: int) -> None:
-    cases = root / "m6-incremental-a" / "cases" / "functional"
-    cases.mkdir(parents=True)
-    for index in range(count):
-        case = _make_case(
-            f"syn.func.{index:03d}",
-            "functional",
-            "clarification",
-            "COMPLETED" if index % 2 == 0 else "FAILED",
+def corpus(
+    tmp_path: Path, *, count: int = 30, suite: str = "functional", rubric: bool = True
+) -> tuple[Path, Path]:
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+    observations: list[dict[str, Any]] = []
+    for i in range(count):
+        output = f"observed answer {i}"
+        ref = f"case-{i}.txt"
+        (evidence / ref).write_text(output, encoding="utf-8")
+        observations.append(
+            {
+                "case": {
+                    "case_id": f"case-{i}",
+                    "suite": suite,
+                    "category": "clarification",
+                    "input": [{"role": "user", "content": "must not become output"}],
+                    "judge_rubrics": (
+                        [{"rubric_id": "judge.semantic.answer_relevance.v1"}]
+                        if rubric
+                        else []
+                    ),
+                },
+                "candidate_output": output,
+                "execution": {
+                    "case_id": f"case-{i}",
+                    "output_digest": digest(output),
+                    "assertion_results": {"deterministic": True},
+                    "evidence_refs": [ref],
+                },
+                "evidence_hashes": {ref: digest(output)},
+            }
         )
-        (cases / f"syn.func.{index:03d}.json").write_text(
-            json.dumps(case, ensure_ascii=False),
-            encoding="utf-8",
-        )
-
-
-def test_build_blind_samples_is_deterministic_and_anonymized() -> None:
-    samples = build_blind_samples(DATASETS, size=MIN_BLIND_SAMPLE_SIZE)
-    assert len(samples) == MIN_BLIND_SAMPLE_SIZE
-    rebuilt = build_blind_samples(DATASETS, size=MIN_BLIND_SAMPLE_SIZE)
-    assert [s.blind_id for s in samples] == [s.blind_id for s in rebuilt]
-    assert [s.source_case_id for s in samples] == [
-        s.source_case_id for s in rebuilt
-    ]
-    # Stratification: both suites must be represented.
-    assert {s.suite for s in samples} == {"functional", "safety_fault"}
-    # Anonymization: the Judge-visible projection leaks no identity.
-    for sample in samples:
-        projection = sample.anonymized()
-        assert "source_case_id" not in projection
-        assert "reference_label" not in projection
-        assert "dataset_hash" not in projection
-        assert "dataset_id" not in projection
-        assert sample.blind_id.startswith("blind.")
-
-
-def test_build_blind_samples_insufficient_corpus_raises(tmp_path: Path) -> None:
-    _write_synthetic_corpus(tmp_path / "datasets", 4)
-    with pytest.raises(ValueError, match="at least"):
-        build_blind_samples(
-            tmp_path / "datasets",
-            size=MIN_BLIND_SAMPLE_SIZE,
-        )
-
-
-def test_reference_label_uses_terminal_status() -> None:
-    assert reference_label(_make_case("a", "f", "c", "COMPLETED")) == 1
-    assert reference_label(_make_case("b", "f", "c", "FAILED")) == 0
-
-
-def test_iter_cases_covers_full_m6_corpus() -> None:
-    cases = list(iter_cases(DATASETS))
-    assert len(cases) >= 150  # 69 + 52 + 35 declared candidates
-
-
-# ---------------------------------------------------------------------------
-# Calibration computation
-# ---------------------------------------------------------------------------
-
-
-def test_compute_calibration_requires_min_samples(tmp_path: Path) -> None:
-    samples = [BlindSample(
-        blind_id="blind.001",
-        source_case_id="x",
-        suite="functional",
-        category="clarification",
-        input_messages=(("user", "q"),),
-        candidate_output="a",
-        reference_label=1,
-        dataset_id="t",
-        dataset_hash="h",
-    )]
-    with pytest.raises(ValueError, match="at least"):
-        compute_calibration(samples, {"blind.001": {"verdict": 1, "score": 1.0}})
-
-
-def test_compute_calibration_missing_verdicts_raises() -> None:
-    samples = build_blind_samples(DATASETS, size=MIN_BLIND_SAMPLE_SIZE)
-    verdicts = {s.blind_id: {"verdict": 1, "score": 1.0} for s in samples[:-1]}
-    with pytest.raises(ValueError, match="missing verdicts"):
-        compute_calibration(samples, verdicts)
-
-
-def test_compute_calibration_proxy_pipeline_shape() -> None:
-    samples = build_blind_samples(DATASETS, size=MIN_BLIND_SAMPLE_SIZE)
-    verdicts = default_verdicts(samples)
-    result = compute_calibration(samples, verdicts)
-    matrix = result.matrix
-    assert matrix.tp + matrix.fp + matrix.fn + matrix.tn == len(samples)
-    assert 0.0 <= result.accuracy <= 1.0
-    assert result.ci["accuracy"][0] <= result.accuracy <= result.ci["accuracy"][1]
-    assert set(result.thresholds) == {
-        "answer_relevance",
-        "summary_faithfulness",
-        "citation_support",
-        "clarification_quality",
-        "ticket_description_quality",
-    }
-    for _dimension, advice in result.thresholds.items():
-        assert "recommended_threshold" in advice
-        assert "youden_j" in advice
-        assert advice["rubric_id"].startswith("judge.semantic.")
-
-
-# ---------------------------------------------------------------------------
-# Committed artifact gates (reproducibility + required elements + freeze)
-# ---------------------------------------------------------------------------
-
-
-def test_committed_blind_set_is_reproducible() -> None:
-    labels_path = RUNNERS / "blind-set-labels.v1.json"
-    labels = json.loads(labels_path.read_text(encoding="utf-8"))
-    assert labels["profile"] == BLIND_SET_PROFILE
-    assert len(labels["labels"]) == MIN_BLIND_SAMPLE_SIZE
-    rebuilt = build_blind_samples(DATASETS, size=len(labels["labels"]))
-    committed = [value for value in labels["labels"].values()]
-    assert [s.to_dict() for s in rebuilt] == committed
-
-
-def test_committed_calibration_has_three_required_elements() -> None:
-    calibration = json.loads(
-        (RUNNERS / "calibration.json").read_text(encoding="utf-8")
+    path = tmp_path / "observations.json"
+    path.write_text(
+        json.dumps(
+            {
+                "profile": "flowpilot.acceptance-observations.v1",
+                "observations": observations,
+            }
+        ),
+        encoding="utf-8",
     )
-    assert calibration["profile"] == CALIBRATION_PROFILE
-    assert calibration["status"] == "placeholder_proxy"
-    assert calibration["judge_backend"] == "deterministic_proxy"
-    # 1) metrics, 2) threshold recommendations, 3) confidence intervals.
-    metrics = calibration["metrics"]
-    assert set(metrics) >= {
-        "confusion_matrix",
-        "accuracy",
-        "kappa",
-        "false_positive_rate",
-        "false_negative_rate",
-    }
-    assert calibration["threshold_recommendations"]
-    assert calibration["confidence_intervals"]["accuracy_95"]
-    assert calibration["blind_set"]["sample_count"] >= MIN_BLIND_SAMPLE_SIZE
-    # Uncalibrated placeholder must never claim the gate is met.
-    assert calibration["gate"] == {
-        "kappa_gate": KAPPA_GATE,
-        "gate_met": False,
-    }
+    return path, evidence
 
 
-def test_committed_freeze_is_consistent_with_datasets_and_calibration() -> None:
-    freeze = json.loads(
-        (RUNNERS / "m6-hash-freeze.v1.json").read_text(encoding="utf-8")
-    )
-    assert freeze["profile"] == FREEZE_PROFILE
-    assert freeze["status"] == "frozen"
-    # Dataset hashes still match the committed files.
-    assert verify_freeze(freeze, DATASETS) == []
-    # Calibration digest matches the committed calibration.json.
-    baseline = freeze["judge_baseline"]
-    assert baseline["calibration_ref"] == "evals/runners/calibration.json"
-    calibration_path = RUNNERS / "calibration.json"
-    from packages.evaluation.canonical import sha256_file
-
-    assert baseline["calibration_sha256"] == sha256_file(calibration_path)
-    assert baseline["kappa_gate"] == KAPPA_GATE
-    assert baseline["calibration_status"] == "placeholder_proxy"
-
-
-def test_freeze_record_carries_executor_registry_identity(
+def test_case_input_cannot_be_candidate_output_and_real_observation_required(
     tmp_path: Path,
 ) -> None:
-    calibration = json.loads(
-        (RUNNERS / "calibration.json").read_text(encoding="utf-8")
-    )
-    calibration_path = tmp_path / "calibration.json"
-    calibration_path.write_text(
-        json.dumps(calibration, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    freeze = build_freeze_record(
-        DATASETS,
-        calibration_path=calibration_path,
-        calibration_status="placeholder_proxy",
-    )
-    assert freeze["executor"]["agent_id"] == EXECUTOR_IDENTITY["agent_id"]
-    assert freeze["executor"]["agent_id"] == "g2"
-    assert freeze["executor"]["role"] == "S4-QUALITY eval-freezer"
-    assert freeze["executor"]["registered_by"] == "human:owner"
-    assert freeze["executor"]["identity_source"] == (
-        ".flow/agents.json (flow-lite registration registry)"
-    )
-    assert freeze["git"]["commit"]
-    assert freeze["git"]["branch"] == "flow-lite/g2-5"
-    assert set(freeze["datasets"]) == {
-        "flowpilot-m6-incremental-a-local",
-        "flowpilot-m6-incremental-b-local",
-        "flowpilot-m6-incremental-c-local",
+    path, root = corpus(tmp_path)
+    samples = build_blind_samples(path, evidence_root=root)
+    assert samples[0].candidate_output.startswith("observed answer")
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"profile": "dataset", "observations": []}))
+    with pytest.raises(ValueError, match="real Acceptance"):
+        build_blind_samples(bad, evidence_root=root)
+
+
+@pytest.mark.parametrize(
+    "mutation,message",
+    [("case", "case ID"), ("output", "output digest"), ("evidence", "evidence hash")],
+)
+def test_observation_bindings_fail_closed(
+    tmp_path: Path, mutation: str, message: str
+) -> None:
+    path, root = corpus(tmp_path)
+    doc = json.loads(path.read_text())
+    item = doc["observations"][0]
+    if mutation == "case":
+        item["execution"]["case_id"] = "wrong"
+    elif mutation == "output":
+        item["execution"]["output_digest"] = digest("wrong")
+    else:
+        item["evidence_hashes"]["case-0.txt"] = digest("wrong")
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match=message):
+        build_blind_samples(path, evidence_root=root)
+
+
+def test_failed_gate_and_nonsemantic_cases_do_not_enter_denominator(
+    tmp_path: Path,
+) -> None:
+    path, root = corpus(tmp_path, count=32)
+    doc = json.loads(path.read_text())
+    doc["observations"][0]["case"]["suite"] = "safety_fault"
+    doc["observations"][1]["case"]["judge_rubrics"] = []
+    doc["observations"][2]["execution"]["assertion_results"]["deterministic"] = False
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match="only 29"):
+        build_blind_samples(path, evidence_root=root)
+
+
+def labels(
+    samples: list[Any], value: int = 0, *, round_id: str = "r1"
+) -> dict[str, Any]:
+    return {
+        "reviewer_round_id": round_id,
+        "labels": {x.blind_id: (i + value) % 2 for i, x in enumerate(samples)},
     }
 
 
-def test_freeze_record_manifest_hash_roundtrip(tmp_path: Path) -> None:
-    calibration = json.loads(
-        (RUNNERS / "calibration.json").read_text(encoding="utf-8")
+def test_missing_second_round_disagreement_or_prediction_identity_fails(
+    tmp_path: Path,
+) -> None:
+    path, root = corpus(tmp_path)
+    samples = build_blind_samples(path, evidence_root=root)
+    first = labels(samples)
+    second = labels(samples, round_id="r2")
+    with pytest.raises(ValueError, match="second human"):
+        compute_calibration(
+            samples,
+            first,
+            {},
+            {"decisions": {}},
+            labels(samples, round_id="j")
+            | {"model_id": "m", "prompt_hash": digest("p")},
+        )
+    second["labels"][samples[0].blind_id] ^= 1
+    with pytest.raises(ValueError, match="adjudicated"):
+        compute_calibration(
+            samples,
+            first,
+            second,
+            {"decisions": {}},
+            labels(samples, round_id="j")
+            | {"model_id": "m", "prompt_hash": digest("p")},
+        )
+    with pytest.raises(ValueError, match="identity"):
+        compute_calibration(
+            samples,
+            first,
+            first | {"reviewer_round_id": "r2"},
+            {"decisions": {}},
+            labels(samples, round_id="j"),
+        )
+
+
+def test_complete_synthetic_calibration_and_proxy_no_effect(tmp_path: Path) -> None:
+    path, root = corpus(tmp_path)
+    samples = build_blind_samples(path, evidence_root=root)
+    first = labels(samples)
+    second = labels(samples, round_id="r2")
+    judge = labels(samples, round_id="judge") | {
+        "model_id": "synthetic-model",
+        "prompt_hash": digest("prompt"),
+        "backend": "offline_fixture",
+    }
+    result = compute_calibration(samples, first, second, {"decisions": {}}, judge)
+    assert result["status"] == "calibrated" and result["gate"]["gate_met"]
+    judge["backend"] = "proxy"
+    result = compute_calibration(samples, first, second, {"decisions": {}}, judge)
+    assert (
+        result["status"] == "USER_GATE_REQUIRED"
+        and result["aggregation_effect"] == "no_effect"
     )
-    calibration_path = tmp_path / "calibration.json"
-    calibration_path.write_text(
-        json.dumps(calibration, ensure_ascii=False),
-        encoding="utf-8",
+
+
+def test_legacy_committed_artifacts_are_explicit_placeholders() -> None:
+    root = Path(__file__).resolve().parents[3] / "evals" / "runners"
+    old_blind = json.loads((root / "blind-set.v1.json").read_text(encoding="utf-8"))
+    old_labels = json.loads(
+        (root / "blind-set-labels.v1.json").read_text(encoding="utf-8")
     )
-    freeze = build_freeze_record(
-        DATASETS,
-        calibration_path=calibration_path,
-        calibration_status="placeholder_proxy",
-    )
-    # The freeze record itself is self-consistent: verifying it against the
-    # live dataset tree must report zero violations.
-    assert verify_freeze(freeze, DATASETS) == []
+    old_cal = json.loads((root / "calibration.json").read_text(encoding="utf-8"))
+    errors = verify_artifacts(old_blind, old_labels, old_cal)
+    assert errors and any("legacy placeholder" in item for item in errors)
+    assert old_cal["status"] == "placeholder_proxy"
+
+
+def test_sample_minimum() -> None:
+    assert MIN_BLIND_SAMPLE_SIZE == 30 and BLIND_SET_PROFILE.endswith(".v2")

@@ -1,5 +1,6 @@
 {
   "profile": "flowpilot.judge-blind-set.v1",
+  "status": "historical_placeholder_invalid",
   "seed": 0,
   "sample_count": 30,
   "dimensions": [

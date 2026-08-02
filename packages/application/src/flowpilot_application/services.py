@@ -6,6 +6,7 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Protocol, cast
 
 from flowpilot_domain import (
     CommandType,
@@ -48,6 +49,37 @@ _CLASSIFICATION_RANK = {
     DataClassification.CONFIDENTIAL: 2,
     DataClassification.RESTRICTED: 3,
 }
+
+
+class _OutboxEventRecord(Protocol):
+    """Read-only event shape accepted from persistence delivery adapters."""
+
+    @property
+    def event_id(self) -> str: ...
+
+    @property
+    def tenant_id(self) -> str: ...
+
+    @property
+    def aggregate_type(self) -> str: ...
+
+    @property
+    def aggregate_id(self) -> str: ...
+
+    @property
+    def sequence(self) -> int: ...
+
+    @property
+    def event_type(self) -> str: ...
+
+    @property
+    def payload(self) -> Mapping[str, object]: ...
+
+    @property
+    def occurred_at(self) -> datetime: ...
+
+    @property
+    def available_at(self) -> datetime: ...
 
 
 class TaskQueryService:
@@ -541,7 +573,7 @@ class TaskEventSubscriptionService:
     @staticmethod
     def _as_view(delivery: object) -> OutboxEventView:
         """Normalize a persistence delivery (OutboxDelivery or view)."""
-        event = getattr(delivery, "event", delivery)
+        event = cast(_OutboxEventRecord, getattr(delivery, "event", delivery))
         if isinstance(event, OutboxEventView):
             return event
         return OutboxEventView(

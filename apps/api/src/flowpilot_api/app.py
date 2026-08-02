@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -19,6 +19,7 @@ from flowpilot_application import (
     TaskQueryService,
 )
 from flowpilot_domain import (
+    ApprovalStatus,
     CommandType,
     DomainErrorCode,
     DomainViolation,
@@ -311,10 +312,23 @@ def _approval_decision_body(
         approval_id=result.approval_id,
         tenant_id=result.tenant_id,
         task_id=result.task_id,
-        status=result.status.value,
+        status=_approval_status_value(result.status),
         action_digest=result.action_digest,
         decided_at=result.decided_at,
     )
+
+
+def _approval_status_value(
+    status: ApprovalStatus,
+) -> Literal["approved", "rejected", "revoked"]:
+    """Narrow a decided domain status to the public response literal."""
+    if status is ApprovalStatus.APPROVED:
+        return "approved"
+    if status is ApprovalStatus.REJECTED:
+        return "rejected"
+    if status is ApprovalStatus.REVOKED:
+        return "revoked"
+    raise ValueError("approval decision result has not reached a decision status")
 
 
 def _task_body(task: Task) -> TaskBody:

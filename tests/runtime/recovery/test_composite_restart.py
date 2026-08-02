@@ -26,7 +26,6 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
-
 from onboarding_harness import (
     MANAGER,
     TENANT_A,
@@ -77,7 +76,6 @@ async def _run_to_approval_via_worker(
     harness.resolver.set_fields(ref2, {"start_date": "2026-09-01"})
     await RuntimeExecutionAdapter(queue).submit(build_submit_command(task_id, ref2))
     third = await worker.run_once()
-    st3 = third.graph_outcome.state if third.graph_outcome else None
     assert third.graph_outcome is not None
     assert third.graph_outcome.state.status is GraphStatus.WAITING_APPROVAL
     return third

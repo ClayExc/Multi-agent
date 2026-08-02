@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable, Mapping, Sequence
-from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Protocol, TypedDict, cast
@@ -74,9 +73,9 @@ from langgraph.types import Command, interrupt
 
 from .vpn import (
     _ACTIVE_INVOCATION,
+    _append_unique,
     _Invocation,
     _VpnFailure,
-    _append_unique,
 )
 
 TICKET_TOOL_NAME = "ticket.update.v1"

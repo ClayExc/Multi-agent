@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 # The worker package imports its VPN graph which needs the tool-contracts
@@ -31,8 +31,8 @@ for _source in (
     if str(_source) not in sys.path:
         sys.path.insert(0, str(_source))
 
-import pytest
-from flowpilot_agent_runtime import (
+import pytest  # noqa: E402
+from flowpilot_agent_runtime import (  # noqa: E402
     AgentProfile,
     FakeAgentRuntime,
     FakeOutcome,
@@ -40,9 +40,9 @@ from flowpilot_agent_runtime import (
     ProviderSelection,
     RuntimeBudget,
 )
-from flowpilot_context import ContextBuilder, ContextPolicy
-from flowpilot_domain import Task, TaskCommand
-from flowpilot_graph import (
+from flowpilot_context import ContextBuilder, ContextPolicy  # noqa: E402
+from flowpilot_domain import Task, TaskCommand  # noqa: E402
+from flowpilot_graph import (  # noqa: E402
     GraphError,
     GraphErrorCode,
     GraphNode,
@@ -51,13 +51,13 @@ from flowpilot_graph import (
     RuntimeGraphConfig,
     RuntimeGraphKernel,
 )
-from flowpilot_graph.langgraph_runtime import LangGraphRuntime
-from flowpilot_persistence import (
+from flowpilot_graph.langgraph_runtime import LangGraphRuntime  # noqa: E402
+from flowpilot_persistence import (  # noqa: E402
     MemoryDatabase,
     MemoryDataUnitOfWorkFactory,
     OutboxEvent,
 )
-from flowpilot_worker import (
+from flowpilot_worker import (  # noqa: E402
     InMemoryExecutionQueue,
     PersistenceCheckpointAdapter,
     PersistenceLeaseAdapter,

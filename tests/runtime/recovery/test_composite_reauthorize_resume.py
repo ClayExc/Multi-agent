@@ -28,7 +28,6 @@ from flowpilot_domain import (
     ActionTool,
     ActorType,
     Approval,
-    ApprovalStatus,
     AssuranceLevel,
     AuthenticationMethod,
     AuthenticationRef,
@@ -41,8 +40,6 @@ from flowpilot_domain import (
 from flowpilot_graph import GraphError, GraphErrorCode, GraphStatus
 from flowpilot_mcp_gateway import (
     AuditDraft,
-    GatewayAdapterDisposition,
-    GatewayAdapterError,
     GatewayDependencies,
     GatewayInvocation,
     McpGateway,
@@ -58,7 +55,6 @@ from flowpilot_persistence import MemoryDatabase, MemoryDataUnitOfWorkFactory
 from flowpilot_policy import (
     ApprovalVerifier,
     PolicyDecision,
-    PolicyDecisionKind,
     PolicyEnforcer,
     ResolvedPolicyDecision,
 )
@@ -69,7 +65,6 @@ from flowpilot_security import (
     TrustedSecurityContext,
 )
 from flowpilot_tool_contracts import AgentPrincipal, ToolContract, ToolRequest
-
 from onboarding_harness import (
     MANAGER,
     TENANT_A,
@@ -369,44 +364,6 @@ def _build_gateway_harness(*, run_id: str) -> _GatewayHarness:
     policy_record = ResolvedPolicyDecision.create(
         decision=decision,
         input_preimage={"fixture": "input"},
-    )
-    request = ToolRequest.from_mapping(
-        {
-            "request_id": "treq_alpha0001",
-            "trace_id": "trace_alpha0000001",
-            "security_context": context.to_mapping(),
-            "agent_principal": AgentPrincipal(
-                id=AGENT_ID,
-                version=AGENT_VERSION,
-                principal_ref=AGENT_PRINCIPAL,
-            ).to_mapping(),
-            "planned_action": action.to_mapping(),
-            "action_digest": action_digest,
-            "policy_decision_id": decision.decision_id,
-            "idempotency_key": canonical_sha256(
-                {"tenant": TENANT, "tool": action.tool.name, "logical": 1}
-            ),
-            "approval_id": None,
-            "requested_at": NOW.isoformat().replace("+00:00", "Z"),
-        }
-    )
-    workload = AuthenticatedWorkload(
-        agent_id=AGENT_ID,
-        agent_version=AGENT_VERSION,
-        principal_ref=AGENT_PRINCIPAL,
-        audience=AUDIENCE,
-        tenant_ids=frozenset({TENANT}),
-        purposes=frozenset({PURPOSE}),
-        allowed_tools=frozenset({action.tool.name}),
-        issued_at=NOW - timedelta(minutes=5),
-        expires_at=NOW + timedelta(hours=1),
-    )
-    invocation = GatewayInvocation(
-        request=request,
-        workload=workload,
-        thread_id="thread_alpha0001",
-        run_id=run_id,
-        correlation_id="corr-alpha-0001",
     )
     credentials = _CredentialBroker()
     registry = ToolRegistry(

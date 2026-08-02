@@ -23,16 +23,14 @@ from flowpilot_graph import (
     TICKET_CREATE_TOOL,
     GraphStatus,
 )
-
 from onboarding_harness import (
     MANAGER,
-    OnboardingCrash,
     TENANT_A,
+    OnboardingCrash,
     build_approval_from_card,
     build_decide_command,
     build_harness,
     execute,
-    interrupt_card,
     rebuild_harness,
     run_until_approval,
 )

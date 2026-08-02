@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
 
 from flowpilot_context import ContextBuilder
 from flowpilot_graph import (
@@ -81,7 +80,7 @@ class OnboardingDurableGraphFactory:
 
     @staticmethod
     def as_durable_factory(
-        factory: "OnboardingDurableGraphFactory",
+        factory: OnboardingDurableGraphFactory,
     ) -> DurableGraphFactory:
         """Narrow to the durable-runtime protocol (explicit typing aid)."""
         return factory

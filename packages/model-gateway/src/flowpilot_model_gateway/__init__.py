@@ -9,12 +9,12 @@ from .gateway import (
     ProviderRoute,
 )
 from .sandbox import (
-    SANDBOX_PROVIDER,
     SandboxProvider,
     SandboxScenario,
     sandbox_proposal,
 )
 from .wire import (
+    SANDBOX_PROVIDER,
     ConformanceCheck,
     ProviderConformanceReport,
     ProviderPort,

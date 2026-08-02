@@ -1148,20 +1148,21 @@ class OnboardingCompositeGraph(GraphExecutionPort):
                 f"{outcome.get('evidence_ref') or outcome.get('action_id')}"
             )
         content = "\n".join(lines)
+        citations: list[Mapping[str, str]] = [
+            {
+                "source_ref": ticket,
+                "document_version": "1.0",
+                "section": "ticket",
+                "content_hash": canonical_sha256({"ticket": ticket}),
+            }
+            for ticket in tickets
+        ]
         projection = {
             "tenant_id": command.tenant_id,
             "task_id": command.task_id,
             "media_type": "text/markdown",
             "content": content,
-            "citations": [
-                {
-                    "source_ref": ticket,
-                    "document_version": "1.0",
-                    "section": "ticket",
-                    "content_hash": canonical_sha256({"ticket": ticket}),
-                }
-                for ticket in tickets
-            ],
+            "citations": citations,
         }
         draft = OnboardingArtifactDraft(
             tenant_id=command.tenant_id,
@@ -1176,7 +1177,7 @@ class OnboardingCompositeGraph(GraphExecutionPort):
             media_type="text/markdown",
             content=content,
             result_digest=canonical_sha256(projection),
-            citations=tuple(projection["citations"]),
+            citations=tuple(citations),
         )
         receipt = await self._artifacts.save(draft)
         if receipt.result_ref is None:

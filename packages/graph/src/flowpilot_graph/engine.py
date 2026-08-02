@@ -663,7 +663,7 @@ class RuntimeGraphKernel:
 
     def _budget_exhausted(
         self,
-        context: ContextEnvelope | None = None,
+        context: ContextEnvelope | GraphState | None = None,
         *,
         request_id: str | None = None,
         reason_code: str | None = None,

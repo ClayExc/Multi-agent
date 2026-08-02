@@ -2843,5 +2843,92 @@
       "expect_schema_valid": false,
       "expect_valid": false
     }
+  ],
+  "review_attestation_cases": [
+    {
+      "case_id": "review_attestation.valid",
+      "attestation": "# Review fixture\n\n```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=PASS\nBLOCKERS:\n- none\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": true
+    },
+    {
+      "case_id": "review_attestation.role_mismatch.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=PASS\n```\n",
+      "role": "S3-PLATFORM",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.verdict_mismatch.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=PASS\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "REJECT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.digest_mismatch.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=PASS\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.required_field_missing.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.duplicate_field.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nSESSION_ROLE=S3-PLATFORM\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=PASS\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
+    }
+  ],
+  "retired_review_attestation_cases": [
+    {
+      "case_id": "retired_review_attestation.s2.semantic_invalid",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S2-RUNTIME.md",
+      "expect_valid": false
+    },
+    {
+      "case_id": "retired_review_attestation.s3.semantic_invalid",
+      "role": "S3-PLATFORM",
+      "decision": "ACCEPT",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S3-PLATFORM.md",
+      "expect_valid": false
+    },
+    {
+      "case_id": "retired_review_attestation.s4.semantic_invalid",
+      "role": "S4-QUALITY",
+      "decision": "ACCEPT",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S4-QUALITY.md",
+      "expect_valid": false
+    },
+    {
+      "case_id": "retired_review_attestation.s5.semantic_invalid",
+      "role": "S5-CORE",
+      "decision": "ACCEPT",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S5-CORE.md",
+      "expect_valid": false
+    },
+    {
+      "case_id": "retired_review_attestation.s6.semantic_invalid",
+      "role": "S6-DATA",
+      "decision": "ACCEPT",
+      "evidence_ref": "docs/review/attestations/RC2-0A82-S6-DATA.md",
+      "expect_valid": false
+    }
   ]
 }

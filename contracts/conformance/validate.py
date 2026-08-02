@@ -124,11 +124,120 @@ CONTRACT_CONTENT_FIELDS = (
     "release_dependencies",
 )
 
+REVIEW_ATTESTATION_FIELDS = (
+    "SESSION_ROLE",
+    "VERDICT",
+    "REVIEWED_CONTENT_DIGEST",
+    "GATE",
+)
+
 
 def contract_content_digest(manifest: dict[str, Any]) -> str:
     return canonical_digest(
         {field: manifest[field] for field in CONTRACT_CONTENT_FIELDS}
     )
+
+
+def parse_review_attestation(text: str, source: str) -> dict[str, str]:
+    """Parse the single machine-readable block in a Review Attestation."""
+
+    lines = text.splitlines()
+    starts = [index for index, line in enumerate(lines) if line == "```text"]
+    if len(starts) != 1:
+        raise AssertionError(
+            f"review attestation must contain exactly one ```text block: {source}"
+        )
+    start = starts[0]
+    try:
+        end = lines.index("```", start + 1)
+    except ValueError as exc:
+        raise AssertionError(
+            f"review attestation text block is not closed: {source}"
+        ) from exc
+
+    values: dict[str, str] = {}
+    for line in lines[start + 1 : end]:
+        for field in REVIEW_ATTESTATION_FIELDS:
+            prefix = f"{field}="
+            if not line.startswith(prefix):
+                continue
+            if field in values:
+                raise AssertionError(
+                    f"duplicate review attestation field {field}: {source}"
+                )
+            value = line[len(prefix) :]
+            if not value or value != value.strip():
+                raise AssertionError(
+                    f"invalid review attestation field {field}: {source}"
+                )
+            values[field] = value
+
+    missing = [field for field in REVIEW_ATTESTATION_FIELDS if field not in values]
+    if missing:
+        raise AssertionError(
+            f"missing review attestation fields {missing}: {source}"
+        )
+    return values
+
+
+def review_attestation_content_errors(
+    text: str,
+    *,
+    source: str,
+    role: str,
+    decision: str,
+    reviewed_content_digest: str,
+) -> list[str]:
+    """Bind evidence content to the manifest Review identity and decision."""
+
+    try:
+        values = parse_review_attestation(text, source)
+    except AssertionError as exc:
+        return [str(exc)]
+    errors: list[str] = []
+    expected = {
+        "SESSION_ROLE": role,
+        "VERDICT": decision,
+        "REVIEWED_CONTENT_DIGEST": reviewed_content_digest,
+    }
+    for field, expected_value in expected.items():
+        if values[field] != expected_value:
+            errors.append(
+                f"review attestation {field} mismatch: "
+                f"expected {expected_value}, got {values[field]} ({source})"
+            )
+    return errors
+
+
+def review_evidence_errors(review: dict[str, Any]) -> list[str]:
+    """Validate a non-pending Review evidence path, hash, and content."""
+
+    role = str(review["role"])
+    evidence_ref = review.get("evidence_ref")
+    if not isinstance(evidence_ref, str) or not evidence_ref:
+        return [f"review evidence reference missing: {role}"]
+    evidence_path = (ROOT / evidence_ref).resolve()
+    if not evidence_path.is_relative_to(ROOT) or not evidence_path.is_file():
+        return [f"review evidence missing: {role}"]
+    errors: list[str] = []
+    if review.get("evidence_sha256") != sha256(evidence_path):
+        errors.append(f"review evidence hash mismatch: {role}")
+    try:
+        require_portable_hash_source(evidence_path)
+        text = evidence_path.read_text(encoding="utf-8")
+    except (AssertionError, OSError, UnicodeError) as exc:
+        errors.append(f"review evidence is not portable UTF-8: {role}: {exc}")
+        return errors
+    errors.extend(
+        review_attestation_content_errors(
+            text,
+            source=evidence_ref,
+            role=role,
+            decision=str(review["decision"]),
+            reviewed_content_digest=str(review["reviewed_content_digest"]),
+        )
+    )
+    return errors
 
 
 def require_portable_hash_source(path: Path) -> None:
@@ -224,11 +333,9 @@ def main() -> int:
             continue
         if review["reviewed_content_digest"] != manifest["content_digest"]:
             raise AssertionError(f"review digest mismatch: {review['role']}")
-        evidence_path = (ROOT / review["evidence_ref"]).resolve()
-        if not evidence_path.is_relative_to(ROOT) or not evidence_path.is_file():
-            raise AssertionError(f"review evidence missing: {review['role']}")
-        if review["evidence_sha256"] != sha256(evidence_path):
-            raise AssertionError(f"review evidence hash mismatch: {review['role']}")
+        evidence_errors = review_evidence_errors(review)
+        if evidence_errors:
+            raise AssertionError(evidence_errors[0])
     if manifest["status"] == "frozen" and any(
         review["decision"] != "ACCEPT" for review in manifest["reviews"]
     ):
@@ -1306,8 +1413,20 @@ def main() -> int:
 
     manifest_cases = suite.get("manifest_semantic_cases", [])
     manifest_ids = [case["case_id"] for case in manifest_cases]
+    attestation_cases = suite.get("review_attestation_cases", [])
+    attestation_ids = [case["case_id"] for case in attestation_cases]
+    retired_attestation_cases = suite.get("retired_review_attestation_cases", [])
+    retired_attestation_ids = [
+        case["case_id"] for case in retired_attestation_cases
+    ]
     require_unique(
-        case_ids + mutation_ids + semantic_ids + audit_chain_ids + manifest_ids,
+        case_ids
+        + mutation_ids
+        + semantic_ids
+        + audit_chain_ids
+        + manifest_ids
+        + attestation_ids
+        + retired_attestation_ids,
         "all conformance case_id",
     )
     manifest_positive = manifest_negative = 0
@@ -1320,14 +1439,7 @@ def main() -> int:
             if review["decision"] != "PENDING":
                 if review["reviewed_content_digest"] != instance["content_digest"]:
                     errors.append(f"review digest mismatch: {review['role']}")
-                evidence_path = (ROOT / review["evidence_ref"]).resolve()
-                if (
-                    not evidence_path.is_relative_to(ROOT)
-                    or not evidence_path.is_file()
-                ):
-                    errors.append(f"review evidence missing: {review['role']}")
-                elif review["evidence_sha256"] != sha256(evidence_path):
-                    errors.append(f"review evidence hash mismatch: {review['role']}")
+                errors.extend(review_evidence_errors(review))
         for (
             dependency_name,
             (source_path, source_instance),
@@ -1394,6 +1506,49 @@ def main() -> int:
         manifest_positive += int(actual_valid)
         manifest_negative += int(not actual_valid)
 
+    attestation_positive = attestation_negative = 0
+    for case in attestation_cases:
+        errors = review_attestation_content_errors(
+            case["attestation"],
+            source=f"inline:{case['case_id']}",
+            role=case["role"],
+            decision=case["decision"],
+            reviewed_content_digest=case["reviewed_content_digest"],
+        )
+        actual_valid = not errors
+        if actual_valid != case["expect_valid"]:
+            raise AssertionError(
+                f"{case['case_id']}: review attestation expectation mismatch: "
+                f"{errors}"
+            )
+        attestation_positive += int(actual_valid)
+        attestation_negative += int(not actual_valid)
+
+    retired_attestation_positive = retired_attestation_negative = 0
+    for case in retired_attestation_cases:
+        evidence_path = (ROOT / case["evidence_ref"]).resolve()
+        if not evidence_path.is_relative_to(ROOT) or not evidence_path.is_file():
+            raise AssertionError(
+                f"{case['case_id']}: retired attestation fixture missing"
+            )
+        review = {
+            "role": case["role"],
+            "decision": case["decision"],
+            "reviewed_content_digest": manifest["content_digest"],
+            "reviewed_at": "2026-08-02T00:00:00Z",
+            "evidence_ref": case["evidence_ref"],
+            "evidence_sha256": sha256(evidence_path),
+        }
+        errors = review_evidence_errors(review)
+        actual_valid = not errors
+        if actual_valid != case["expect_valid"]:
+            raise AssertionError(
+                f"{case['case_id']}: retired review attestation expectation "
+                f"mismatch: {errors}"
+            )
+        retired_attestation_positive += int(actual_valid)
+        retired_attestation_negative += int(not actual_valid)
+
     print(
         "CONTRACT_CONFORMANCE_OK "
         f"schemas={len(schemas)} cases={len(suite['cases'])} "
@@ -1407,6 +1562,12 @@ def main() -> int:
         f"audit_chain_negative={audit_chain_negative} "
         f"manifest_cases={len(manifest_cases)} "
         f"manifest_positive={manifest_positive} manifest_negative={manifest_negative} "
+        f"review_attestation_cases={len(attestation_cases)} "
+        f"review_attestation_positive={attestation_positive} "
+        f"review_attestation_negative={attestation_negative} "
+        f"retired_review_attestation_cases={len(retired_attestation_cases)} "
+        f"retired_review_attestation_positive={retired_attestation_positive} "
+        f"retired_review_attestation_negative={retired_attestation_negative} "
         f"features={len(feature_ids)}"
     )
     return 0

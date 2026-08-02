@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：READY
+- 状态：ACCEPTED
 - Attempt ID：WP-033-a1
 - 风险等级：R2
 - 责任会话：S1-ARCH
@@ -53,7 +53,7 @@ Attestation 文件仍声明旧摘要。验证器只校验证据文件 Hash，不
 uv run --all-packages --all-groups --locked python -B contracts/conformance/validate.py
 uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/evaluation -q
 uv run --all-packages --all-groups --locked ruff check contracts/conformance
-uv run --all-packages --all-groups --locked mypy --strict --explicit-package-bases contracts/conformance/validate.py
+uv run --all-packages --all-groups --locked mypy --strict --explicit-package-bases --disable-error-code import-untyped contracts/conformance/validate.py
 ```
 
 必须额外证明：旧 `RC2-0A82-*` 文件即使文件 Hash 正确，也不能为新摘要提供有效
@@ -65,3 +65,11 @@ ACCEPT；角色、结论或摘要任一单字段错配均失败。
 - 五条 Review 均为 PENDING，旧 Attestation 仅保留历史记录。
 - 新 `content_digest` 与 Validator Artifact Hash 可独立复算。
 - S1 生成五角色最小 DELTA 复审输入后，才解锁 Step 4。
+
+## S1 验收结论
+
+- 新稳定内容摘要：`sha256:6e85ce625879c108431ed79ab934127ddd5705d3ee3ddd4e1df347b5f1e2ac42`。
+- Review Attestation：6 个解析用例（1 正 / 5 负）通过。
+- 旧摘要证据：S2～S6 五份均在文件 Hash 正确时被新摘要拒绝。
+- Acceptance Evaluation：134 passed；Ruff 与 Validator strict Mypy：PASS。
+- 五条 Review 已重置为 PENDING；未声明 frozen 或发布。

@@ -1,7 +1,7 @@
 # WP-000 rc2 集成就绪报告
 
 > 历史报告：本文件记录 `0a82…` 实现基线。当前候选及旧审签失效处置见
-> [`WP-000-RC2-REVIEW-6E85CE62.md`](./WP-000-RC2-REVIEW-6E85CE62.md)。
+> [`WP-000-RC2-REVIEW-1CAD07BD.md`](./WP-000-RC2-REVIEW-1CAD07BD.md)。
 
 ## 1. 当前裁决
 

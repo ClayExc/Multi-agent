@@ -206,6 +206,17 @@ def review_attestation_content_errors(
                 f"review attestation {field} mismatch: "
                 f"expected {expected_value}, got {values[field]} ({source})"
             )
+    gate = values["GATE"]
+    gate_is_valid = gate in {"PASS", "FAIL"} or (
+        gate.startswith("NOT_RUN:") and bool(gate.removeprefix("NOT_RUN:").strip())
+    )
+    if not gate_is_valid:
+        errors.append(f"invalid review attestation GATE: {gate} ({source})")
+    if decision in {"ACCEPT", "ACCEPT_WITH_RFC"} and gate != "PASS":
+        errors.append(
+            f"review attestation {decision} requires GATE=PASS, got {gate} "
+            f"({source})"
+        )
     return errors
 
 

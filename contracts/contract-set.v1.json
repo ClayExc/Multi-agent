@@ -3,7 +3,7 @@
   "contract_set_id": "flowpilot-m0-contracts-v1-rc2",
   "version": "1.0.0-rc.2",
   "digest_profile": "flowpilot.contract-set-content-rfc8785-sha256-v1",
-  "content_digest": "sha256:6e85ce625879c108431ed79ab934127ddd5705d3ee3ddd4e1df347b5f1e2ac42",
+  "content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
   "status": "candidate",
   "published_on": "2026-07-28",
   "frozen_at": null,
@@ -211,12 +211,12 @@
     {
       "name": "ContractConformanceCases",
       "path": "conformance/rc2-cases.json",
-      "sha256": "sha256:f9b3982ac646512bf7ff5c7ee434a0237cc7f436556d4a41bf21f741422d95b7"
+      "sha256": "sha256:81c30ce7303f68c3f6e2beccc5961c2bdbde50ca9dfa2e5d5a3ad4b9281a3527"
     },
     {
       "name": "ContractConformanceValidator",
       "path": "conformance/validate.py",
-      "sha256": "sha256:482478ff70e743d7ec5830fe15eab1149b346d35b1da6ab9dfbf57f2e7dbfe04"
+      "sha256": "sha256:950960bfab43e809c4b93a9bc0bddf5c112053b0eeab72b040e5690f8c056256"
     },
     {
       "name": "FeatureTraceabilityInstance",

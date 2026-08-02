@@ -1,4 +1,4 @@
-# WP-034：rc2 `6e85ce62` 五角色 DELTA 复审
+# WP-034：rc2 `1cad07bd` 五角色 DELTA 复审
 
 ## 元数据
 
@@ -12,7 +12,7 @@
 - 执行模式：READ_ONLY_PARALLEL
 - Chain ID：CHAIN-M6-ACCEPTANCE-REMEDIATION-01
 - Step ID：M6-REM-04-REVIEWS
-- 目标摘要：`sha256:6e85ce625879c108431ed79ab934127ddd5705d3ee3ddd4e1df347b5f1e2ac42`
+- 目标摘要：`sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`
 
 ## 目标
 
@@ -21,7 +21,7 @@
 
 ## 输入
 
-- [`RC2_DELTA_REVIEW_6E85CE62.md`](../RC2_DELTA_REVIEW_6E85CE62.md)
+- [`RC2_DELTA_REVIEW_1CAD07BD.md`](../RC2_DELTA_REVIEW_1CAD07BD.md)
 - `contracts/contract-set.v1.json`
 - `contracts/conformance/validate.py`
 - `contracts/conformance/rc2-cases.json`

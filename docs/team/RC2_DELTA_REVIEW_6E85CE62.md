@@ -1,5 +1,8 @@
 # FlowPilot rc2 `6e85ce62` 五角色 DELTA 复审
 
+> 已拒绝并停止：S3/S4 发现正向 Verdict 未绑定 `GATE=PASS`。当前唯一目标为
+> [`RC2_DELTA_REVIEW_1CAD07BD.md`](./RC2_DELTA_REVIEW_1CAD07BD.md)。
+
 ## 固定目标
 
 ```text

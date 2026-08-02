@@ -68,8 +68,9 @@ ACCEPT；角色、结论或摘要任一单字段错配均失败。
 
 ## S1 验收结论
 
-- 新稳定内容摘要：`sha256:6e85ce625879c108431ed79ab934127ddd5705d3ee3ddd4e1df347b5f1e2ac42`。
-- Review Attestation：6 个解析用例（1 正 / 5 负）通过。
+- 新稳定内容摘要：`sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`。
+- Review Attestation：10 个解析用例（2 正 / 8 负）通过；正向结论必须绑定 `GATE=PASS`。
 - 旧摘要证据：S2～S6 五份均在文件 Hash 正确时被新摘要拒绝。
 - Acceptance Evaluation：134 passed；Ruff 与 Validator strict Mypy：PASS。
 - 五条 Review 已重置为 PENDING；未声明 frozen 或发布。
+- `6e85ce62…` 首轮复审被 S3/S4 拒绝；其 `GATE` 绑定缺口已修复，旧结论不迁移。

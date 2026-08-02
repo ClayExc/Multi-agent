@@ -2892,6 +2892,38 @@
       "decision": "ACCEPT",
       "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
       "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.reject_with_passing_gate.valid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=REJECT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=PASS\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "REJECT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": true
+    },
+    {
+      "case_id": "review_attestation.accept_with_failed_gate.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=FAIL\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.accept_with_unrun_gate.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=ACCEPT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=NOT_RUN:dependency missing\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "ACCEPT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
+    },
+    {
+      "case_id": "review_attestation.unknown_gate.semantic_invalid",
+      "attestation": "```text\nSESSION_ROLE=S2-RUNTIME\nVERDICT=REJECT\nREVIEWED_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc\nGATE=MAYBE\n```\n",
+      "role": "S2-RUNTIME",
+      "decision": "REJECT",
+      "reviewed_content_digest": "sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc",
+      "expect_valid": false
     }
   ],
   "retired_review_attestation_cases": [

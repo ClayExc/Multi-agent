@@ -4,24 +4,27 @@
 
 ## 仓库状态
 
-当前已合并 **Architecture Baseline v1.0、M1 平台、M2 Studio、P1 VPN 只读闭环与 P2 持久化恢复闭环**。P2 已通过 S7 RELEASE、S1 FAST final、用户合并门禁和主分支复验；下一开发链尚未启动。真实 Provider、安全工单写入、Web、第二业务场景与 120+36 冻结评测仍未完成。当前结果不是发布级 `frozen`，也没有可用于简历的性能或质量提升数据。项目当前状态、证据、运行方式和后续计划统一见 [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md)。
+当前主分支已经完成 **M0～M6 工程候选**：公共契约与 Python Workspace、安全 MCP 平台、LangGraph Studio、持久化恢复、VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结均已进入仓库。
+
+这里的“完成”指代码、测试和候选证据已经合入，不等于产品发布。当前仍缺少真实模型 Provider、Web/API/Worker/数据平面的完整装配、真实企业 Connector 和 156 条任务的产品执行器；因此 `RELEASED=false`、整体 `FROZEN=false`。`make acceptance` 已经存在，但在没有注册产品执行器时会按设计失败，不能据此报告任务成功率。
+
+下一阶段采用 M7～M10 路线，先把现有模块接成可以实际使用和观察的本地产品，再完成两条业务闭环和正式评测。首个真实模型入口确定为 **LiteLLM + DeepSeek V4 Flash**；具体 LiteLLM 模型标识和供应端配置将在 M7 实现时锁定并验证。完整状态和证据入口见 [项目交接总览](./docs/roadmap/PROJECT_HANDOFF.md)。
 
 | 能力 | 当前状态 | 可宣称范围 | 
 |---|---|---|
-| 产品范围、目标架构、信任边界 | 已设计 | 可使用“设计” |
-| README、目标目录与模块依赖 | 已基线化 | 可使用“规划” |
-| 功能与安全验收标准 | 已定义 | 可使用“定义验收” |
-| M0 公共 JSON Schema | rc1 已拒绝；rc2 五角色同摘要 ACCEPT，本提交激活实现基线 | 可使用“rc2 实现基线已激活”，不可使用“已冻结” |
-| Python Workspace、Domain/Application/API 骨架 | M0 九包 Workspace/Lock 已组合验证 | 可描述领域与应用端口骨架，不代表完整 API 业务闭环 |
-| 离线评测、证据与信号分流骨架 | 已编码、经 S1 复审并合入主分支 | 只能描述离线骨架，不代表 120/36 数据集或跨组件验收完成 |
-| LangGraph/Runtime/Context/Worker 与 Studio 安全入口 | M2 同源图工厂、真实本地 Agent Server、Interrupt/Resume 和安全投影已组合验证 | 可描述可恢复 Runtime 骨架与非黑箱开发入口；真实 Provider 和完整生产业务节点未完成 |
-| PostgreSQL/RLS/Checkpoint/Lease 骨架 | M0 Migration、TaskQuery、CAS/Fencing 与 Redis 丢失恢复已组合验证 | 可描述 M0 数据可靠性骨架；生产备份/扩容未验证 |
-| MCP Gateway、Policy、Security 与只读模拟 MCP | M1 安全平台切片已集成 | 可描述默认拒绝、审批绑定、账本/回读与安全黑盒骨架；不代表真实企业工具闭环 |
-| VPN 确定性只读知识闭环 | P1 已通过 S7 RELEASE、S1 FAST final gate 与用户门禁并进入主分支 | 可描述“确定性只读候选已集成”；不代表真实企业知识源、工单写入或发布完成 |
-| 持久化恢复闭环 | S7 RELEASE、S1 FAST final、用户门禁及主分支复验通过 | 可描述“持久化恢复候选已集成”；不代表生产环境发布 |
-| OpenAI/Claude Provider | 未实现 | 不可使用“多 Provider 已接入” |
-| 本地 Compose 集成 | S7 对精确候选验证 5 服务健康、Migration/RLS/恢复 | `0002` 自动接入仍为 P2；不能宣称发布环境完成 |
-| 120 条任务集、36 条安全/故障集 | 未构建 | 不可报告成功率 |
+| 架构、契约与安全边界 | M0 基线及后续兼容性门禁已合入 | 可描述企业级架构和可执行契约；整体契约尚未发布为最终版本 |
+| 14 包 Python Workspace | 锁文件、构建、类型检查和公共测试入口已合入 | 可描述工程基线，不代表所有模块已完成产品装配 |
+| LangGraph Runtime 与 Studio | 同源图、Interrupt/Resume、Handoff、重试、Checkpoint 和安全投影已验证 | 可体验非黑箱流程；默认仍是合成状态和 Fake 工具 |
+| PostgreSQL、Redis 与恢复 | RLS、Inbox/Outbox、Lease/Fencing、Checkpoint CAS 和 Redis 丢失恢复已验证 | 可描述可靠性候选；生产备份、扩容和灾备未验证 |
+| MCP Gateway 与安全写入 | 默认拒绝、策略、审批绑定、执行账本、幂等和回读测试已合入 | 可描述安全写入候选；尚未接入真实企业工单系统 |
+| VPN 业务场景 | 只读知识闭环和安全工单写入代码已合入 | 当前依赖合成知识与 Ticket Store，不是企业生产闭环 |
+| Context 与受限 Handoff | 分层上下文、硬预算、字段过滤和安全投影已合入 | 可描述机制，不得宣称 24% Token 降幅 |
+| Provider Adapter | 零凭据、零网络的 Sandbox Adapter 已合入 | 真实 Provider 未接入，不可宣称 OpenAI/Claude/DeepSeek 已可用 |
+| Web 产品面 | 任务、时间线、补全、审批、恢复和 SSE 交互外壳已合入 | 当前使用 Fixture，尚未接通真实 API 与 Agent Runtime |
+| 新员工复合申请 | 澄清、并行读取、双动作审批、部分失败和汇总测试已合入 | 属于合成端到端候选，尚未形成可操作的真实产品链路 |
+| 120+36 评测语料 | 三个数据集共 120 功能 + 36 安全/故障 Case，内容 Hash 已冻结 | 产品执行器未注册，正式成功率与 Judge 结论尚不存在 |
+| `make acceptance` | 编排器、失败保留、证据 Manifest 和报告生成已实现 | 当前 156 条产品执行会失败关闭，不能标记发布通过 |
+| 本地 Compose | PostgreSQL、Redis、迁移、RLS 与恢复组合验证通过 | 应用服务尚未形成一键可用的完整产品拓扑 |
 | 800 条路由样本及 LoRA | 未构建 | 不可报告 Macro-F1 |
 | Token 降幅、任务成功率提升 | 未测量 | 仅作为待验证假设 |
 
@@ -123,11 +126,12 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |
-| [评测数据集清单](./contracts/registries/evaluation-dataset-manifest.v1.json) | Case 文件与哈希；`candidate` 空清单不代表 120/36 已实现 |
+| [公共评测 Registry](./contracts/registries/evaluation-dataset-manifest.v1.json) | 仍为空的 `candidate` 契约清单，尚未提升为发布 Registry |
+| [M6 Hash 冻结记录](./evals/runners/m6-hash-freeze.v1.json) | 三个数据集 120+36 Case 的内容哈希；不代表产品执行通过 |
 | [评测 Fixture 清单](./contracts/registries/evaluation-fixture-manifest.v1.json) | 合成租户/主体 Fixture 的版本与哈希 |
 | [需求追踪矩阵](./docs/acceptance/TRACEABILITY.md) | 机器追踪清单的人类可读投影视图 |
-| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | 按垂直切片推进的阶段计划与退出条件 |
-| [M3～M6 加速交付规划](./docs/roadmap/ACCELERATED_DELIVERY_PLAN.md) | 评测、Web 与 Connector 预接入的并行起点、配额、路径和汇合门禁 |
+| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M12 垂直切片、当前阶段和退出条件；当前执行窗口为 M7～M10 |
+| [M3～M6 加速交付规划](./docs/roadmap/ACCELERATED_DELIVERY_PLAN.md) | 已完成阶段的并行建设记录，保留用于复核数据集、Web 与 Connector 的来源 |
 | [架构评审报告](./docs/review/ARCHITECTURE_REVIEW.md) | 对原始总稿的保留项、问题与改造决策 |
 | [WP-000 rc1 裁决](./docs/review/WP-000-RC1-DISPOSITION.md) | 三方 REJECT、逐项处理和 rc2 冻结门禁 |
 | [ADR-0001](./docs/decisions/ADR-0001-orchestration-boundary.md) | LangGraph、Agents SDK 与 LiteLLM 的边界 |
@@ -174,7 +178,44 @@ OpenAI 官方将 Agents SDK 定位为有明确工具和重复编排模式的有�
 | 评测 | Pytest、规则评测、LLM-as-Judge、版本化 JSONL 数据集 |
 | 本地交付 | Docker Compose |
 
-M0 Python Workspace 的依赖已经由 `uv.lock` 固定；其余技术栈仍在各工作包中逐步锁定。README 不提前承诺未经兼容性测试的具体版本。
+当前 Python Workspace 依赖由 `uv.lock` 固定。M7 将在 Model Gateway 后接入 LiteLLM，并以 DeepSeek V4 Flash 作为首个真实模型；README 不提前填写未经供应端和 LiteLLM 兼容性测试确认的模型字符串、版本或价格。
+
+## M7～M10 开发路线
+
+M0～M6 解决了模块边界、可靠性、安全机制、两条场景代码和评测语料，但这些能力还没有组成一个可供用户连续操作的真实产品。后续四个里程碑按“先接通，再写入，再扩场景，最后评测”推进。
+
+### M7：真实模型与本地产品闭环
+
+- 在统一 Model Gateway 后接入 LiteLLM，首个模型使用 DeepSeek V4 Flash。
+- 补齐 `.env.example`、密钥缺失提示、模型路由、超时、重试、预算和调用计量。
+- 将 Web、FastAPI、Worker、LangGraph、PostgreSQL/Redis 与只读 MCP 路径装配到同一本地拓扑。
+- 在 Web 和 LangGraph Studio 中展示节点、模型调用、Interrupt、恢复、引用与稳定错误，不记录隐藏思维链。
+
+退出条件：从 Web 提交中文 VPN 请求后，真实模型参与受限节点，任务可以完成信息补全和引用回答；缺少密钥、模型超时或 Provider 不可用时必须失败关闭并可追踪。
+
+### M8：VPN 安全写入闭环
+
+- 把工单创建接入 Web 审批卡、策略判定、MCP Gateway、执行账本与回读结果。
+- 先提供 Vendor-neutral Connector 与受控 Sandbox/Preview，对真实企业系统只预留配置和契约，不在这一阶段写满所有适配器。
+- 验证参数篡改、审批过期、重复提交、超时后实际成功、`UNKNOWN` 对账和进程恢复。
+
+退出条件：VPN 排障失败后能够创建且只创建一张可回读工单；任一授权、租户、摘要或审批绑定异常都在上游写入前被拒绝。
+
+### M9：新员工复合申请闭环
+
+- 将设备标准、库存和权限模板的并行读取接到真实 API 与 Web 时间线。
+- 完成设备与权限两个动作的独立审批、执行、部分失败、恢复和结果汇总。
+- 保持 PostgreSQL 事实源、最小 Handoff、跨租户零成功读取和 Audit/Security 分流。
+
+退出条件：第二业务场景可以从 Web 连续走完澄清、并行查询、审批、双动作执行和恢复，且失败动作不会导致已成功动作重复执行。
+
+### M10：产品执行评测与发布候选
+
+- 为 120+36 Case 注册真实产品执行器，保存实际输入、观察结果、证据引用和版本绑定。
+- 完成 Judge 双轮人工校准、规则评分、单 Agent/Multi-Agent 公平对比和三次可复现运行。
+- 验证 Compose 空卷启动、两个五分钟业务演示、三分钟安全演示和完整证据包。
+
+退出条件：156 条任务全部进入固定分母，不允许用 skipped 或 quarantined 缩小分母；P0 安全断言全部通过后，才评估是否把整体状态提升为 `frozen` 或发布候选。安全多模态和路由 LoRA 顺延到 M11、M12，不阻塞 M10。
 
 ## 本地体验入口（当前能力）
 
@@ -217,9 +258,9 @@ docker compose --env-file .env -f infra/compose/compose.yaml ps
 docker compose --env-file .env -f infra/compose/compose.yaml down
 ```
 
-当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。真实联调
-Web UI、真实 Provider/企业系统、完整业务 API 组合、第二业务场景、120+36 真实
-执行报告和经人工双轮校准的 Judge 尚不可体验。
+当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。Web 外壳、
+第二业务场景和 120+36 Case 已有代码或语料，但真实 Provider、完整 API 组合、企业
+Connector、156 条产品执行报告和经人工双轮校准的 Judge 仍不可体验。
 
 仓库还提供一个与真实后端隔离的 Fixture Web 演示外壳：
 
@@ -242,14 +283,14 @@ make studio-smoke
 make test
 make test-contract
 make test-security
+make acceptance
 ```
 
-`make studio` 只启动默认失败关闭的 `studio-safe` 本地 Agent Server，不启用远程 Trace、生产凭据或公网 Tunnel。`make test` 当前运行 Core、Runtime、Data 与 Platform 测试；S4 离线质量测试使用 `python -m pytest tests/acceptance`。以下全仓接口仍未实现：
+`make studio` 只启动默认失败关闭的 `studio-safe` 本地 Agent Server，不启用生产凭据或公网 Tunnel。`make test` 运行仓库 Python 测试；`make acceptance` 生成机器 Manifest 和人类报告，并在产品执行器缺失时返回失败。以下全仓接口仍未实现：
 
 ```bash
 make dev
 make eval
-make acceptance
 ```
 
 `make acceptance` 必须生成机器可读的证据清单和人类可读报告；命令不存在或报告不可复现时，项目不能标记为已完成。

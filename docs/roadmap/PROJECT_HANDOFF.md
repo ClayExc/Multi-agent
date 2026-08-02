@@ -12,10 +12,16 @@ RELEASED=false
 FROZEN=false
 ```
 
-FlowPilot 已完成企业 Agent 平台的公共契约、领域与应用骨架、安全 MCP 平台、
-PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio 非黑箱入口、VPN
-确定性只读闭环，以及 P2 持久化恢复候选。真实 Provider、安全工单写入、Web、
-第二业务场景和 120+36 冻结评测尚未完成。
+FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与 14 包 Python Workspace、
+安全 MCP 平台、PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio、
+VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
+功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。
+
+整体仍不是发布版本。真实 Provider、Web/API/Worker/数据平面的完整产品装配、真实
+企业 Connector 和 156 条任务的产品执行器尚未完成；Judge 校准仍是
+`placeholder_proxy`。`make acceptance` 已实现，但缺少产品执行器时会保留全部失败
+并返回非零状态。这里的 `M6_FREEZE_COMPLETE` 只表示 M6 语料与工具链候选已收口，
+不表示 `RELEASED` 或整体 `FROZEN`。
 
 本文件是“现在做到哪里、如何运行、还缺什么、下一步怎么走”的主入口。详细
 设计仍由 ADR/架构文档负责，历史过程仍由 Chain/Handoff/Proof 负责。
@@ -28,6 +34,10 @@ PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio 非黑箱入口�
 | M1 Platform | MCP Gateway、Policy、Security、审批绑定、账本与回读骨架 | 安全平台切片，不等于真实企业工具已接入 |
 | M2 Studio | Worker 同源 LangGraph、Interrupt/Resume、Handoff、重试与安全投影 | 可视化调试入口，不连接生产凭据或事实源 |
 | P1 | VPN 信息补全、知识检索、租户/ACL 过滤、引用回答与稳定结果引用 | 确定性只读闭环，不包含工单写入 |
+| M3 | Outbox→SSE、VPN 安全写入、审批绑定、幂等和回读 | 合成工具与安全闭环，不等于真实企业工单已接入 |
+| M4 | Sandbox Provider、Context 硬预算、受限 Handoff 与多 Agent 节点 | 零凭据、零网络候选；真实模型尚未接入 |
+| M5 | Fixture Web 与新员工设备/权限复合申请 | 产品交互和第二场景代码已合入，尚未接成真实本地产品 |
+| M6 | 120+36 语料、Hash 冻结、Judge 校准工具、`make acceptance` 与 Ruff 收口 | 产品执行器缺失，Judge 仍为占位校准，不能报告成功率 |
 
 ## 3. P2 已合并能力
 
@@ -94,8 +104,10 @@ make studio
 make studio-smoke
 ```
 
-当前 `make acceptance` 尚未实现。Windows 没有 `make.exe` 时，应执行 Makefile
-对应的锁定底层命令并如实标记入口 `NOT_RUN/NOT_IMPLEMENTED`，不能伪装通过。
+当前 `make acceptance` 已实现。它会在缺少产品执行器时按设计生成失败证据并返回
+非零状态。Windows 没有 `make.exe` 时，应运行
+`uv run --frozen python -B scripts/acceptance/run_acceptance.py`，不能把编排器可运行
+写成产品验收通过。
 
 ## 6. 目录与责任
 
@@ -111,22 +123,22 @@ make studio-smoke
 
 路径细节以根目录 [`AGENTS.md`](../../AGENTS.md) 为准。
 
-## 7. 尚未完成
+## 7. 当前缺口与后续验收
 
 | 能力 | 当前状态 | 下一验收 |
 |---|---|---|
-| Outbox→SSE | **已合入 master**（flow-lite g1，2026-08-01） | S4/S7 独立复核后 FP-DATA-003 升 VERIFIED |
-| VPN 安全工单写入 | **已合入 master**（flow-lite g2，2026-08-01） | S4 黑盒复核后 FP-MCP/APR 系列升 VERIFIED；真实 Ticket MCP 接入 |
-| 评测候选语料 | **已合入 master**（flow-lite g3，69+52=121 条候选登记） | 120+36 冻结前转正式 Case 集 |
-| Provider Adapter | **已合入 master**（M4-1，Sandbox Adapter 零凭据零网络） | S4/S7 复核后 FP-AGT-001/002/003 升 VERIFIED；真实 Provider 接入 |
-| Context 预算与受限 Handoff | **已合入 master**（M4-2 重开发版，2026-08-01） | S4/S7 复核后 FP-CTX-001~005、FP-AGT-004 升 VERIFIED |
-| 真实 OpenAI/Claude Provider | 未实现 | 至少一个真实 Adapter；确定性验收不依赖其在线 |
-| Multi-Agent/Context 优化 | 设计与骨架 | 受限 Handoff、预算、消融与真实 Token 报告 |
-| Web 产品面 | **已合入 master**（轨道 C，flow-lite g3 第一段，2026-08-02，FP-UI-001） | S4 体验复核后 FP-UI-001 升 VERIFIED；接 M5 复合申请第二场景 |
-| 新员工复合申请 | **已合入 master**（M5，flow-lite g1/g2，2026-08-02，FP-ONB-001） | AC-E2E-002 8 步闭环 + 7 断言已落地；S7 独立复算后升 VERIFIED |
-| 120+36 | **候选就位**（增量 A 69 + B 52 + C 35 = 120 功能 + 36 安全，2026-08-02） | M6 冻结：Hash 冻结、Judge 校准、失败保留与证据包 |
-| `make acceptance` | **已实现**（M6-1，run_acceptance.py 编排器，gate=pass 实测） | 156 候选判定 + 六类测试收集 + bundle/REPORT 组装 |
-| 全仓 Ruff | **已清零**（M6-3，All checks passed） | 63 findings 按 Owner 分批清理 + contract-set digest 重新基线 |
+| Outbox→SSE | 发布与重连代码已合入 | M7 接入真实 API/Worker 运行链并完成产品级复核 |
+| VPN 安全工单写入 | 审批、账本、幂等和回读候选已合入 | M8 接入 Ticket Connector 并完成黑盒安全验收 |
+| Provider Adapter | Sandbox Adapter 已合入，零凭据、零网络 | M7 接入首个真实 Provider |
+| Context 预算与受限 Handoff | 机制、硬预算和过滤测试已合入 | M7/M10 生成真实 Token 与消融报告 |
+| 真实模型 Provider | 未实现 | M7 接入 LiteLLM + DeepSeek V4 Flash；确定性验收不依赖在线模型 |
+| Multi-Agent/Context 量化 | 机制和测试已合入 | M7/M10 运行真实 Token、预算与消融报告 |
+| Web 产品面 | Fixture Web、审批卡、时间线与 SSE 交互已合入 | M7 接通 FastAPI、Worker、LangGraph 与数据平面 |
+| 新员工复合申请 | 澄清、并行读取、双动作和部分失败测试已合入 | M9 完成真实 API/Web 连续操作与恢复验收 |
+| 120+36 | 三个数据集共 156 条 Case，M6 Hash 冻结文件已合入 | M10 注册产品执行器；Contract Registry 仍不得提前提升为发布状态 |
+| `make acceptance` | 编排器、六类测试收集、失败保留、Bundle/REPORT 已实现 | M10 用真实产品执行器完成 156 条固定分母运行 |
+| Judge 校准 | 盲测工具和绑定校验已实现，当前基线为 `placeholder_proxy` | M10 完成双轮人工校准和 Promotion Gate |
+| 全仓 Ruff | **已清零**（M6-3，All checks passed） | 后续增量继续维持零新增 Finding |
 | 多模态与 LoRA | 未开始 | 不进入当前核心交付窗口 |
 
 Traceability 当前仍保持 `DESIGNED`，因为 Feature 提升需要其规定路径下的正式
@@ -134,28 +146,24 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-P2 用户合并后，建议目标窗口为 15～25 个有效工作日：
+当前执行窗口改为 M7～M10：
 
 ```text
-P2 final
-  -> g2 SSE
-  -> g3 安全写入
-  -> M4 Provider / Multi-Agent / Context
-  -> M5 Web + 新员工复合申请
-  -> M6 120+36 freeze
+M7  LiteLLM + DeepSeek V4 Flash，并接通本地产品只读链路
+ -> M8  VPN 审批与安全工单写入
+ -> M9  新员工设备/权限复合申请
+ -> M10 120+36 产品执行、Judge 校准与发布候选门禁
 ```
 
-并行轨道：
+M7 先解决“模块很多但用户无法连续操作”的问题；M8、M9 分别收口两条业务
+链路；M10 才运行正式产品执行器并产生可对外使用的指标。真实企业 Connector
+可以预先完成 Vendor-neutral Port、Schema 和 Sandbox/Preview，但首个窗口不要求
+写满所有厂商适配器。安全多模态与路由 LoRA 顺延为 M11、M12。
 
-- `evaluation-curator`：M3～M5 分批构建 48+21、40+12、32+3 条候选，M6
-  冻结为 120+36。
-- `experience-builder`：API/SSE 契约稳定后实现 Web 外壳，M5 接第二场景。
-- `connector-preview`：只做 Vendor-neutral Port、Sandbox Adapter、Schema 和
-  契约测试，不连接生产系统或凭据。
-
-完整计划见
-[`ACCELERATED_DELIVERY_PLAN.md`](./ACCELERATED_DELIVERY_PLAN.md)。
-`g2/g3` 仍需要各自用户门禁，本文件不构成自动批准。
+详细退出条件见 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)。M3～M6 的
+并行建设记录继续保留在
+[`ACCELERATED_DELIVERY_PLAN.md`](./ACCELERATED_DELIVERY_PLAN.md)，不再作为当前
+派发计划。
 
 ## 9. 协作与恢复
 

@@ -178,6 +178,8 @@ def test_input_binding_mismatch_fails_closed(tmp_path: Path) -> None:
     assert result.state is ExecutionState.FAILED
     assert result.failure_code == "EXECUTION_RESULT_INVALID"
     assert "input digest mismatch" in (result.failure_detail or "")
+    assert result.evidence_refs == ()
+    assert result.output_digest is None
 
 
 def test_output_digest_must_bind_primary_evidence(tmp_path: Path) -> None:
@@ -188,6 +190,7 @@ def test_output_digest_must_bind_primary_evidence(tmp_path: Path) -> None:
     assert result.state is ExecutionState.FAILED
     assert result.failure_code == "EXECUTION_RESULT_INVALID"
     assert "does not bind" in (result.failure_detail or "")
+    assert result.evidence_refs == ()
 
 
 def test_result_identity_must_match_selected_executor(tmp_path: Path) -> None:
@@ -202,6 +205,7 @@ def test_result_identity_must_match_selected_executor(tmp_path: Path) -> None:
     assert result.failure_code == "EXECUTOR_IDENTITY_MISMATCH"
     assert result.executor_id == ForgedIdentityExecutor.executor_id
     assert result.executor_version == ForgedIdentityExecutor.executor_version
+    assert result.evidence_refs == ()
 
 
 def test_registry_rejects_empty_or_none_identity() -> None:
@@ -274,14 +278,12 @@ def test_missing_execution_evidence_is_rejected(tmp_path: Path) -> None:
         case_id=case["case_id"],
         executor_id="test.observing-executor",
         executor_version="1",
-        state=ExecutionState.FAILED,
+        state=ExecutionState.COMPLETED,
         input_digest=case_input_digest(case),
         output_digest=None,
         assertion_results={"assert.task.terminal_status.v1": False},
         judge_scores={},
         evidence_refs=("missing.json",),
-        failure_code="EXECUTION_RESULT_INVALID",
-        failure_detail="missing evidence",
     )
 
     with pytest.raises(ValueError, match="missing or empty"):
@@ -294,18 +296,37 @@ def test_execution_evidence_path_escape_is_rejected(tmp_path: Path) -> None:
         case_id=case["case_id"],
         executor_id="test.observing-executor",
         executor_version="1",
-        state=ExecutionState.FAILED,
+        state=ExecutionState.COMPLETED,
         input_digest=case_input_digest(case),
         output_digest=None,
         assertion_results={"assert.task.terminal_status.v1": False},
         judge_scores={},
         evidence_refs=("../escape.json",),
-        failure_code="EXECUTION_RESULT_INVALID",
-        failure_detail="unsafe evidence",
     )
 
     with pytest.raises(ValueError, match="unsafe execution evidence"):
         collect_execution_evidence([escaped], tmp_path)
+
+
+def test_failed_result_references_do_not_enter_evidence_closure(
+    tmp_path: Path,
+) -> None:
+    case = _case()
+    failed = CaseExecutionResult(
+        case_id=case["case_id"],
+        executor_id="test.observing-executor",
+        executor_version="1",
+        state=ExecutionState.FAILED,
+        input_digest=case_input_digest(case),
+        output_digest=None,
+        assertion_results={"assert.task.terminal_status.v1": False},
+        judge_scores={},
+        evidence_refs=("../untrusted.json",),
+        failure_code="EXECUTION_RESULT_INVALID",
+        failure_detail="untrusted result",
+    )
+
+    assert collect_execution_evidence([failed], tmp_path) == {}
 
 
 def test_execution_evidence_cannot_replace_existing_artifact(tmp_path: Path) -> None:

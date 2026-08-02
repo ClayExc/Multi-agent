@@ -163,11 +163,10 @@ class CaseExecutorRegistry:
                 executor_version=executor.executor_version,
                 assertion_results=result.assertion_results,
                 judge_scores=result.judge_scores,
-                evidence_refs=result.evidence_refs,
-                output_digest=result.output_digest,
                 failure_code="EXECUTOR_IDENTITY_MISMATCH",
                 failure_detail=(
-                    "execution result identity does not match selected executor"
+                    "execution result identity does not match selected executor; "
+                    "untrusted evidence references discarded"
                 ),
             )
         try:
@@ -187,10 +186,11 @@ class CaseExecutorRegistry:
                 executor_version=executor.executor_version,
                 assertion_results=result.assertion_results,
                 judge_scores=result.judge_scores,
-                evidence_refs=result.evidence_refs,
-                output_digest=result.output_digest,
                 failure_code="EXECUTION_RESULT_INVALID",
-                failure_detail="; ".join(findings),
+                failure_detail=(
+                    "; ".join(findings)
+                    + "; untrusted evidence references discarded"
+                ),
             )
         return result
 
@@ -332,6 +332,8 @@ def collect_execution_evidence(
     resolved_owners: dict[str, str] = {}
     root = evidence_root.resolve()
     for result in sorted(results, key=lambda item: item.case_id):
+        if result.state is not ExecutionState.COMPLETED:
+            continue
         for reference in result.evidence_refs:
             canonical = _canonical_evidence_reference(reference)
             if canonical in owners:

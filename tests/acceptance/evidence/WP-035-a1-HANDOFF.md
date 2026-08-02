@@ -33,3 +33,21 @@
 
 - S1 复核可信输入边界与有意不兼容 CLI；后续真实 Executor 产出观察包后，由人工完成双轮盲审和分歧裁决，再以独立 Judge predictions 运行校准。
 - `LEARNING_CANDIDATE=none`
+
+## S1 P1 返修（同 Attempt）
+
+- verify 改为确定性复算：Blind Set、Bindings、人工两轮、裁决、Judge
+  predictions、calibration 与 S1 freeze 全部建立规范 JSON SHA-256 链；任一输入、
+  摘要或输出篡改均失败。伪造 `status=calibrated` 不能通过。
+- 恢复混淆矩阵、Wilson 95% 区间、FP/FN rate、逐 rubric kappa、阈值建议和
+  固定 seed 分层抽样；freeze 同时绑定所有输入摘要与 calibration 摘要。
+- CLI 使用 `--bindings`，各 artifact 使用独立精确 profile。人工身份必须非空且
+  不同；模型、backend、Prompt Hash、执行器身份/版本、断言集合和 Observation
+  provenance 均失败关闭；重复 Case/Blind/Evidence ref 被拒绝。
+- 统计门禁通过只生成 `candidate/no_effect`。只有独立 S1 approval freeze 的整链
+  verify 才成功；合成测试本身不产生 release-effective calibration。
+- 专项测试由首轮 9 项增至 23 项，是加入全部 artifact 篡改矩阵、身份/类型/摘要、
+  freeze 和企业统计回归；完整 evaluation 由首轮 125 增至 139，增加 14 个净测试，
+  未删除其他 evaluation 测试。
+- 返修验证：专项 `23 passed`；完整 evaluation `139 passed`；Ruff PASS；strict
+  Mypy PASS。

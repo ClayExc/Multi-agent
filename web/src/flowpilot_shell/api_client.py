@@ -85,7 +85,9 @@ class ApiClient:
         payload = _parse_json_body(status, body)
         if status == 200:
             try:
-                return TaskView.from_mapping(payload)
+                return TaskView.from_mapping(
+                    _require_json_object(payload, "task projection")
+                )
             except ShellContractError as exc:
                 raise ShellContractError(
                     f"task projection {task_id} violates the v1 contract: {exc}"
@@ -105,25 +107,59 @@ class ApiClient:
         )
         payload = _parse_json_body(status, raw)
         if status in (200, 202):
-            return payload
+            return _require_json_object(payload, "command acceptance response")
         raise _map_error(status, payload)
 
 
-def _parse_json_body(status: int, body: bytes) -> Any:
+def _parse_json_body(status: int, body: bytes) -> object:
     if not body:
         raise ShellContractError(f"empty response body for HTTP {status}")
     try:
-        return json.loads(body.decode("utf-8"))
+        payload: object = json.loads(body.decode("utf-8"))
+        return payload
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ShellContractError(f"response body is not JSON (HTTP {status})") from exc
 
 
-def _map_error(status: int, payload: Any) -> ShellError:
-    envelope = payload if isinstance(payload, dict) else {}
-    error = envelope.get("error") if isinstance(envelope.get("error"), dict) else {}
-    code = error.get("code", "UNKNOWN")
-    message = error.get("message", f"API error (HTTP {status})")
-    retryable = bool(error.get("retryable", status in {502, 503, 504}))
+def _require_json_object(value: object, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ShellContractError(f"{label} must be a JSON object")
+    validated: dict[str, Any] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ShellContractError(f"{label} keys must be strings")
+        validated[key] = item
+    return validated
+
+
+def _map_error(status: int, payload: object) -> ShellError:
+    envelope = _require_json_object(payload, f"error response for HTTP {status}")
+    error = (
+        _require_json_object(envelope["error"], "error response error")
+        if "error" in envelope
+        else {}
+    )
+
+    code = "UNKNOWN"
+    if "code" in error:
+        raw_code = error["code"]
+        if not isinstance(raw_code, str) or not raw_code:
+            raise ShellContractError("error response error.code must be a string")
+        code = raw_code
+
+    message = f"API error (HTTP {status})"
+    if "message" in error:
+        raw_message = error["message"]
+        if not isinstance(raw_message, str) or not raw_message:
+            raise ShellContractError("error response error.message must be a string")
+        message = raw_message
+
+    retryable = status in {502, 503, 504}
+    if "retryable" in error:
+        raw_retryable = error["retryable"]
+        if not isinstance(raw_retryable, bool):
+            raise ShellContractError("error response error.retryable must be a boolean")
+        retryable = raw_retryable
     if status == 404:
         return ShellNotFoundError(message)
     if status in {502, 503, 504} or (retryable and status >= 500):

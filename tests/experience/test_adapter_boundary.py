@@ -100,6 +100,18 @@ def test_get_task_malformed_body_maps_to_contract_error(fixture_files) -> None:
         client.get_task("task_onboard_001")
 
 
+def test_get_task_rejects_null_required_datetime(fixture_files) -> None:
+    """边界: 非 Optional 时间字段收到 null 时失败关闭。"""
+    from flowpilot_shell.api_client import ApiClient
+    from flowpilot_shell.models import ShellContractError
+
+    bad = dict(fixture_files["tasks.v1.json"]["tasks"][0])
+    bad["created_at"] = None
+    client = ApiClient(transport=_transport_with([(200, bad)], []))
+    with pytest.raises(ShellContractError, match="created_at must be a date-time"):
+        client.get_task("task_onboard_001")
+
+
 def test_get_task_non_json_body_maps_to_contract_error(fixture_files) -> None:
     """失败: 非 JSON 响应体映射为 ShellContractError。"""
 
@@ -110,6 +122,34 @@ def test_get_task_non_json_body_maps_to_contract_error(fixture_files) -> None:
     from flowpilot_shell.models import ShellContractError
 
     client = ApiClient(transport=transport)
+    with pytest.raises(ShellContractError):
+        client.get_task("task_onboard_001")
+
+
+def test_submit_command_rejects_non_object_success_body() -> None:
+    """边界: 2xx 命令响应也必须是 JSON object，不能把 list 当作字典传播。"""
+    from flowpilot_shell.api_client import ApiClient
+    from flowpilot_shell.models import ShellContractError
+
+    client = ApiClient(transport=_transport_with([(202, ["unexpected"])], []))
+    with pytest.raises(ShellContractError, match="must be a JSON object"):
+        client.submit_command({})
+
+
+@pytest.mark.parametrize(
+    "envelope",
+    [
+        {"error": []},
+        {"error": None},
+        {"error": {"code": "INTERNAL_ERROR", "retryable": "false"}},
+    ],
+)
+def test_error_response_rejects_invalid_nested_types(envelope) -> None:
+    """失败: 畸形 error object 不得通过 truthiness 或默认值伪装成类型化错误。"""
+    from flowpilot_shell.api_client import ApiClient
+    from flowpilot_shell.models import ShellContractError
+
+    client = ApiClient(transport=_transport_with([(500, envelope)], []))
     with pytest.raises(ShellContractError):
         client.get_task("task_onboard_001")
 

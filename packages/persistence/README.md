@@ -1,43 +1,36 @@
-# FlowPilot Persistence
+# FlowPilot 持久化层
 
-`flowpilot-persistence` implements the M0 data boundaries for:
+`flowpilot-persistence` 实现以下 M0 数据边界：
 
-- S5 `TaskRepositoryPort`, `TaskQueryPort`, `CommandInboxPort`, and
-  `UnitOfWork`.
-- S3 execution ledger and reconciliation.
-- S2 checkpoint, worker lease, fencing, and transactional outbox.
-- Redis-backed signals that can be discarded and rebuilt from PostgreSQL facts.
+- S5 的 `TaskRepositoryPort`、`TaskQueryPort`、`CommandInboxPort` 和
+  `UnitOfWork`。
+- S3 的执行账本与对账。
+- S2 的 Checkpoint、Worker Lease、Fencing 和事务 Outbox。
+- 可丢弃、并可根据 PostgreSQL 事实重建的 Redis 信号。
 
-PostgreSQL is the only business fact source. Every tenant transaction is bound
-once through `flowpilot.tenant_id`; repositories reject attempts to switch the
-tenant inside the same transaction. The migration enables and forces RLS on
-tenant tables. Redis values contain only rebuildable scheduling hints.
+PostgreSQL 是唯一的业务事实源。每个租户事务通过 `flowpilot.tenant_id` 完成一次
+绑定；Repository 会拒绝在同一事务内切换租户。迁移会在租户表上启用并强制执行
+RLS。Redis 值只包含可重建的调度提示。
 
-Persistence Port `flowpilot.persistence-ports.m0.v2` stores
-`checkpoint_sequence` explicitly. Checkpoint writes pass
-`expected_sequence`, lock and validate the active database lease, compare the
-per-task sequence, and insert the next sequence in one Unit-of-Work
-transaction. `latest()` requires tenant, task, and thread identity and orders
-only by `checkpoint_sequence`. Conversion to S2 `GraphState`/`LeaseToken`
-belongs in the Worker assembly layer; this package never imports
-`flowpilot_graph`.
+Persistence Port `flowpilot.persistence-ports.m0.v2` 显式存储
+`checkpoint_sequence`。写入 Checkpoint 时传入 `expected_sequence`，在同一个
+Unit-of-Work 事务中锁定并验证有效数据库租约、比较任务级序列，然后插入下一个
+序列。`latest()` 必须接收租户、任务和线程标识，并且只按
+`checkpoint_sequence` 排序。转换到 S2 `GraphState`/`LeaseToken` 的职责属于
+Worker 装配层；本包绝不导入 `flowpilot_graph`。
 
-`CoordinationRebuilder` reads the latest durable Task outbox event for each
-tenant-scoped task, restores and validates the current Task v1 projection, and
-recreates signals only for `RUNNABLE` tasks. Published outbox rows remain valid
-rebuild inputs, so Redis loss cannot erase the scheduling source. The caller
-must supply trusted tenant identities; request-supplied tenant identities are
-not an acceptable rebuild scope. Each tenant namespace is replaced
-independently so recovery cannot erase another tenant's scheduling hints.
+`CoordinationRebuilder` 读取每个租户范围任务最新的持久化 Task Outbox 事件，恢复
+并校验当前 Task v1 投影，而且只为 `RUNNABLE` 任务重建信号。已发布的 Outbox 行
+仍是有效的重建输入，因此 Redis 数据丢失不会抹除调度来源。调用方必须提供可信
+租户标识；请求中提供的租户标识不能作为重建范围。每个租户命名空间独立替换，
+避免恢复过程删除其他租户的调度提示。
 
-Lease release revokes the token but retains the database row, preserving a
-monotonic `run_generation` across clean handoff as well as expiry takeover.
+释放 Lease 时会撤销令牌但保留数据库行，使 `run_generation` 在正常 Handoff 和
+租约过期接管时都保持单调递增。
 
-The PostgreSQL adapter depends on a small injected async connection protocol.
-This keeps the package importable before S5 accepts the driver dependency
-request in `DEPENDENCY_REQUEST.md`; it does not turn the protocol into another
-fact source. A future driver wrapper must use the locked Workspace versions and
-must preserve the transaction and tenant-binding behavior tested here.
+PostgreSQL Adapter 依赖一个通过注入获得的精简异步连接协议。在 S5 接受
+`DEPENDENCY_REQUEST.md` 中的驱动依赖请求之前，这能确保本包仍可导入；该协议
+不会因此成为另一个事实源。后续驱动封装必须使用 Workspace 锁定的版本，并保持
+此处已经测试的事务和租户绑定行为。
 
-M0 intentionally does not include production HA, destructive migrations,
-cross-region recovery, or a generic SQL escape hatch.
+M0 有意不包含生产级高可用、破坏性迁移、跨区域恢复或通用 SQL 逃生通道。

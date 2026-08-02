@@ -1,6 +1,6 @@
-# M0 data/control-plane Compose
+# M0 数据面与控制面 Compose
 
-From the repository root:
+在仓库根目录执行：
 
 ```text
 Copy-Item .env.example .env
@@ -9,11 +9,10 @@ docker compose --env-file .env -f infra/compose/compose.yaml up -d
 docker compose --env-file .env -f infra/compose/compose.yaml ps
 ```
 
-The PostgreSQL migration runs only when the named volume is empty. To verify a
-forward migration again without deleting facts, run the `psql` command from
-`migrations/README.md`.
+PostgreSQL 迁移只会在命名卷为空时运行。如果需要在不删除业务事实的情况下再次
+验证正向迁移，请执行 `migrations/README.md` 中的 `psql` 命令。
 
-Run the real RLS and expiry-binding negative cases after PostgreSQL is healthy:
+PostgreSQL 健康后，运行真实的 RLS 与过期时间绑定负向用例：
 
 ```text
 docker compose --env-file .env -f infra/compose/compose.yaml exec -T postgres \
@@ -21,11 +20,9 @@ docker compose --env-file .env -f infra/compose/compose.yaml exec -T postgres \
   < tests/data/integration/verify_postgres.sql
 ```
 
-Redis is deliberately configured without AOF or RDB persistence. Clearing or
-replacing it must not affect Task, Checkpoint, Outbox, Approval, or execution
-facts. Rebuild scheduling hints from PostgreSQL through
-`RedisCoordinationAdapter.rebuild`.
+Redis 被有意配置为不启用 AOF 或 RDB 持久化。清空或替换 Redis 不得影响 Task、
+Checkpoint、Outbox、Approval 或执行事实。调度提示应通过
+`RedisCoordinationAdapter.rebuild` 从 PostgreSQL 重建。
 
-The checked-in credentials are obvious local placeholders. `.env` is ignored.
-Production identity, secrets, TLS, backup, HA, and external audit anchoring are
-outside WP-021-a1.
+仓库中提交的凭据是显而易见的本地占位值，`.env` 已被忽略。生产身份、密钥、
+TLS、备份、高可用和外部审计锚定不属于 WP-021-a1 的范围。

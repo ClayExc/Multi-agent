@@ -1,14 +1,12 @@
-# PostgreSQL boundary
+# PostgreSQL 边界
 
-- Business facts live in the `flowpilot` schema.
-- Tenant tables use both `ENABLE ROW LEVEL SECURITY` and
-  `FORCE ROW LEVEL SECURITY`.
-- Runtime roles are `NOLOGIN`, `NOSUPERUSER`, and `NOBYPASSRLS`.
-- The trusted adapter sets one transaction-local `flowpilot.tenant_id` and
-  rejects tenant switching.
-- PlannedAction, PolicyDecision, Approval, Checkpoint, and Audit rows are
-  append-only or have narrowly guarded state changes.
+- 业务事实存储在 `flowpilot` Schema 中。
+- 租户表同时使用 `ENABLE ROW LEVEL SECURITY` 和
+  `FORCE ROW LEVEL SECURITY`。
+- Runtime 角色设置为 `NOLOGIN`、`NOSUPERUSER` 和 `NOBYPASSRLS`。
+- 可信 Adapter 为事务设置唯一的本地 `flowpilot.tenant_id`，并拒绝租户切换。
+- PlannedAction、PolicyDecision、Approval、Checkpoint 和 Audit 行只能追加，
+  或只能进行受严格约束的状态变更。
 
-Superuser/migrator access is not an application path. Break-glass access must
-use a separate login, short-lived authorization, and an audit process supplied
-by a later operations work package.
+Superuser/Migrator 访问不属于应用路径。紧急 Break-glass 访问必须使用独立登录、
+短期授权，以及由后续运维工作包提供的审计流程。

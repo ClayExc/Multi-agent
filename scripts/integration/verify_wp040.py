@@ -4998,7 +4998,11 @@ def build_manifest(
             changed_paths(repo, COMMON_MERGE_BASE, specification["head"])
         )
 
-    contract_manifest = load_json(repo / "contracts/contract-set.v1.json")
+    contract_manifest = load_revision_json(
+        repo,
+        BASE_COMMIT,
+        "contracts/contract-set.v1.json",
+    )
     recomputed_contract_digest = contract_content_digest(contract_manifest)
     base_contract_tree = run_git(
         repo,

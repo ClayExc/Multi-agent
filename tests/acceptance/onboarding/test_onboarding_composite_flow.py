@@ -166,7 +166,9 @@ async def test_approval_binding_and_separation_of_duties() -> None:
     # A tampered action digest must be rejected (FP-APR-001).
     harness2 = await build_harness(task_id="task_onbe2e005")
     _o2, card2 = await run_until_approval(harness2)
-    harness2.approvals.approvals[(harness2.create.tenant_id, str(card2["approval_id"]))] = (
+    harness2.approvals.approvals[
+        (harness2.create.tenant_id, str(card2["approval_id"]))
+    ] = (
         build_approval_from_card(card2, create=harness2.create, config=harness2.config)
     )
     tampered = build_decide_command(
@@ -183,7 +185,9 @@ async def test_approval_binding_and_separation_of_duties() -> None:
     # Approval must be given by the hiring manager recorded in the request.
     harness3 = await build_harness(task_id="task_onbe2e006")
     _o3, card3 = await run_until_approval(harness3)
-    harness3.approvals.approvals[(harness3.create.tenant_id, str(card3["approval_id"]))] = (
+    harness3.approvals.approvals[
+        (harness3.create.tenant_id, str(card3["approval_id"]))
+    ] = (
         build_approval_from_card(card3, create=harness3.create, config=harness3.config)
     )
     not_manager = build_decide_command(
@@ -295,7 +299,9 @@ async def test_idempotent_replay_creates_one_of_each_resource() -> None:
     # (the terminal checkpoint short-circuits and the probe cache never
     # re-executes a verified outcome).
     for index in range(10):
-        replay = await execute(harness, harness.create, run_id=f"run_onb_replay_{index}")
+        replay = await execute(
+            harness, harness.create, run_id=f"run_onb_replay_{index}"
+        )
         assert replay.state.status is GraphStatus.COMPLETED
     assert harness.probe.logical_counts == {
         DEVICE_ALLOCATE_TOOL: 1,

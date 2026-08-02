@@ -119,7 +119,9 @@ async def test_recovery_rejects_revoked_approval() -> None:
     )
 
     harness_b = _crash_restart_harness(harness_a)
-    outcome = await execute(harness_b, _decide(harness_b, card), run_id="run_onb_neg_revoked")
+    outcome = await execute(
+        harness_b, _decide(harness_b, card), run_id="run_onb_neg_revoked"
+    )
 
     # The old approval is NOT executed: the recovery refuses.
     assert outcome.state.status is GraphStatus.FAILED
@@ -146,7 +148,9 @@ async def test_recovery_rejects_expired_approval() -> None:
     )
 
     harness_b = _crash_restart_harness(harness_a)
-    outcome = await execute(harness_b, _decide(harness_b, card), run_id="run_onb_neg_expired")
+    outcome = await execute(
+        harness_b, _decide(harness_b, card), run_id="run_onb_neg_expired"
+    )
 
     assert outcome.state.status is GraphStatus.FAILED
     assert outcome.state.failure_code == "RUNTIME_APPROVAL_INVALID"

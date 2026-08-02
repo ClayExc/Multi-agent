@@ -462,7 +462,10 @@ def _freeze_json_value(value: Any, field: str) -> Any:
     if isinstance(value, Sequence) and not isinstance(
         value, (str, bytes, bytearray)
     ):
-        return tuple(_freeze_json_value(item, f"{field}[{index}]") for index, item in enumerate(value))
+        return tuple(
+            _freeze_json_value(item, f"{field}[{index}]")
+            for index, item in enumerate(value)
+        )
     raise ValueError(f"{field} must contain JSON values")
 
 

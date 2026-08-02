@@ -1,13 +1,12 @@
-# WP-030 offline commands
+# WP-030 离线命令
 
-Validate the activated rc2 repository inputs and the two minimal synthetic Cases:
+校验已激活的 rc2 仓库输入和两个最小合成 Case：
 
 ```text
 python scripts/acceptance/validate_offline.py
 ```
 
-Generate a deterministic bundle from explicit metadata, declared Case IDs, and
-Case results:
+根据显式 metadata、已声明 Case ID 和 Case 结果生成确定性验收包：
 
 ```text
 python scripts/acceptance/generate_bundle.py \
@@ -17,34 +16,30 @@ python scripts/acceptance/generate_bundle.py \
   --output <artifacts/acceptance/run-id>
 ```
 
-The generator never discovers or deletes Cases. Missing declared results fail,
-and a zero-Case input produces an `empty` report with a failed gate and no success
-rate.
+生成器不会自行发现或删除 Case。缺失任何已声明结果都会失败；零 Case 输入会生成
+`empty` 报告，其门禁失败且不提供成功率。
 
-## M6-1 acceptance orchestrator
+## M6-1 验收编排器
 
-`make acceptance` runs the full M6 verification loop in one command
-(`scripts/acceptance/run_acceptance.py`):
+`make acceptance` 通过单条命令运行完整的 M6 验证闭环
+（`scripts/acceptance/run_acceptance.py`）：
 
-1. Collect the 156 candidates (A 69 + B 52 + C 35 = 120 functional + 36
-   safety/fault), enumerating by type (suite x category) and verifying each
-   quota against the Evaluation Registry. Any missing/extra type aborts with
-   `collection-errors.json` left behind as evidence.
-2. Preflight every candidate, then dispatch it to an explicitly registered
-   product executor. Missing executors, incomplete result bindings, absent
-   execution evidence, or an uncalibrated required Judge fail closed. Case
-   definitions and expected fields are never treated as observations. The
-   structured ledgers `eval/execution-results.jsonl` and `eval/verdicts.json`
-   record all 156 candidates.
-3. Run the six test suites (unit/contract/integration/e2e/recovery/security)
-   into `test-results/*.xml`; a suite with no usable target directory aborts
-   with the same `collection-errors.json` evidence.
-4. Assemble the acceptance bundle (`manifest.json` + `REPORT.md` + `eval/`),
-   with `manifest.artifact_hashes` covering every artifact 1:1. Every executor
-   evidence reference is canonicalized under `execution/`, rejected on path
-   escape, duplication, conflict, or absence, and included in that hash map.
+1. 收集 156 条候选（A 69 + B 52 + C 35 = 120 条功能 + 36 条安全/故障），
+   按类型（suite x category）枚举，并根据 Evaluation Registry 校验各项配额。
+   类型缺失或多余时立即中止，并保留 `collection-errors.json` 作为证据。
+2. 对每条候选执行预检，再分派给显式注册的产品 executor。executor 缺失、
+   结果绑定不完整、执行证据缺失，或所需 Judge 未完成校准时均按 fail-closed
+   处理。Case 定义及 expected 字段绝不视为观测结果。结构化账本
+   `eval/execution-results.jsonl` 和 `eval/verdicts.json` 记录全部 156 条候选。
+3. 运行六类测试套件（unit/contract/integration/e2e/recovery/security），结果写入
+   `test-results/*.xml`；任何套件没有可用目标目录时，都会中止并生成同一份
+   `collection-errors.json` 证据。
+4. 组装验收包（`manifest.json` + `REPORT.md` + `eval/`），其中
+   `manifest.artifact_hashes` 与所有产物保持 1:1 覆盖。每个 executor 证据引用
+   都会规范化到 `execution/` 下；路径逃逸、重复、冲突或缺失都会被拒绝，合法引用
+   则纳入该哈希映射。
 
-Usage:
+使用方式：
 
 ```text
 make acceptance

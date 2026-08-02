@@ -1,16 +1,15 @@
 # FlowPilot Policy
 
-This package parses the exact public `PolicyDecision v1` shape and applies its
-closed, strongly typed obligations. The PEP is default-deny:
+本包解析公共 `PolicyDecision v1` 的精确结构，并应用其中封闭、强类型的
+obligation。PEP 采用默认拒绝策略：
 
-- unknown, duplicate, malformed, conflicting, expired, or unsupported
-  obligations fail closed;
-- the subject reference and hash, authenticated Agent principal, tenant,
-  task, action digest, tool operation, policy version, and expiry are bound;
-- `deny` always overrides any other signal;
-- `require_approval` remains authoritative until the Gateway validates the
-  matching approved record.
+- 未知、重复、格式错误、互相冲突、已过期或不受支持的 obligation 均以关闭
+  方式失败（fail closed）；
+- 主体引用及哈希、已认证的 Agent 主体、租户、任务、动作摘要、工具操作、
+  策略版本和过期时间均会被绑定；
+- `deny` 始终覆盖其他任何信号；
+- 在 Gateway 校验匹配的已批准记录前，`require_approval` 始终具有权威性。
 
-Policy decisions are loaded through a trusted source Port. A
-`ResolvedPolicyDecision` carries the stored RFC 8785 input preimage so the
-declared `input_hash` can be recomputed instead of trusted as arbitrary JSON.
+策略决策通过可信来源 Port 加载。`ResolvedPolicyDecision` 携带已存储的
+RFC 8785 输入原像，因此可以重新计算声明的 `input_hash`，而不是将任意 JSON
+中的该字段直接视为可信值。

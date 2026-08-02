@@ -1,10 +1,8 @@
 # FlowPilot Security
 
-This package verifies that a public `SecurityContextRef` matches a currently
-trusted server-side identity record and that the authenticated workload
-principal matches the declared Agent.
+本包验证公共 `SecurityContextRef` 是否与当前可信的服务端身份记录匹配，
+并验证已认证的工作负载主体是否与声明的 Agent 一致。
 
-It never accepts tenant, role, audience, or credential claims from model
-output. Capability credentials are represented by opaque, audience-bound,
-short-lived handles; raw tokens are not returned by this package and are
-forbidden from lifecycle, Audit, Security, and debug projections.
+本包绝不接受模型输出中的租户、角色、audience 或凭据声明。Capability 凭据
+使用不透明、绑定 audience 的短期 handle 表示；本包不会返回原始 token，
+生命周期、Audit、Security 和调试投影中也禁止出现原始 token。

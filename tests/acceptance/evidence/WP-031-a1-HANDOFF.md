@@ -11,7 +11,7 @@
 - 交接策略：`S1_GATE`
 - 功能 ID：FP-EVAL-003、FP-EVAL-004、FP-OPS-002
 - 基线提交：`3119d73e65e0dcad6144b4707103fff4908bf4bb`
-- 分支/实现提交：`codex/s4/wp-031-acceptance-remediation` / `258046d6ec4eaa15675b4044f0be24d25a5398a5`
+- 分支/实现提交：`codex/s4/wp-031-acceptance-remediation` / `8e41e587ccf1a4382d7a15e18f747db34853536e`
 - ContractSet 摘要：`sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56`
 - 状态：完成
 
@@ -22,6 +22,7 @@
 - Registry 拒绝空或 `none` 的执行器 ID/版本，并强制 Result 身份与被选中的注册执行器完全一致。
 - 每个执行证据引用使用规范 POSIX 相对路径，限制在本轮 evidence root 内；逃逸、别名、重复引用、Artifact 名冲突及缺失全部拒绝。
 - 所有真实执行证据以 `execution/<relative-ref>` 加入 Acceptance Manifest `artifact_hashes`，并可按文件复算。
+- 无效 Result 的可疑 evidence 引用在 dispatch 边界清除；闭包收集器只处理验证通过的 `COMPLETED` Result，因此已知失败不会阻断 FAIL Manifest/REPORT 生成。
 - 六类测试结果进入统一 Gate；Aggregate、Manifest、REPORT 与进程退出码使用同一结论。
 - 修复 `sha256:sha256:` 与错误 Fixture Manifest 路径；拒绝 `unknown` 或非法 Hash。
 - Judge Case 在当前代理校准状态下明确失败，Judge 不得覆盖非功能、安全、授权、工具成功或终态门禁。
@@ -59,7 +60,7 @@
 
 | 命令 | 结果 | 证据 |
 |---|---|---|
-| `uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/evaluation -q` | PASS：132 passed | 当前分支控制台结果 |
+| `uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/evaluation -q` | PASS：134 passed | 当前分支控制台结果 |
 | `uv run --all-packages --all-groups --locked ruff check scripts/acceptance packages/evaluation tests/acceptance/evaluation` | PASS | 当前分支控制台结果 |
 | `uv run --all-packages --all-groups --locked mypy --strict --explicit-package-bases --follow-imports=skip packages/evaluation/execution.py packages/evaluation/reporting.py scripts/acceptance/run_acceptance.py` | PASS：3 source files | 当前分支控制台结果 |
 | `uv run --all-packages --all-groups --locked python -B scripts/acceptance/run_acceptance.py --output <temp> --run-id wp031-a1-closure` | EXPECTED FAIL：exit 1；Manifest/Aggregate/REPORT 均 FAIL；0/156/0；64 个 Judge 未校准 | `C:\Users\Administrator\AppData\Local\Temp\flowpilot-wp031-a1-closure-a79dcc9409ab4c74af77d598dd16e414` |
@@ -68,7 +69,7 @@
 
 ## 安全与失败路径
 
-- 已验证负向路径：未注册执行器、空/`none` 身份、伪造执行器归因、输入摘要错配、输出证据 Hash 错配、证据缺失、路径逃逸、重复引用、Artifact 覆盖冲突、断言失败、测试套件失败、非法 Hash、Judge 未校准及 Judge 介入安全 Gate。
+- 已验证负向路径：未注册执行器、空/`none` 身份、伪造执行器归因、输入摘要错配、输出证据 Hash 错配、证据缺失、路径逃逸、重复引用、Artifact 覆盖冲突、无效引用隔离后仍生成 FAIL Bundle、断言失败、测试套件失败、非法 Hash、Judge 未校准及 Judge 介入安全 Gate。
 - 未验证风险：真实产品 Executor 尚未接入；其运行时资源清理、超时和外部依赖隔离需在后续类别工作包逐项验证。
 - Secret/PII 检查：现有 Evidence 安全门禁保持启用；完整 Security 套件 17 passed；临时产物仅含合成数据。
 
@@ -85,14 +86,14 @@ MATURITY=VERIFIED
 TRIGGER=CaseExecutionResult 已包含 evidence_refs，但 Bundle Manifest 未 Hash 对应文件，导致结果看似可追踪却无法独立复算。
 MECHANISM=跨层只传递证据路径而未在最终聚合边界枚举、规范化、去重并 Hash，引用文件可缺失、冲突、逃逸或被替换。
 STRUCTURE=由 Acceptance 聚合器集中收集执行证据；使用规范相对路径和根目录约束，绑定注册执行器身份与输入/输出摘要，拒绝重复、别名、冲突和缺失，再将每个文件 1:1 写入 artifact_hashes。
-EVIDENCE=提交 258046d；test_executor_evidence_is_hashed_into_manifest、身份伪造及证据冲突/缺失/逃逸负例；132 passed。
+EVIDENCE=提交 258046d、8e41e58；test_executor_evidence_is_hashed_into_manifest、test_invalid_evidence_fails_case_but_bundle_and_report_still_close、身份伪造及证据冲突/缺失/逃逸负例；134 passed。
 RESIDUAL_RISK=当前验证使用合成 ObservingExecutor，真实产品 Executor 的过程证据仍需按类别接入和独立复现。
 TARGET=playbook section: 验收证据闭包与执行器归因
 ```
 
 ## 接收会话下一步
 
-1. S1 复核 `258046d` 的执行证据 1:1 Hash、身份绑定和授权路径。
+1. S1 复核 `8e41e58` 的执行证据 1:1 Hash、身份绑定、失败引用隔离和授权路径。
 2. 将 156 个场景按 13 个类别分配后续 Executor/Harness 工作包；未接入前维持 0 PASS。
 3. 由 S1/S7 在契约治理修复后重算 WP040 历史固定 Manifest/Report Hash。
 
@@ -103,7 +104,7 @@ OUTCOME=PASS_HANDOFF
 CHAIN_ID=CHAIN-M6-ACCEPTANCE-REMEDIATION-01
 STEP_ID=M6-REM-01-S4
 ATTEMPT_ID=WP-031-a1
-NEW_HEAD=258046d6ec4eaa15675b4044f0be24d25a5398a5
+NEW_HEAD=8e41e587ccf1a4382d7a15e18f747db34853536e
 BASE_COMMIT=3119d73e65e0dcad6144b4707103fff4908bf4bb
 CONTRACT_CONTENT_DIGEST=sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56
 GATE=PASS
@@ -115,4 +116,4 @@ ESCALATE_TO_S1=yes
 
 ## 可回滚方式
 
-- 回滚本 Attempt 在基线 `3119d73e...` 之后的四个提交；不需数据库、契约或外部资源回滚。
+- 回滚本 Attempt 在基线 `3119d73e...` 之后的全部提交；不需数据库、契约或外部资源回滚。

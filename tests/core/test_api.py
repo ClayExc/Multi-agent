@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import json
 import sys
-from datetime import UTC, datetime, timedelta
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -530,16 +531,14 @@ async def _read_sse(
     app_task = asyncio.create_task(app(scope, receive, send))
     try:
         await asyncio.wait_for(app_task, timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         # SSE is an infinite stream: the app task never completes on its own.
         # If we have collected the expected events, that is success.
         if expected > 0 and len(collected) < expected:
             raise
         app_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await app_task
-        except (asyncio.CancelledError, Exception):
-            pass
 
     assert status_code == 200
     assert content_type.startswith(b"text/event-stream")

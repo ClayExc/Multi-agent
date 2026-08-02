@@ -13,7 +13,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, overload
 
 _TASK_STATUSES = frozenset(
     {
@@ -85,7 +85,9 @@ class WaitingOnView:
     expires_at: datetime | None
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, Any]) -> WaitingOnView | None:
+    def from_mapping(
+        cls, value: Mapping[str, Any] | None
+    ) -> WaitingOnView | None:
         if value is None:
             return None
         _require_keys(value, {"type", "request_id", "expires_at"}, "waiting_on")
@@ -487,55 +489,67 @@ def _require_keys(
         raise ShellContractError(f"{label} carries unknown fields: {sorted(unknown)}")
 
 
-def _text(value: Any, field: str, maximum: int) -> str:
+def _text(value: object, field: str, maximum: int) -> str:
     if not isinstance(value, str) or not value or len(value) > maximum:
         raise ShellContractError(f"{field} must be a bounded non-empty string")
     return value
 
 
-def _optional_text(value: Any, field: str, maximum: int) -> str | None:
+def _optional_text(value: object, field: str, maximum: int) -> str | None:
     if value is None:
         return None
     return _text(value, field, maximum)
 
 
-def _identifier(value: Any, field: str, pattern: re.Pattern[str]) -> str:
+def _identifier(value: object, field: str, pattern: re.Pattern[str]) -> str:
     if not isinstance(value, str) or pattern.fullmatch(value) is None:
         raise ShellContractError(f"{field} has an invalid v1 identifier format")
     return value
 
 
-def _sha256(value: Any, field: str) -> str:
+def _sha256(value: object, field: str) -> str:
     if not isinstance(value, str) or _SHA256_PATTERN.fullmatch(value) is None:
         raise ShellContractError(f"{field} must be a lowercase sha256 digest")
     return value
 
 
-def _safe_int(value: Any, field: str) -> int:
+def _safe_int(value: object, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ShellContractError(f"{field} must be a non-negative integer")
     return value
 
 
-def _positive_int(value: Any, field: str) -> int:
+def _positive_int(value: object, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ShellContractError(f"{field} must be a positive integer")
     return value
 
 
-def _require_bool(value: Any, field: str) -> bool:
+def _require_bool(value: object, field: str) -> bool:
     if not isinstance(value, bool):
         raise ShellContractError(f"{field} must be a boolean")
     return value
 
 
-def _optional_bool(value: Any, field: str) -> bool | None:
+def _optional_bool(value: object, field: str) -> bool | None:
     if value is None:
         return None
     return _require_bool(value, field)
 
 
-def _parse_dt(value: Any, field: str, *, nullable: bool = False) -> datetime | None:
+@overload
+def _parse_dt(
+    value: object, field: str, *, nullable: Literal[False] = False
+) -> datetime: ...
+
+
+@overload
+def _parse_dt(
+    value: object, field: str, *, nullable: Literal[True]
+) -> datetime | None: ...
+
+
+def _parse_dt(value: object, field: str, *, nullable: bool = False) -> datetime | None:
     if value is None:
         if nullable:
             return None

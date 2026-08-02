@@ -217,9 +217,19 @@ docker compose --env-file .env -f infra/compose/compose.yaml ps
 docker compose --env-file .env -f infra/compose/compose.yaml down
 ```
 
-当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。Web UI、
-真实 Provider/企业系统、完整业务 API 组合、第二业务场景、120+36 真实执行报告和
-经人工双轮校准的 Judge 尚不可体验。
+当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。真实联调
+Web UI、真实 Provider/企业系统、完整业务 API 组合、第二业务场景、120+36 真实
+执行报告和经人工双轮校准的 Judge 尚不可体验。
+
+仓库还提供一个与真实后端隔离的 Fixture Web 演示外壳：
+
+```powershell
+uv run --frozen python web/server.py --port 8765
+```
+
+打开 `http://127.0.0.1:8765/`，可体验任务列表、时间线、信息补全、审批卡、
+错误与恢复界面以及 SSE 重连。它使用内存和合成 Fixture，适合查看交互外壳，
+不代表 Web 已经接通上述 FastAPI、数据库或真实 Agent 流程。
 
 ## 目标开发命令
 

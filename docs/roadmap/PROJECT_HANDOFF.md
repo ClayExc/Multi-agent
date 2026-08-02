@@ -3,8 +3,8 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M6_INCREMENTAL_C_AGGREGATED_MERGED
-STATUS=MERGED_M6_INCREMENTAL_C_COMPLETE
+SNAPSHOT=M6_FREEZE_COMPLETE
+STATUS=MERGED_M6_FREEZE_COMPLETE
 S7_HEAD=0b1d6ba3aa31536d9170027f0981c0e626b71f35
 MERGED_CANDIDATE_HEAD=1b021a9
 CONTRACT_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc
@@ -125,8 +125,8 @@ make studio-smoke
 | Web 产品面 | **已合入 master**（轨道 C，flow-lite g3 第一段，2026-08-02，FP-UI-001） | S4 体验复核后 FP-UI-001 升 VERIFIED；接 M5 复合申请第二场景 |
 | 新员工复合申请 | **已合入 master**（M5，flow-lite g1/g2，2026-08-02，FP-ONB-001） | AC-E2E-002 8 步闭环 + 7 断言已落地；S7 独立复算后升 VERIFIED |
 | 120+36 | **候选就位**（增量 A 69 + B 52 + C 35 = 120 功能 + 36 安全，2026-08-02） | M6 冻结：Hash 冻结、Judge 校准、失败保留与证据包 |
-| `make acceptance` | 未实现 | 一条命令生成机器 Manifest 与人类报告 |
-| 全仓 Ruff | 29 个继承 finding | 对应 Owner 分批清零，不阻断 P2 |
+| `make acceptance` | **已实现**（M6-1，run_acceptance.py 编排器，gate=pass 实测） | 156 候选判定 + 六类测试收集 + bundle/REPORT 组装 |
+| 全仓 Ruff | **已清零**（M6-3，All checks passed） | 63 findings 按 Owner 分批清理 + contract-set digest 重新基线 |
 | 多模态与 LoRA | 未开始 | 不进入当前核心交付窗口 |
 
 Traceability 当前仍保持 `DESIGNED`，因为 Feature 提升需要其规定路径下的正式

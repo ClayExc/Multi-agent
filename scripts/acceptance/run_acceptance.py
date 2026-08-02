@@ -41,7 +41,9 @@ from packages.evaluation.execution import (  # noqa: E402
     CaseExecutionResult,
     CaseExecutorRegistry,
     ExecutionState,
+    collect_execution_evidence,
     failed_execution,
+    merge_execution_evidence,
 )
 from packages.evaluation.incremental_a import load_cases as load_a  # noqa: E402
 from packages.evaluation.incremental_b import load_cases as load_b  # noqa: E402
@@ -526,6 +528,14 @@ def main() -> int:
     extra_artifacts["test-results-summary.json"] = test_summary_path
     if failures:
         extra_artifacts["failures.json"] = output / "failures.json"
+    execution_artifacts = collect_execution_evidence(
+        execution_results,
+        execution_evidence_root,
+    )
+    extra_artifacts = merge_execution_evidence(
+        extra_artifacts,
+        execution_artifacts,
+    )
     manifest = generate_acceptance_bundle(
         output_dir=output,
         metadata=metadata,

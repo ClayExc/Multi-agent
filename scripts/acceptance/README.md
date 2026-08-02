@@ -30,15 +30,19 @@ rate.
    safety/fault), enumerating by type (suite x category) and verifying each
    quota against the Evaluation Registry. Any missing/extra type aborts with
    `collection-errors.json` left behind as evidence.
-2. Judge every candidate deterministically (structure/binding/reference
-   validation, 0 findings -> PASS; explicit `skip:` tag -> SKIPPED; otherwise
-   FAIL with evidence preserved). The structured verdict ledger
-   `eval/verdicts.json` records all 156 candidates.
+2. Preflight every candidate, then dispatch it to an explicitly registered
+   product executor. Missing executors, incomplete result bindings, absent
+   execution evidence, or an uncalibrated required Judge fail closed. Case
+   definitions and expected fields are never treated as observations. The
+   structured ledgers `eval/execution-results.jsonl` and `eval/verdicts.json`
+   record all 156 candidates.
 3. Run the six test suites (unit/contract/integration/e2e/recovery/security)
    into `test-results/*.xml`; a suite with no usable target directory aborts
    with the same `collection-errors.json` evidence.
 4. Assemble the acceptance bundle (`manifest.json` + `REPORT.md` + `eval/`),
-   with `manifest.artifact_hashes` covering every artifact 1:1.
+   with `manifest.artifact_hashes` covering every artifact 1:1. Every executor
+   evidence reference is canonicalized under `execution/`, rejected on path
+   escape, duplication, conflict, or absence, and included in that hash map.
 
 Usage:
 

@@ -7,7 +7,9 @@ from .execution import (
     CaseExecutorRegistry,
     ExecutionState,
     case_input_digest,
+    collect_execution_evidence,
     failed_execution,
+    merge_execution_evidence,
     validate_completed_execution,
 )
 from .incremental_a import (
@@ -75,6 +77,7 @@ __all__ = [
     "aggregate_results",
     "build_evidence_record",
     "case_input_digest",
+    "collect_execution_evidence",
     "failed_execution",
     "generate_acceptance_bundle",
     "generate_cases",
@@ -82,6 +85,7 @@ __all__ = [
     "load_cases",
     "load_cases_b",
     "load_vpn_case_set",
+    "merge_execution_evidence",
     "validate_candidates",
     "validate_candidates_b",
     "validate_completed_execution",

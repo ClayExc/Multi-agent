@@ -9,11 +9,12 @@ output digest, and evidence artifacts before it can be considered for PASS.
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
 from .canonical import canonical_digest, sha256_file
@@ -87,6 +88,21 @@ class CaseExecutorRegistry:
 
     def __init__(self, executors: Sequence[CaseExecutor] = ()) -> None:
         identities = [item.executor_id for item in executors]
+        for executor in executors:
+            if (
+                not isinstance(executor.executor_id, str)
+                or not executor.executor_id.strip()
+                or executor.executor_id != executor.executor_id.strip()
+                or executor.executor_id.lower() == "none"
+            ):
+                raise ValueError("executor ID must be non-empty and registered")
+            if (
+                not isinstance(executor.executor_version, str)
+                or not executor.executor_version.strip()
+                or executor.executor_version != executor.executor_version.strip()
+                or executor.executor_version.lower() == "none"
+            ):
+                raise ValueError("executor version must be non-empty and registered")
         if len(identities) != len(set(identities)):
             raise ValueError("executor IDs must be unique")
         self._executors = tuple(executors)
@@ -136,6 +152,23 @@ class CaseExecutorRegistry:
                 executor_version=executor.executor_version,
                 failure_code="EXECUTION_RESULT_INVALID",
                 failure_detail="executor returned an unsupported result type",
+            )
+        if (
+            result.executor_id != executor.executor_id
+            or result.executor_version != executor.executor_version
+        ):
+            return failed_execution(
+                case,
+                executor_id=executor.executor_id,
+                executor_version=executor.executor_version,
+                assertion_results=result.assertion_results,
+                judge_scores=result.judge_scores,
+                evidence_refs=result.evidence_refs,
+                output_digest=result.output_digest,
+                failure_code="EXECUTOR_IDENTITY_MISMATCH",
+                failure_detail=(
+                    "execution result identity does not match selected executor"
+                ),
             )
         try:
             findings = validate_completed_execution(case, result, evidence_root)
@@ -283,6 +316,58 @@ def validate_completed_execution(
     return findings
 
 
+def collect_execution_evidence(
+    results: Sequence[CaseExecutionResult],
+    evidence_root: Path,
+) -> dict[str, Path]:
+    """Return a deterministic bundle map for every referenced evidence file.
+
+    Relative references use canonical POSIX syntax below ``evidence_root``.
+    Reusing a reference across cases is rejected instead of silently making
+    multiple results share an ambiguously attributed artifact.
+    """
+
+    artifacts: dict[str, Path] = {}
+    owners: dict[str, str] = {}
+    resolved_owners: dict[str, str] = {}
+    root = evidence_root.resolve()
+    for result in sorted(results, key=lambda item: item.case_id):
+        for reference in result.evidence_refs:
+            canonical = _canonical_evidence_reference(reference)
+            if canonical in owners:
+                raise ValueError(
+                    "duplicate execution evidence reference: "
+                    f"{canonical} ({owners[canonical]}, {result.case_id})"
+                )
+            resolved = (root / Path(*canonical.split("/"))).resolve()
+            if root not in resolved.parents:
+                raise ValueError(f"execution evidence escapes root: {reference}")
+            if not resolved.is_file() or resolved.stat().st_size == 0:
+                raise ValueError(f"execution evidence missing or empty: {reference}")
+            resolved_key = os.path.normcase(str(resolved))
+            if resolved_key in resolved_owners:
+                raise ValueError(
+                    "execution evidence path aliases another reference: "
+                    f"{canonical} ({resolved_owners[resolved_key]}, {result.case_id})"
+                )
+            owners[canonical] = result.case_id
+            resolved_owners[resolved_key] = result.case_id
+            artifacts[f"execution/{canonical}"] = resolved
+    return artifacts
+
+
+def merge_execution_evidence(
+    artifacts: Mapping[str, Path],
+    execution_artifacts: Mapping[str, Path],
+) -> dict[str, Path]:
+    """Merge bundle artifact maps without allowing evidence replacement."""
+
+    conflicts = sorted(set(artifacts) & set(execution_artifacts))
+    if conflicts:
+        raise ValueError(f"execution evidence artifact conflict: {conflicts}")
+    return {**artifacts, **execution_artifacts}
+
+
 def _declared_assertion_ids(case: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(
         str(item["assertion_id"])
@@ -296,3 +381,23 @@ def _scenario(case: Mapping[str, Any]) -> str:
         if isinstance(tag, str) and tag.startswith(_SCENARIO_PREFIX):
             return tag[len(_SCENARIO_PREFIX):]
     return "<missing>"
+
+
+def _canonical_evidence_reference(reference: str) -> str:
+    if not isinstance(reference, str) or not reference:
+        raise ValueError("execution evidence reference must be non-empty text")
+    if "\\" in reference:
+        raise ValueError(
+            f"execution evidence reference must use POSIX paths: {reference}"
+        )
+    path = PurePosixPath(reference)
+    canonical = path.as_posix()
+    if (
+        path.is_absolute()
+        or canonical != reference
+        or ".." in path.parts
+        or any(":" in part for part in path.parts)
+        or canonical in {".", ""}
+    ):
+        raise ValueError(f"unsafe execution evidence reference: {reference}")
+    return canonical

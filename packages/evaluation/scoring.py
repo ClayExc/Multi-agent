@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from .reporting import AssertionOutcome, CaseResult, CaseStatus
-
 
 OBJECTIVE_GATE_DOMAINS = {
     "approval",
@@ -27,7 +27,7 @@ class JudgeBoundary:
     rubrics: Mapping[str, Mapping[str, Any]]
 
     @classmethod
-    def from_registry(cls, registry: Mapping[str, Any]) -> "JudgeBoundary":
+    def from_registry(cls, registry: Mapping[str, Any]) -> JudgeBoundary:
         rubrics = {
             item["rubric_id"]: item for item in registry.get("judge_rubrics", [])
         }
@@ -66,7 +66,7 @@ class DeterministicScorer:
     judge_boundary: JudgeBoundary
 
     @classmethod
-    def from_registry(cls, registry: Mapping[str, Any]) -> "DeterministicScorer":
+    def from_registry(cls, registry: Mapping[str, Any]) -> DeterministicScorer:
         assertion_domains = {
             item["assertion_id"]: item["gate_domain"]
             for item in registry.get("deterministic_assertions", [])

@@ -500,7 +500,10 @@ CASE_SPECS: tuple[CaseSpec, ...] = (
         "并行查询：INC-2026-000123 事件工单的处理进度，同时查询 "
         "SR-2026-000456 服务请求的完成状态，两份结果都要。",
         _pc_expected(COMPLETED, allowed=[TICKET_READ]),
-        (_terminal(COMPLETED), _parallel(["incident_status", "service_request_status"])),
+        (
+            _terminal(COMPLETED),
+            _parallel(["incident_status", "service_request_status"]),
+        ),
     ),
     CaseSpec(
         "m6c.func.pc.002", "functional", "parallel_composite",

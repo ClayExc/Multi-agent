@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from .canonical import sha256_file
 from .safety import require_safe_evidence
@@ -53,14 +54,17 @@ def build_evidence_record(
         raise ValueError(f"undeclared test_id for {feature_id}: {test_id}")
     if verifier_role != feature.get("verification_owner"):
         raise ValueError(
-            f"verifier_role must be {feature.get('verification_owner')} for {feature_id}"
+            f"verifier_role must be {feature.get('verification_owner')} "
+            f"for {feature_id}"
         )
     if verifier_role == feature.get("implementation_owner"):
         raise ValueError("feature implementer cannot verify their own evidence")
     root = repository_root.resolve()
     artifact = (root / artifact_path).resolve()
     if root not in artifact.parents or not artifact.is_file():
-        raise ValueError(f"evidence artifact does not exist in repository: {artifact_path}")
+        raise ValueError(
+            f"evidence artifact does not exist in repository: {artifact_path}"
+        )
     record = EvidenceRecord(
         feature_id=feature_id,
         evidence_id=evidence_id,

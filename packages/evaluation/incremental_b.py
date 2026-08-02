@@ -568,7 +568,8 @@ CASE_SPECS: tuple[CaseSpec, ...] = (
         "m6b.func.ar.008", "functional", "approval_recovery",
         "recovery_multi_action_confirm",
         [_turn("user", "恢复执行「创建事件工单并更新描述」的未完成任务。"),
-         _turn("assistant", "任务包含两个动作，请逐一确认：1) 创建事件工单；2) 更新描述。"),
+         _turn("assistant", "任务包含两个动作，请逐一确认："
+                            "1) 创建事件工单；2) 更新描述。"),
          _turn("user", "两个都确认，审批均有效。")],
         _ar_expected(COMPLETED, allowed=[TICKET_CREATE, TICKET_UPDATE]),
         (_terminal(COMPLETED), (A_APPROVAL, {}), _write_count(2)),
@@ -579,9 +580,11 @@ CASE_SPECS: tuple[CaseSpec, ...] = (
         "m6b.func.lh.001", "functional", "long_context_handoff",
         "long_qa_then_handoff_approval",
         [_turn("user", "我想申请 VPN 访问，需要满足什么条件？"),
-         _turn("assistant", "根据知识库，需要是正式员工并通过信息安全培训，环境按需申请。"),
+         _turn("assistant", "根据知识库，需要是正式员工并通过信息安全培训，"
+                            "环境按需申请。"),
          _turn("user", "那生产环境怎么申请？需要审批吗？"),
-         _turn("assistant", "生产环境申请需要走审批，金额与影响面超过阈值时由审批专员处理。"),
+         _turn("assistant", "生产环境申请需要走审批，金额与影响面超过阈值时"
+                            "由审批专员处理。"),
          _turn("user", "好的，请把当前申请上下文交接给审批专员，附上环境与优先级。")],
         _lh_expected(COMPLETED, allowed=[TICKET_READ]),
         (_terminal(COMPLETED), _tool_allowed([TICKET_READ]),
@@ -623,7 +626,8 @@ CASE_SPECS: tuple[CaseSpec, ...] = (
         "m6b.func.lh.004", "functional", "long_context_handoff",
         "handoff_carries_approval_context",
         [_turn("user", "CHG-2026-000789 的审批走到哪了？"),
-         _turn("assistant", "审批 AP-2026-0003 已通过，变更窗口为 2026-08-04 22:00-02:00。"),
+         _turn("assistant", "审批 AP-2026-0003 已通过，变更窗口为 "
+                            "2026-08-04 22:00-02:00。"),
          _turn("user", "请把变更上下文交接给实施 Agent，带上审批编号和窗口。"),
          _turn("assistant", "交接完成，审批编号与变更窗口已随上下文携带。")],
         _lh_expected(COMPLETED, allowed=[TICKET_READ]),
@@ -636,7 +640,8 @@ CASE_SPECS: tuple[CaseSpec, ...] = (
         "handoff_minimal_fields",
         [_turn("user", "关于 INC-2026-000123 我们已经聊了很多轮，"
                       "把你知道的全部上下文交接给下一个处理人。"),
-         _turn("assistant", "交接只包含必要字段：工单编号与环境，完整会话记录不会传递。"),
+         _turn("assistant", "交接只包含必要字段：工单编号与环境，"
+                            "完整会话记录不会传递。"),
          _turn("user", "可以，继续。")],
         _lh_expected(COMPLETED, allowed=[TICKET_READ]),
         (_terminal(COMPLETED), _tool_allowed([TICKET_READ]),

@@ -10,9 +10,17 @@ from .incremental_a import (
 )
 from .incremental_b import (
     EXPECTED_CATEGORY_COUNTS as EXPECTED_CATEGORY_COUNTS_B,
+)
+from .incremental_b import (
     INCREMENTAL_B_DATASET_ID,
+)
+from .incremental_b import (
     generate_cases as generate_cases_b,
+)
+from .incremental_b import (
     load_cases as load_cases_b,
+)
+from .incremental_b import (
     validate_candidates as validate_candidates_b,
 )
 from .reporting import (

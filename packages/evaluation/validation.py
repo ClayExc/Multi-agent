@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import copy
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from .canonical import (
@@ -16,7 +16,6 @@ from .canonical import (
     sha256_file,
 )
 from .safety import find_unsafe_evidence
-
 
 CONTRACT_CONTENT_FIELDS = (
     "$schema",
@@ -126,7 +125,9 @@ class OfflineRepositoryValidator:
         )
         for path in required:
             if not path.is_file():
-                findings.append(self._finding("REFERENCE_MISSING", path, "file missing"))
+                findings.append(
+                    self._finding("REFERENCE_MISSING", path, "file missing")
+                )
         if findings:
             return findings
 
@@ -232,7 +233,9 @@ class OfflineRepositoryValidator:
             )
         return sorted(findings, key=lambda item: (item.path, item.code, item.message))
 
-    def _validate_contract_set(self, manifest: dict[str, Any]) -> list[ValidationFinding]:
+    def _validate_contract_set(
+        self, manifest: dict[str, Any]
+    ) -> list[ValidationFinding]:
         findings: list[ValidationFinding] = []
         source_paths: list[Path] = [self.contract_set_path]
         projection = {field: manifest.get(field) for field in CONTRACT_CONTENT_FIELDS}
@@ -240,7 +243,9 @@ class OfflineRepositoryValidator:
             actual_digest = canonical_digest(projection)
         except ValueError as exc:
             findings.append(
-                self._finding("CONTENT_DIGEST_INVALID", self.contract_set_path, str(exc))
+                self._finding(
+                    "CONTENT_DIGEST_INVALID", self.contract_set_path, str(exc)
+                )
             )
         else:
             if manifest.get("content_digest") != actual_digest:
@@ -293,7 +298,9 @@ class OfflineRepositoryValidator:
                 continue
             portable_error = portable_bytes_error(path)
             if portable_error:
-                findings.append(self._finding("BYTES_NOT_PORTABLE", path, portable_error))
+                findings.append(
+                    self._finding("BYTES_NOT_PORTABLE", path, portable_error)
+                )
 
         required_reviewers = manifest.get("required_reviewers", [])
         review_roles = [item.get("role") for item in manifest.get("reviews", [])]
@@ -538,7 +545,8 @@ class OfflineRepositoryValidator:
                         ValidationFinding(
                             "EVIDENCE_PARENT_MISMATCH",
                             path,
-                            f"evidence_id does not contain {parent_segment}: {evidence_id}",
+                            f"evidence_id does not contain {parent_segment}: "
+                            f"{evidence_id}",
                         )
                     )
                 if evidence_id in evidence_ids:
@@ -1224,7 +1232,11 @@ class OfflineRepositoryValidator:
         try:
             for token in fragment[1:].split("/"):
                 token = unquote(token).replace("~1", "/").replace("~0", "~")
-                target = target[int(token)] if isinstance(target, list) else target[token]
+                target = (
+                    target[int(token)]
+                    if isinstance(target, list)
+                    else target[token]
+                )
         except (IndexError, KeyError, TypeError, ValueError):
             return False
         return True

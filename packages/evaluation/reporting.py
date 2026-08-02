@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from .canonical import sha256_file, stable_json_bytes
 from .safety import require_safe_evidence
@@ -53,7 +54,7 @@ class CaseResult:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "CaseResult":
+    def from_dict(cls, value: Mapping[str, Any]) -> CaseResult:
         assertions: list[AssertionOutcome] = []
         for item in value["assertions"]:
             if not isinstance(item.get("passed"), bool):
@@ -220,7 +221,9 @@ def generate_acceptance_bundle(
     )
     result_path.write_bytes(jsonl)
     aggregate_path.write_bytes(stable_json_bytes(aggregate.to_dict()))
-    report_path.write_bytes(_render_report(metadata["run_id"], aggregate).encode("utf-8"))
+    report_path.write_bytes(
+        _render_report(metadata["run_id"], aggregate).encode("utf-8")
+    )
 
     artifact_hashes = {
         "REPORT.md": sha256_file(report_path),
@@ -244,7 +247,11 @@ def generate_acceptance_bundle(
 
 
 def _render_report(run_id: str, aggregate: AggregateReport) -> str:
-    rate = aggregate.success_rate if aggregate.success_rate is not None else "NOT_MEASURED"
+    rate = (
+        aggregate.success_rate
+        if aggregate.success_rate is not None
+        else "NOT_MEASURED"
+    )
     return (
         "# FlowPilot Offline Acceptance Report\n\n"
         f"- Run: `{run_id}`\n"

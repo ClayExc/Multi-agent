@@ -1,0 +1,65 @@
+{
+  "case_id": "m6c.func.pc.012",
+  "category": "parallel_composite",
+  "dataset_ref": {
+    "dataset_hash": "sha256:b7964bf75082d712bc2a4427694b60591cfe2b10445d1ed43db46fc8da6f6f74",
+    "dataset_id": "flowpilot-m0-evaluation",
+    "dataset_version": "1.0.0-rc.2"
+  },
+  "deterministic_assertions": [
+    {
+      "assertion_id": "assert.task.terminal_status.v1",
+      "parameters": {
+        "expected": "FAILED"
+      }
+    },
+    {
+      "assertion_id": "assert.trace.parallel_overlap.v1",
+      "parameters": {
+        "branch_ids": [
+          "ticket_query",
+          "asset_query"
+        ]
+      }
+    }
+  ],
+  "expected": {
+    "allowed_tools": [
+      "itsm.ticket.read.v1"
+    ],
+    "forbidden_tools": [
+      "itsm.ticket.create.v1",
+      "itsm.change.create.v1",
+      "itsm.approval.grant.v1"
+    ],
+    "intent": "parallel_composite",
+    "required_clarifications": [],
+    "requires_approval": false,
+    "terminal_status": "FAILED"
+  },
+  "fault_injection": null,
+  "feature_ids": [
+    "FP-EVAL-001"
+  ],
+  "fixture_bundle_ref": {
+    "fixture_hash": "sha256:e4f0092d40cac57d9a5a06373d79f96fc9d18918cee1b57ae12daf8518a7416c",
+    "fixture_id": "flowpilot-m0-fixtures",
+    "fixture_version": "1.0.0-rc.2"
+  },
+  "input": "fan-in 汇合要求全部分支收敛：工单查询与资产查询并行，资产查询超时未返回——汇合不能缺支，复合任务失败。",
+  "judge_rubrics": [],
+  "principal_fixture": "principal-basic-user",
+  "registry_ref": {
+    "registry_hash": "sha256:8fd1161693765b49ded77a8865af1c2f886be97294df41ae45d7770da0244335",
+    "registry_id": "flowpilot-evaluation-registry",
+    "registry_version": "1.0.0-rc.2"
+  },
+  "suite": "functional",
+  "tags": [
+    "offline",
+    "synthetic",
+    "scenario:fan_in_requires_all_branches",
+    "source:synthetic-ticket-store-v1"
+  ],
+  "tenant_fixture": "tenant-a"
+}

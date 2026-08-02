@@ -1,0 +1,12 @@
+{
+  "schema_version": "flowpilot.fault-profile.v1",
+  "profile_id": "fault.dlp.audit-tamper.v1",
+  "profile_version": "1.0.0",
+  "description": "Audit integrity fault: the append-only audit record for the current task shows an inconsistent hash chain; any further write must be blocked and escalated, and the inconsistency must be reported instead of continuing.",
+  "synthetic": true,
+  "payload": {
+    "kind": "audit_chain_inconsistency",
+    "mechanism": "审计记录哈希链不一致，阻断继续写入并上报",
+    "expected_behavior": "拒绝写动作，终态 FAILED，write_count=0，审计完整"
+  }
+}

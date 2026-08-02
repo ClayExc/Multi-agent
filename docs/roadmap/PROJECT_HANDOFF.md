@@ -122,9 +122,9 @@ make studio-smoke
 | Context 预算与受限 Handoff | **已合入 master**（M4-2 重开发版，2026-08-01） | S4/S7 复核后 FP-CTX-001~005、FP-AGT-004 升 VERIFIED |
 | 真实 OpenAI/Claude Provider | 未实现 | 至少一个真实 Adapter；确定性验收不依赖其在线 |
 | Multi-Agent/Context 优化 | 设计与骨架 | 受限 Handoff、预算、消融与真实 Token 报告 |
-| Web 产品面 | 未实现 | Task/Timeline/补全/审批/证据面板 |
-| 新员工复合申请 | 未实现 | `AC-E2E-002`、多动作、重启和部分失败 |
-| 120+36 | Registry/Runner 骨架 | 固定 Case、数据卡、Hash、失败保留和 Judge 校准 |
+| Web 产品面 | **已合入 master**（轨道 C，flow-lite g3 第一段，2026-08-02，FP-UI-001） | S4 体验复核后 FP-UI-001 升 VERIFIED；接 M5 复合申请第二场景 |
+| 新员工复合申请 | **已合入 master**（M5，flow-lite g1/g2，2026-08-02，FP-ONB-001） | AC-E2E-002 8 步闭环 + 7 断言已落地；S7 独立复算后升 VERIFIED |
+| 120+36 | **候选就位**（增量 A 69 + B 52 + C 35 = 120 功能 + 36 安全，2026-08-02） | M6 冻结：Hash 冻结、Judge 校准、失败保留与证据包 |
 | `make acceptance` | 未实现 | 一条命令生成机器 Manifest 与人类报告 |
 | 全仓 Ruff | 29 个继承 finding | 对应 Owner 分批清零，不阻断 P2 |
 | 多模态与 LoRA | 未开始 | 不进入当前核心交付窗口 |

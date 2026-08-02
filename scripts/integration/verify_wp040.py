@@ -13,6 +13,7 @@ import argparse
 import ast
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -683,7 +684,23 @@ def branches_containing(repo: Path, revision: str) -> list[str]:
 
 
 def is_s1_branch(branch: str) -> bool:
-    return branch == "master" or branch.startswith("codex/s1/")
+    """S1 门禁合法分支判定（配置驱动，不硬编码单一前缀）。
+
+    合法分支 = master，或匹配 S1_GATE_BRANCH_PREFIXES 中任一前缀
+    （默认 codex/s1/ 与 flow-lite/，可通过环境变量覆盖——
+    未来门禁体系演进时不改代码只改配置）。
+    """
+    prefixes = [
+        p.strip()
+        for p in os.environ.get(
+            "S1_GATE_BRANCH_PREFIXES",
+            "codex/s1/,flow-lite/",
+        ).split(",")
+        if p.strip()
+    ]
+    if branch == "master":
+        return True
+    return any(branch.startswith(p) for p in prefixes)
 
 
 def is_candidate_branch(branch: str) -> bool:

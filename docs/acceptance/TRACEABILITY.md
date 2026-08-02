@@ -63,6 +63,8 @@
 | FP-EVAL-003 | P0 | 规则评分与 Judge 分离 | `packages/evaluation` | `tests/acceptance/evaluation/test_scorer_boundaries.py` | 评分维度映射 | DESIGNED |
 | FP-EVAL-004 | P1 | Judge 有盲测人工校准 | `packages/evaluation` | `evals/runners/calibrate_judge.py` | calibration.json | DESIGNED |
 | FP-EVAL-005 | P1 | 单 Agent/Multi-Agent 公平对比 | `packages/evaluation` | `evals/runners/ablation.py` | baseline 报告 | DESIGNED |
+| FP-UI-001 | P1 | Web 外壳：任务列表/时间线/审批卡/错误面板 | `web/` | `tests/experience/test_web_shell.py`、`test_fixture_contract.py` | fixture 契约与面板渲染断言 | DESIGNED |
+| FP-ONB-001 | P0 | 新员工入职复合申请（AC-E2E-002）：澄清→并行只读→双子动作→审批中断→恢复→双写闭环 | `domain-packs/onboarding/`、`packages/graph` | `tests/acceptance/onboarding/test_onboarding_composite_flow.py` 等 | 8 步流程 + 7 条确定性断言 | DESIGNED |
 | FP-ML-001 | P2 | 800 条路由样本具备数据卡 | `evals/datasets/routing-lora` | `tests/acceptance/evaluation/test_lora_dataset.py` | 哈希/切分/去重 | DESIGNED |
 | FP-ML-002 | P2 | LoRA 可灰度与回滚且不参与授权 | `packages/model-gateway` | `tests/acceptance/security/test_lora_boundary.py` | Promotion/rollback 报告 | DESIGNED |
 | FP-MM-001 | P2 | 多模态只消费安全 Observation | `packages/security` | `tests/platform/security/test_multimodal_observation.py` | 原件不可达断言 | DESIGNED |
@@ -234,16 +236,18 @@
 | m6b.safe.dlp.002 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_deny_export_secret |
 | m6b.safe.dlp.003 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_pre_write_scan |
 
-## 6. M5-1 目标登记（AC-E2E-002 业务面，S2-RUNTIME s2-runtime-m5a）
+## 6. FP-ONB-001 目标登记（AC-E2E-002 新员工入职复合申请，S2-RUNTIME s2-runtime-m5a）
 
-> 登记说明：M5-1 由注册制 Agent `s2-runtime-m5a`（S2-RUNTIME 档案）在独立
-> worktree 分支实现；本行是面向人的登记投影，机器状态以 `traceability.v1.json`
-> 与验收证据为准。功能 ID 沿用既有 Feature（FP-FLOW-003 / FP-APR-001 /
-> FP-MCP-003/004/005 / FP-CTX-004），不新增 Feature 段。
+> 登记说明：本目标最初以工作包名 "M5-1" 登记，2026-08-02 由 S1 分配
+> 正式功能 ID **FP-ONB-001**（"M5-1" 保留为来源别名）。实现由注册制
+> Agent `s2-runtime-m5a`（S2-RUNTIME 档案）在独立 worktree 分支完成；
+> 本行是面向人的登记投影，机器状态以 `traceability.v1.json` 与验收证据
+> 为准。行为覆盖既有 Feature（FP-FLOW-003 / FP-APR-001 / FP-MCP-003/004/005
+> / FP-CTX-004），聚合语义由 FP-ONB-001 承载。
 
 | 目标 | 业务结果 | 实现路径 | 验收测试 | 状态 |
 |---|---|---|---|---|
-| M5-1 新员工入职复合申请（AC-E2E-002 业务面） | 澄清循环（WAITING_USER 五字段多轮，M4-2 硬预算）→ 三只读分支并行（设备标准/库存/权限模板，逐分支独立失败定位，Trace 区间重叠）→ 双子动作计划（同一 task 两个 PlannedAction，幂等键互异）→ 权限动作经理审批 Interrupt（FP-APR-001 卡片契约）→ 进程内批准恢复 → 双写闭环（action_digest 绑定/幂等重放/UNKNOWN 先回读/写后回读/Ledger）→ 关联工单创建与汇总（仅含实际创建并回读成功的工单）；任一子动作业务失败 → FAILED + failure_code 定位子动作，已成功子动作不重复执行 | `domain-packs/onboarding/`、`evals/fixtures/onboarding-catalog-v1.json`、`packages/graph`（parallel_reads 三分支 + reducer 逐分支失败 + 子动作计划 + 部分失败终态）、`packages/application/domain_packs.py`（BUILTIN_DOMAIN_PACK_ROOTS 注册） | `tests/acceptance/onboarding/test_onboarding_composite_flow.py`、`test_onboarding_clarify_loop.py`、`test_onboarding_parallel_reads.py` | IMPLEMENTED（本地 17/17 通过；待 S1 门禁与 S7 独立复算） |
+| FP-ONB-001 新员工入职复合申请（AC-E2E-002 业务面，来源 M5-1） | 澄清循环（WAITING_USER 五字段多轮，M4-2 硬预算）→ 三只读分支并行（设备标准/库存/权限模板，逐分支独立失败定位，Trace 区间重叠）→ 双子动作计划（同一 task 两个 PlannedAction，幂等键互异）→ 权限动作经理审批 Interrupt（FP-APR-001 卡片契约）→ 进程内批准恢复 → 双写闭环（action_digest 绑定/幂等重放/UNKNOWN 先回读/写后回读/Ledger）→ 关联工单创建与汇总（仅含实际创建并回读成功的工单）；任一子动作业务失败 → FAILED + failure_code 定位子动作，已成功子动作不重复执行 | `domain-packs/onboarding/`、`evals/fixtures/onboarding-catalog-v1.json`、`packages/graph`（parallel_reads 三分支 + reducer 逐分支失败 + 子动作计划 + 部分失败终态）、`packages/application/domain_packs.py`（BUILTIN_DOMAIN_PACK_ROOTS 注册） | `tests/acceptance/onboarding/test_onboarding_composite_flow.py`、`test_onboarding_clarify_loop.py`、`test_onboarding_parallel_reads.py` | IMPLEMENTED（本地 17/17 通过；待 S1 门禁与 S7 独立复算） |
 
 ## 7. M6 评测候选登记（增量 C，目标 C1）
 

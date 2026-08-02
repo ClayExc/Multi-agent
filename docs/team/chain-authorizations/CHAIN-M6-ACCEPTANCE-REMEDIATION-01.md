@@ -26,7 +26,8 @@ FINAL_USER_GATE_REQUIRED=yes
 - Step 2 已由 S1 完成三分片组合验收，接受 Head 为 `e0bc54d8de50f0965163efb54247ce3f11b2d939`。
 - Step 3 首个 `6e85ce62…` 候选被 S3/S4 拒绝；修复正向 Verdict 与 Gate 绑定后，现候选为 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`。
 - Step 4 已完成五角色同摘要 `ACCEPT + PASS`，新 Attestation 已通过内容门禁。
-- 现仅解锁 Step 5 的只读就绪分析；涉及人工 Judge 标签、模型费用或外部调用前必须形成明确工作包和用户门禁。
+- Step 5 只读分析确认现有 Blind Set 使用 Case 输入而非真实回答，且混入安全用例；禁止直接人工校准。
+- 现授权 [`WP-035`](../work-packages/WP-035-judge-calibration-trust-boundary.md) 仅修复本地可信输入流水线；不授权人工标签、付费模型或外部调用。
 - Step 6 仍未解锁。
 
 ## 停止条件

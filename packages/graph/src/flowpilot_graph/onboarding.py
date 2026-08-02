@@ -1055,12 +1055,10 @@ class OnboardingCompositeGraph(GraphExecutionPort):
                 else "failed_final"
             ),
             failure_code=(
-                
-                    "WRITE_RETRYABLE:"
-                    if ledger_status
-                    is OnboardingLedgerStatus.FAILED_RETRYABLE
-                    else "WRITE_FAILED:"
-                
+                "WRITE_RETRYABLE:"
+                if ledger_status
+                is OnboardingLedgerStatus.FAILED_RETRYABLE
+                else "WRITE_FAILED:"
             ) + f"{sub_action['tool']}:{code}",
             started_at=started_at,
             finished_at=finished_at,

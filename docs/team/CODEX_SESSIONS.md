@@ -2,7 +2,9 @@
 
 ## 1. 设计目标
 
-FlowPilot 使用七个长期存在、用户可分别继续对话的顶层 Codex 会话。角色负责稳定的能力和路径，实际执行围绕 Work Package、Git Worktree、分支和证据包组织。
+FlowPilot 保留七个稳定的责任档案，用来界定能力、风险和路径所有权；实际开发
+不要求七个长期会话常驻。每条链从 Agent Registry 选择最少执行者，围绕
+Work Package、Git Worktree、分支和证据包组织。
 
 这与 OpenAI Symphony 的核心思路一致：从“管理聊天会话”转向“管理待完成工作”。FlowPilot 当前先采用人工控制面，后续可把 GitHub Issues/Projects 接成任务控制面。
 
@@ -92,9 +94,9 @@ CANCELLED 由用户或 S1 明确终止
 
 ContractSet 摘要
 `sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
-仍是当前实现基线。M0、M1 Platform、M2 Studio 与 P1 已进入主分支；P2 已通过
-S7 RELEASE、S1 FAST final、用户门禁与主分支复验并完成 P2。发布级 `frozen` 仍等待正式 Evidence、
-120+36 Dataset/Fixture 和 Traceability 提升。
+仍是当前实现基线。M0～M6 工程候选与 P2 持久化恢复已进入主分支；M7～M20
+已批准为规划但没有激活开发链。发布级 `frozen` 仍等待正式产品执行器、Evidence、
+Judge 校准和 Traceability 提升。
 
 当前状态只在 [`PROJECT_HANDOFF.md`](../roadmap/PROJECT_HANDOFF.md) 和
 [`work-packages/README.md`](./work-packages/README.md) 维护。历史提交、顺序和
@@ -122,9 +124,8 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 集合，最多三个互斥路径写 Agent；依赖链必须 `ORDERED`，独立审查可
 `READ_ONLY_PARALLEL`。R3、契约、安全、破坏性迁移和发布仍逐次人工批准。
 
-M3～M6 计划按需注册 `evaluation-curator`、`experience-builder` 和
-`connector-preview`，不新增永久 S 编号。具体并行路径与汇合条件见
-[`ACCELERATED_DELIVERY_PLAN.md`](../roadmap/ACCELERATED_DELIVERY_PLAN.md)。
+后续 M7～M20 按里程碑注册临时 Agent，不新增永久 S 编号。具体依赖、并行路径
+和拆包规则见 [`IMPLEMENTATION_PLAN.md`](../roadmap/IMPLEMENTATION_PLAN.md)。
 
 链执行、唤醒、增量上下文和门禁细节分别由
 [`CHAIN_EXECUTION_PROTOCOL.md`](./CHAIN_EXECUTION_PROTOCOL.md)、

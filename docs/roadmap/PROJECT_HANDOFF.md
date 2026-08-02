@@ -17,11 +17,12 @@ FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与 14 包 Py
 VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
 功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。
 
-整体仍不是发布版本。真实 Provider、Web/API/Worker/数据平面的完整产品装配、真实
-企业 Connector 和 156 条任务的产品执行器尚未完成；Judge 校准仍是
-`placeholder_proxy`。`make acceptance` 已实现，但缺少产品执行器时会保留全部失败
-并返回非零状态。这里的 `M6_FREEZE_COMPLETE` 只表示 M6 语料与工具链候选已收口，
-不表示 `RELEASED` 或整体 `FROZEN`。
+整体仍不是发布版本。真实 Provider、Web/API/Worker/数据平面的完整产品装配和
+156 条任务的产品执行器尚未完成；Judge 校准仍是 `placeholder_proxy`。
+`make acceptance` 已实现，但缺少产品执行器时会保留全部失败并返回非零状态。
+这里的 `M6_FREEZE_COMPLETE` 只表示 M6 语料与工具链候选已收口，不表示
+`RELEASED` 或整体 `FROZEN`。真实企业 Connector 已明确排除在 M7～M20 外，
+不再把“尚未接企业系统”列为本地产品的发布阻断。
 
 本文件是“现在做到哪里、如何运行、还缺什么、下一步怎么走”的主入口。详细
 设计仍由 ADR/架构文档负责，历史过程仍由 Chain/Handoff/Proof 负责。
@@ -125,45 +126,50 @@ make studio-smoke
 
 ## 7. 当前缺口与后续验收
 
-| 能力 | 当前状态 | 下一验收 |
+| 能力 | 当前状态 | 计划验收 |
 |---|---|---|
-| Outbox→SSE | 发布与重连代码已合入 | M7 接入真实 API/Worker 运行链并完成产品级复核 |
-| VPN 安全工单写入 | 审批、账本、幂等和回读候选已合入 | M8 接入 Ticket Connector 并完成黑盒安全验收 |
-| Provider Adapter | Sandbox Adapter 已合入，零凭据、零网络 | M7 接入首个真实 Provider |
-| Context 预算与受限 Handoff | 机制、硬预算和过滤测试已合入 | M7/M10 生成真实 Token 与消融报告 |
-| 真实模型 Provider | 未实现 | M7 接入 LiteLLM + DeepSeek V4 Flash；确定性验收不依赖在线模型 |
-| Multi-Agent/Context 量化 | 机制和测试已合入 | M7/M10 运行真实 Token、预算与消融报告 |
-| Web 产品面 | Fixture Web、审批卡、时间线与 SSE 交互已合入 | M7 接通 FastAPI、Worker、LangGraph 与数据平面 |
-| 新员工复合申请 | 澄清、并行读取、双动作和部分失败测试已合入 | M9 完成真实 API/Web 连续操作与恢复验收 |
-| 120+36 | 三个数据集共 156 条 Case，M6 Hash 冻结文件已合入 | M10 注册产品执行器；Contract Registry 仍不得提前提升为发布状态 |
-| `make acceptance` | 编排器、六类测试收集、失败保留、Bundle/REPORT 已实现 | M10 用真实产品执行器完成 156 条固定分母运行 |
-| Judge 校准 | 盲测工具和绑定校验已实现，当前基线为 `placeholder_proxy` | M10 完成双轮人工校准和 Promotion Gate |
-| 全仓 Ruff | **已清零**（M6-3，All checks passed） | 后续增量继续维持零新增 Finding |
-| 多模态与 LoRA | 未开始 | 不进入当前核心交付窗口 |
+| Provider 与产品运行链 | Sandbox Adapter 和分离模块已合入 | M7 接入 LiteLLM + DeepSeek V4 Flash，并贯通 Web/API/Worker/Graph/Data |
+| 身份、租户与 RLS | 契约和隔离机制已有测试 | M8 接入本地 Keycloak 和可信 SecurityContext |
+| 策略、DLP 与审计 | MCP/Policy/Security 骨架已合入 | M9 完成本地 Rego、Capability、DLP 和可查询审计 |
+| 知识检索 | 合成知识、ACL 和引用候选已合入 | M10 完成本地导入、混合检索、生命周期与稳定引用 |
+| Context | 硬预算、摘要和 Handoff 过滤已有机制 | M11～M13 分别完成短期记忆、长期记忆和用户画像 |
+| 业务场景 | VPN 与新员工候选已有代码 | M14～M18 完成五条 Web 可操作业务链 |
+| 120+36 | 156 条 Case 与 Hash 冻结已合入 | M19 注册产品执行器、校准 Judge 并运行固定分母 |
+| `make acceptance` | 编排器可运行，缺产品执行器时按设计失败 | M19 产出可复现产品报告 |
+| 安全多模态 | 隔离与 Observation 契约已有设计项 | M20 完成隔离、扫描、脱敏、注入检测和只读 Agent |
+| 全仓 Ruff | M6 收口时为零 Finding | 后续增量保持零新增 Finding |
 
 Traceability 当前仍保持 `DESIGNED`，因为 Feature 提升需要其规定路径下的正式
 Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性能或成功率数字。
 
 ## 8. 后续交付计划
 
-当前执行窗口改为 M7～M10：
+M7～M20 已批准为规划，但尚未启动开发链：
 
 ```text
-M7  LiteLLM + DeepSeek V4 Flash，并接通本地产品只读链路
- -> M8  VPN 审批与安全工单写入
- -> M9  新员工设备/权限复合申请
- -> M10 120+36 产品执行、Judge 校准与发布候选门禁
+M7 真实 Provider 与本地运行链
+ → M8 本地身份与租户
+ → M9 本地策略、密钥与 DLP
+ → M10 本地知识平台
+ → M11 短期记忆
+ → M12 长期记忆
+ → M13 用户画像
+      ├→ M14 VPN 排障 → M15 智能工单 ─┐
+      └→ M16 新员工入职 → M17 权限变更 ─┤
+                                           ↓
+                                          M18 审批助手
+                                           ↓
+                                          M19 五链集成与 120+36
+                                           ↓
+                                          M20 安全多模态
 ```
 
-M7 先解决“模块很多但用户无法连续操作”的问题；M8、M9 分别收口两条业务
-链路；M10 才运行正式产品执行器并产生可对外使用的指标。真实企业 Connector
-可以预先完成 Vendor-neutral Port、Schema 和 Sandbox/Preview，但首个窗口不要求
-写满所有厂商适配器。安全多模态与路由 LoRA 顺延为 M11、M12。
+M7～M13 是平台主链。M13 后两条业务轨道可以使用互斥路径并行，之后统一进入
+审批助手、产品评测和多模态。真实 Jira/ServiceNow/CMDB/HR/IAM、企业
+Vault/KMS/SIEM、生产高可用、跨地域部署、采购领域包和 LoRA 不在本路线范围。
 
-详细退出条件见 [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)。M3～M6 的
-并行建设记录继续保留在
-[`ACCELERATED_DELIVERY_PLAN.md`](./ACCELERATED_DELIVERY_PLAN.md)，不再作为当前
-派发计划。
+详细交付项、退出条件、拆包和时间估计见
+[`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)。
 
 ## 9. 协作与恢复
 
@@ -175,9 +181,9 @@ M7 先解决“模块很多但用户无法连续操作”的问题；M8、M9 分
 
 ## 10. 文档清理说明
 
-本次收口删除了强制上下文中重复的逐提交历史、过时的固定 S8/S9/S10 扩容
-建议和已完成基线的冗长启动说明，改由本文件、工作包索引和 Chain Authority
-分别承担“当前状态、任务状态、历史证据”。
+当前文档结构只保留一个现状入口和一个实施路线。已经完成且被主分支、Chain、
+Handoff 和 Proof 覆盖的 M3～M6 加速规划不再保留独立副本，避免继续误导派发。
+本文件、工作包索引和 Chain Authority 分别承担“项目现状、任务状态、历史证据”。
 
 以下内容不是冗余，必须保留：ContractSet/Review Attestation、ADR、Migration、
 已接受 Chain Authorization、Handoff、Proof、安全负例和原始方案历史输入。

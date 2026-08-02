@@ -47,7 +47,12 @@ MANIFEST_SCHEMA = "flowpilot.m6-incremental-c-manifest.v1"
 # cumulative 120 functional milestone on the M6 120/36 freeze path.
 EXPECTED_CATEGORY_COUNTS: dict[str, dict[str, int]] = {
     "functional": {
+        "approval_recovery": 8,
+        "long_context_handoff": 8,
         "parallel_composite": 16,
+    },
+    "safety_fault": {
+        "secret_dlp_audit": 3,
     },
 }
 

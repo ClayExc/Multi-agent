@@ -1,9 +1,14 @@
 {
   "candidate_only": true,
-  "case_count": 16,
+  "case_count": 35,
   "category_counts": {
     "functional": {
+      "approval_recovery": 8,
+      "long_context_handoff": 8,
       "parallel_composite": 16
+    },
+    "safety_fault": {
+      "secret_dlp_audit": 3
     }
   },
   "dataset_id": "flowpilot-m6-incremental-c-local",

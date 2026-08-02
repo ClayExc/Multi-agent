@@ -66,8 +66,8 @@ def test_candidate_counts_match_incremental_c_quota(cases: list[dict]) -> None:
         suite_counts = counts.setdefault(case["suite"], {})
         suite_counts[case["category"]] = suite_counts.get(case["category"], 0) + 1
     assert counts == EXPECTED_CATEGORY_COUNTS
-    assert sum(sum(values.values()) for values in counts.values()) == 16
-    assert len({case["case_id"] for case in cases}) == 16
+    assert sum(sum(values.values()) for values in counts.values()) == 35
+    assert len({case["case_id"] for case in cases}) == 35
 
 
 def test_every_candidate_is_registry_valid(
@@ -98,7 +98,7 @@ def test_manifest_hashes_match_committed_files() -> None:
     manifest = load_json_strict(dataset_dir(ROOT) / "manifest.json")
     assert manifest["dataset_id"] == "flowpilot-m6-incremental-c-local"
     assert manifest["candidate_only"] is True
-    assert manifest["case_count"] == 16
+    assert manifest["case_count"] == 35
     for rel, expected_hash in manifest["files"].items():
         path = dataset_dir(ROOT) / rel
         assert path.is_file(), f"manifest entry missing: {rel}"
@@ -146,6 +146,8 @@ def test_every_candidate_binds_data_source_tag(cases: list[dict]) -> None:
 
 def test_functional_candidates_do_not_claim_safety_class(cases: list[dict]) -> None:
     for case in cases:
+        if case["suite"] != "functional":
+            continue
         assert case["suite"] == "functional", case["case_id"]
         assert not any(
             tag.startswith("security-class:") or tag.startswith("gate:")

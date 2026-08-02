@@ -1,10 +1,14 @@
 {
   "candidate_only": true,
-  "case_count": 16,
+  "case_count": 35,
   "category_counts": {
     "functional": {
       "approval_recovery": 8,
-      "long_context_handoff": 8
+      "long_context_handoff": 8,
+      "parallel_composite": 16
+    },
+    "safety_fault": {
+      "secret_dlp_audit": 3
     }
   },
   "dataset_id": "flowpilot-m6-incremental-c-local",
@@ -25,6 +29,25 @@
     "cases/functional/m6c.func.lh.014.json": "sha256:7eb6fe5b6a1fdf976f3154225770ebac9e13ffa1feb1eea0056f34163109c743",
     "cases/functional/m6c.func.lh.015.json": "sha256:a26d69b57e1200e73419405f0aca05a4d28647c32d8f49bd97a3da9c4f4114a5",
     "cases/functional/m6c.func.lh.016.json": "sha256:54cd1dad7b88d43ddd1726c7b5ac2f1c378c624d1e0bc44483e23d27c66e94d5",
+    "cases/functional/m6c.func.pc.001.json": "sha256:d1b5be61392a99d55774da4c4ba3ed69243c267582a0db8c88434f9dd7c791ab",
+    "cases/functional/m6c.func.pc.002.json": "sha256:cd1627b33556a98be5c60aa5e976f78c90f9946d6f6892e14aa1594ae6e01ef8",
+    "cases/functional/m6c.func.pc.003.json": "sha256:3aa0e893c7370ac75c3410f0f6e9b6e643ae26f5f6a1494800e3577fa8975eed",
+    "cases/functional/m6c.func.pc.004.json": "sha256:676184c53d4999254492b8bd734c455a8c3fabae19c64e645165e5985f387b55",
+    "cases/functional/m6c.func.pc.005.json": "sha256:ecd48c2e3417b6e704316782fa69d4f703044fa4f659624f84eab47e9403539e",
+    "cases/functional/m6c.func.pc.006.json": "sha256:c90cf06c1812fbf0b768ce17e109b2cb0caff22ef7841526d3283d4dd2d236ba",
+    "cases/functional/m6c.func.pc.007.json": "sha256:95f730aa66c372e1e6ad523f3aec4d1ee1fe93140be93cb913651ac6f6f1ec68",
+    "cases/functional/m6c.func.pc.008.json": "sha256:041f366f1dd5486e85f5baa0eee7774c1ea525d86d887086354785522ef9dc07",
+    "cases/functional/m6c.func.pc.009.json": "sha256:bdaec33325f61c9bda32e3ee406a833dcf500abafae3decf6ca8166c1ec693d3",
+    "cases/functional/m6c.func.pc.010.json": "sha256:47b2ce9c1fa8261c3ce5b6028c66e488841d7e0df17b9cad27f6696f81f262c0",
+    "cases/functional/m6c.func.pc.011.json": "sha256:27064d0291e8a7902e89050fc4c8352ef7756174f3ffdedfca361999d99737f6",
+    "cases/functional/m6c.func.pc.012.json": "sha256:53a89e0abeebf8e90f83c9159c0ba420d32f6a34bdcc075ed77f81469ff18598",
+    "cases/functional/m6c.func.pc.013.json": "sha256:3b8232e60b126c32100278467682a7026387a82b92e2e5b819c2263716110bc4",
+    "cases/functional/m6c.func.pc.014.json": "sha256:4f393fbf26c4bcad4290e518f7711d3810a4cfc951736a453026efc0442b0464",
+    "cases/functional/m6c.func.pc.015.json": "sha256:c739bdc27632e4bf9ba9f0c32961f7fbe36e44fca077b902f09d18375deb49cd",
+    "cases/functional/m6c.func.pc.016.json": "sha256:cb8a27a312166c4b2bf99f3717906a99381c85515a5f5fcd05b64ca36279a5a1",
+    "cases/safety_fault/m6c.safe.dlp.004.json": "sha256:4b91b1eda161ad0efe0820be86a1801f2a3397d1af0bdefe524dd877148c8129",
+    "cases/safety_fault/m6c.safe.dlp.005.json": "sha256:1e9983d29b799ef943dd6c44cdd6c5b8d9711fcaf7be4ace3ef4cec2d10a3dc4",
+    "cases/safety_fault/m6c.safe.dlp.006.json": "sha256:331b1e844daa1f654dd9417177d57de6bc11d62ac909832eba2f1ec5a4333921",
     "dataset-card.yaml": "sha256:b24b6d2738a8470cf07f7eb5130f35f564e516360b36db7a99b7ef7ecc4d83b6"
   },
   "schema_version": "flowpilot.m6-incremental-c-manifest.v1",

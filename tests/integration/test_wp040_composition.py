@@ -81,7 +81,7 @@ def test_legal_s1_final_merge_passes(verifier: ModuleType) -> None:
 
     assert manifest["summary"]["verdict"] == "PASS"
     assert manifest["validation_phase"] == "S1_FINAL"
-    assert manifest["branch"].startswith("codex/s1/")
+    assert verifier.is_s1_branch(manifest["branch"])
     assert manifest["final"]["delta_scope_violations"] == []
     assert manifest["final"]["protected_path_mismatches"] == []
     assert all(manifest["final"]["input_head_ancestry"].values())

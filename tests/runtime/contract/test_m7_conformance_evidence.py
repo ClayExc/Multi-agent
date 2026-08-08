@@ -18,6 +18,7 @@ def test_wp070_a2_conformance_evidence_is_bound_to_locked_runtime() -> None:
 
     assert report["schema"] == "flowpilot.provider-runtime-conformance.v1"
     assert report["attempt_id"] == "WP-070-a2"
+    assert report["remediation_attempt_id"] == "WP-070-a2-r1"
     assert report["gate"] == "PASS"
     assert report["logical_model"] == PRIMARY_FAST_MODEL
     assert report["online_provider_calls"] == 0
@@ -48,3 +49,6 @@ def test_wp070_a2_conformance_evidence_is_bound_to_locked_runtime() -> None:
         == "PASS"
     )
     assert adapters["claude-agent-sdk"]["checks"]["tool_surface_empty"] == "PASS"
+    for provider in ("openai-agents-sdk", "claude-agent-sdk"):
+        assert adapters[provider]["checks"]["nested_session_ref_boundary"] == "PASS"
+        assert adapters[provider]["checks"]["typed_session_ref_boundary"] == "PASS"

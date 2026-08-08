@@ -22,8 +22,10 @@ from .models import (
     ToolProposal,
 )
 from .validation import (
+    FORBIDDEN_SENSITIVE_FIELD_NAMES,
     RequestConsistencyError,
     ToolScopeError,
+    contains_forbidden_sensitive_field,
     usage_exceeds_budget,
     validate_request,
     validate_tool_proposals,
@@ -31,19 +33,6 @@ from .validation import (
 
 OPENAI_AGENTS_PROVIDER = "openai-agents-sdk"
 CLAUDE_AGENT_PROVIDER = "claude-agent-sdk"
-
-_FORBIDDEN_KEYS = frozenset(
-    {
-        "api_key",
-        "authorization",
-        "bearer_token",
-        "cookie",
-        "credential",
-        "credentials",
-        "private_key",
-        "provider_session",
-    }
-)
 
 
 class SDKTransportErrorCode(StrEnum):
@@ -381,11 +370,7 @@ class ClaudeAgentSDKAdapter(_SDKAdapter):
 
 def _credential_free(value: object) -> bool:
     if isinstance(value, Mapping):
-        for key, child in value.items():
-            if str(key).lower() in _FORBIDDEN_KEYS:
-                return False
-            if not _credential_free(child):
-                return False
+        return not contains_forbidden_sensitive_field(value)
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return all(_credential_free(child) for child in value)
     elif isinstance(value, SDKRunCompletion):
@@ -406,7 +391,7 @@ def _safe_ref(value: str | None) -> bool:
     normalized = value.lower()
     return (
         1 <= len(value) <= 512
-        and not any(key in normalized for key in _FORBIDDEN_KEYS)
+        and not any(key in normalized for key in FORBIDDEN_SENSITIVE_FIELD_NAMES)
         and not any(character.isspace() for character in value)
     )
 

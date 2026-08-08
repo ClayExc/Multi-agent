@@ -7,16 +7,19 @@ from flowpilot_context import CLASSIFICATION_RANK, LayerName
 
 from .models import AgentRunRequest, RuntimeUsage, ToolProposal
 
-_FORBIDDEN_KEYS = {
-    "api_key",
-    "authorization",
-    "bearer_token",
-    "cookie",
-    "credential",
-    "credentials",
-    "private_key",
-    "provider_session",
-}
+FORBIDDEN_SENSITIVE_FIELD_NAMES = frozenset(
+    {
+        "api_key",
+        "authorization",
+        "bearer_token",
+        "cookie",
+        "credential",
+        "credentials",
+        "private_key",
+        "provider_session",
+        "session_ref",
+    }
+)
 
 
 class RequestConsistencyError(ValueError):
@@ -31,7 +34,7 @@ def _find_forbidden_key(value: object) -> str | None:
     if isinstance(value, Mapping):
         for key, child in value.items():
             normalized = str(key).lower()
-            if normalized in _FORBIDDEN_KEYS:
+            if normalized in FORBIDDEN_SENSITIVE_FIELD_NAMES:
                 return normalized
             found = _find_forbidden_key(child)
             if found is not None:
@@ -42,6 +45,11 @@ def _find_forbidden_key(value: object) -> str | None:
             if found is not None:
                 return found
     return None
+
+
+def contains_forbidden_sensitive_field(value: object) -> bool:
+    """Return whether a nested mapping/sequence carries a private field."""
+    return _find_forbidden_key(value) is not None
 
 
 def validate_request(
@@ -65,8 +73,7 @@ def validate_request(
         raise RequestConsistencyError("security context is expired")
     if (
         request.budget.maximum_input_tokens > context.policy.token_budget
-        or context.manifest.input_tokens_estimated
-        > request.budget.maximum_input_tokens
+        or context.manifest.input_tokens_estimated > request.budget.maximum_input_tokens
         or (
             context.manifest.input_tokens_actual is not None
             and context.manifest.input_tokens_actual
@@ -75,15 +82,12 @@ def validate_request(
     ):
         raise RequestConsistencyError("request/context input budget mismatch")
     if (
-        request.budget.maximum_input_tokens
-        + request.budget.maximum_output_tokens
+        request.budget.maximum_input_tokens + request.budget.maximum_output_tokens
         > request.budget.maximum_total_tokens
     ):
         raise RequestConsistencyError("runtime total token budget is inconsistent")
     security_rank = CLASSIFICATION_RANK[security.data_classification_ceiling]
-    context_rank = CLASSIFICATION_RANK[
-        context.policy.data_classification_ceiling
-    ]
+    context_rank = CLASSIFICATION_RANK[context.policy.data_classification_ceiling]
     if context_rank > security_rank:
         raise RequestConsistencyError(
             "context ceiling exceeds security classification ceiling"
@@ -93,8 +97,7 @@ def validate_request(
         for layer in context.layers
     ):
         raise RequestConsistencyError("context layer exceeds an effective ceiling")
-    forbidden = _find_forbidden_key(context.to_mapping())
-    if forbidden is not None:
+    if contains_forbidden_sensitive_field(context.to_mapping()):
         raise RequestConsistencyError("context contains a forbidden sensitive field")
     # Accessing each base layer makes the exactly-one invariant explicit at the port.
     for layer_name in (
@@ -109,13 +112,13 @@ def validate_tool_proposals(
     request: AgentRunRequest,
     proposals: Sequence[ToolProposal],
 ) -> None:
-    allowed = {
-        (tool.name, tool.operation) for tool in request.agent.allowed_tools
-    }
+    allowed = {(tool.name, tool.operation) for tool in request.agent.allowed_tools}
     for proposal in proposals:
         if (proposal.tool, proposal.operation) not in allowed:
             raise ToolScopeError("runtime proposed a tool outside the allowed scope")
-        if _find_forbidden_key(proposal.arguments) is not None:
+        if contains_forbidden_sensitive_field(proposal.arguments):
+            raise ToolScopeError("runtime proposal contains forbidden credential data")
+        if contains_forbidden_sensitive_field(proposal.resource):
             raise ToolScopeError("runtime proposal contains forbidden credential data")
 
 

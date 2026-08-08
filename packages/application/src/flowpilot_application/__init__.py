@@ -4,6 +4,7 @@ from .approvals import (
     ApprovalEventPort,
     ApprovalRepositoryPort,
 )
+from .composition import CoreApplicationServices, compose_core_application
 from .domain_packs import (
     DomainIntent,
     DomainKnowledgeSample,
@@ -72,6 +73,7 @@ __all__ = [
     "CommandAcceptance",
     "CommandInboxPort",
     "CommandIntakeService",
+    "CoreApplicationServices",
     "DomainIntent",
     "DomainKnowledgeSample",
     "DomainPackDefinition",
@@ -112,5 +114,6 @@ __all__ = [
     "UnitOfWork",
     "UnitOfWorkFactory",
     "VersionSlotReservation",
+    "compose_core_application",
     "load_domain_pack",
 ]

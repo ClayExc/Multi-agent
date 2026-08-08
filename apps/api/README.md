@@ -7,6 +7,12 @@
 模块级 ASGI 应用有意保持未配置状态：健康检查始终可用；在组合根提供 Command Intake、
 Task Query 和 Request Security 端口之前，命令与任务路由均以失败关闭方式拒绝请求。
 
+本地产品进程使用 `create_product_app`。该组合根要求显式提供 Command、Task Query、
+Task Event 三类 Unit of Work、S2 `ExecutionPort` 和可信 `RequestSecurityPort`，
+并装配命令接入、只读 Task 查询与租户隔离 SSE。HTTP Header 或请求正文中的 tenant
+不能替代 `RequestSecurityPort` 返回的可信身份；Provider、Worker、数据库和 MCP
+具体实现不会被 API 包直接导入。
+
 ## 运行时依赖
 
 | 依赖 | 用途 | 许可证 | 评估过的替代方案 | 攻击面与控制 |

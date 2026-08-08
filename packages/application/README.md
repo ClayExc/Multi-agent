@@ -4,6 +4,11 @@
 S2 实现 `ExecutionPort`；S6 实现 `TaskRepositoryPort`、`TaskQueryPort`、
 `CommandInboxPort` 和 `UnitOfWork`。
 
+`compose_core_application` 是框架无关的组合入口。它分别接收 Command Unit of
+Work、只读 Task Query Unit of Work 与 S2 `ExecutionPort`，并返回可供 API
+适配器消费的 `CoreApplicationServices`。组合入口不会导入 Worker、Provider SDK
+或数据库具体实现。
+
 适配器必须把 Provider、队列和数据库故障映射为本包定义的稳定错误，且不得暴露原始异常文本。
 
 ## 端口语义

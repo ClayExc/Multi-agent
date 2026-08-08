@@ -16,8 +16,29 @@ from .models import (
     ToolOperation,
     ToolProposal,
 )
+from .online_sdk import (
+    ANTHROPIC_API_KEY_ENV,
+    CLAUDE_MODEL_ENV,
+    OPENAI_API_KEY_ENV,
+    OPENAI_MODEL_ENV,
+    ClaudeAgentSDKTransport,
+    OpenAIAgentsSDKTransport,
+)
 from .ports import AgentRuntimePort
 from .sandbox import SandboxAdapter
+from .sdk import (
+    CLAUDE_AGENT_PROVIDER,
+    OPENAI_AGENTS_PROVIDER,
+    ClaudeAgentSDKAdapter,
+    FakeSDKTransport,
+    OpenAIAgentsSDKAdapter,
+    SDKRunCall,
+    SDKRunCompletion,
+    SDKScenario,
+    SDKTransport,
+    SDKTransportError,
+    SDKTransportErrorCode,
+)
 from .validation import (
     RequestConsistencyError,
     ToolScopeError,
@@ -27,17 +48,28 @@ from .validation import (
 )
 
 __all__ = [
+    "ANTHROPIC_API_KEY_ENV",
     "AgentMode",
     "AgentProfile",
     "AgentRunRequest",
     "AgentRunResult",
     "AgentRuntimePort",
     "AllowedTool",
+    "CLAUDE_AGENT_PROVIDER",
+    "CLAUDE_MODEL_ENV",
+    "ClaudeAgentSDKAdapter",
+    "ClaudeAgentSDKTransport",
     "FakeAgentRuntime",
     "FakeOutcome",
     "FakeScenario",
+    "FakeSDKTransport",
     "HandoffProposal",
     "OutputSchemaRef",
+    "OPENAI_AGENTS_PROVIDER",
+    "OPENAI_API_KEY_ENV",
+    "OPENAI_MODEL_ENV",
+    "OpenAIAgentsSDKAdapter",
+    "OpenAIAgentsSDKTransport",
     "ProviderSelection",
     "RequestConsistencyError",
     "RunStatus",
@@ -46,6 +78,12 @@ __all__ = [
     "RuntimeFailure",
     "RuntimeUsage",
     "SandboxAdapter",
+    "SDKRunCall",
+    "SDKRunCompletion",
+    "SDKScenario",
+    "SDKTransport",
+    "SDKTransportError",
+    "SDKTransportErrorCode",
     "ToolOperation",
     "ToolProposal",
     "ToolScopeError",

@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S4-QUALITY
-WORK_PACKAGE=WP-030
-FEATURE_IDS=FP-OBS-001,FP-EVAL-001,FP-EVAL-002,FP-EVAL-003,FP-OPS-002
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
-- 契约状态：ACTIVE；`WP-030-a1` 离线质量骨架已 `ACCEPTED_AND_MERGED`，跨组件范围等待依赖
-- 当前工作：[WP-030 Quality、评测与证据基线](../work-packages/WP-030-quality-bootstrap.md)
-- 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
+- 契约状态：IDLE
+- 当前工作：无；下一候选为 [WP-072](../work-packages/WP-072-m7-web-studio-observability.md) 与 [WP-073](../work-packages/WP-073-m7-product-executors-final-gate.md)
+- 激活条件：前置 M7 工作包通过，Agent Registry 分配 Base、Attempt、范围与退出条件。
 
 ## 使命
 
@@ -62,7 +62,7 @@ S4 不可以：
 - 安全：跨租户黑盒、Judge 越界、秘密泄漏、审批重放和注入。
 - 恢复：同一结果重复聚合一致、SSE 重连去重与事件序号补洞。
 
-## 当前实现任务
+## 历史基线职责
 
 从包含本状态的激活提交创建独立 Worktree 后，只执行 WP-030 的离线范围：
 

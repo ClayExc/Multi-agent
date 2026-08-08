@@ -6,7 +6,11 @@
 - 本文件是面向人的投影视图。实现阶段由 S4-QUALITY 提供生成器，并以 `--check` 校验它与机器清单无差异。
 - 该表是 README 技术声明的可读索引；发生冲突时以 `traceability.v1.json` 为准。
 - `目标代码` 和 `目标测试` 是实施路径，不代表文件当前已存在。
-- 当前无实现代码，因此所有条目均为 `DESIGNED`。
+- M0～M6 工程候选已有实现和测试；机器清单仍保持 `DESIGNED`，表示尚未按
+  `valid_evidence_refs` 规则完成发布级证据提升，不表示目标文件不存在。
+- M5 后新增的 `FP-UI-001` 与 `FP-ONB-001` 目前只在本投影视图登记，尚未进入
+  ContractSet 管理的机器清单；M7 激活前必须通过独立契约维护包补齐，不能在本次
+  控制面修复中绕过五角色审签修改摘要。
 - 条目达到 `VERIFIED` 时必须填写结构化 `valid_evidence_refs`，绑定声明的 `evidence_id/test_id`、实际相对路径、SHA-256、验收 `run_id`、时间与验证角色。
 - 功能需求、测试和证据同时变更；禁止只改状态。
 - 验收清单只引用稳定的 `feature_id`、`test_id`、`evidence_id` 和精确文件哈希，不复制这些定义。
@@ -72,24 +76,7 @@
 | FP-OPS-002 | P0 | 一条命令生成完整验收包 | `scripts` / `Makefile` | `tests/acceptance/evaluation/test_acceptance_manifest.py` | manifest + REPORT | DESIGNED |
 | FP-OPS-003 | P1 | Provider/MCP/策略故障降级 | `apps/worker` | `tests/acceptance/chaos/test_dependency_failures.py` | Chaos 报告 | DESIGNED |
 
-## 3. 简历声明映射
-
-| 声明主题 | 必须 VERIFIED 的功能 |
-|---|---|
-| Multi-Agent 编排 | FP-FLOW-001～007、FP-FLOW-009、FP-AGT-001～004 |
-| Checkpoint/Interrupt 与重试补偿 | FP-FLOW-004、005、007、008、FP-DATA-002 |
-| Context Engineering / Token 优化 | FP-CTX-001～005 |
-| MCP Tool Calling / 企业安全 | FP-MCP-001～006、FP-APR-001～003、FP-SEC-001～007 |
-| 多模态 Agent | FP-SEC-008、FP-MM-001 |
-| LLM-as-Judge | FP-EVAL-001～005 |
-| 120 + 36 测试集 | FP-EVAL-001、FP-EVAL-002、FP-OPS-002 |
-| 800 条 LoRA / Macro-F1 | FP-ML-001、FP-ML-002 |
-| OpenTelemetry 可观测 | FP-OBS-001～003 |
-| 企业级可部署 | FP-FLOW-009、FP-DATA-001～003、FP-OPS-001～003 |
-
-某一行未全部 `VERIFIED` 时，简历只能使用“设计”或删除该声明。
-
-## 4. M6 评测候选登记（增量 A，目标 e1）
+## 3. M6 评测候选登记（增量 A，目标 e1）
 
 > 投影说明：本表是 `evals/datasets/m6-incremental-a/`（机器清单）与
 > `evals/fixtures/`（数据源与故障注入）的人读视图，登记行由机器数据生成，
@@ -170,7 +157,7 @@
 | m6a.safe.art.001 | safety_fault | approval_replay_tamper_duplicate_write | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.execution_verified.v1, assert.tool.write_count.v1, assert.audit.complete.v1 | synthetic-approval-ledger-v1 | approval-replay / approval | approval_replay |
 | m6a.safe.art.002 | safety_fault | approval_replay_tamper_duplicate_write | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.execution_verified.v1, assert.tool.write_count.v1, assert.audit.complete.v1 | synthetic-approval-ledger-v1 | approval-replay / approval | parameter_tampering |
 | m6a.safe.art.003 | safety_fault | approval_replay_tamper_duplicate_write | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.approval.valid.v1, assert.tool.execution_verified.v1, assert.tool.write_count.v1, assert.audit.complete.v1 | synthetic-approval-ledger-v1 | approval-replay / approval | duplicate_write |
-## 5. M6 评测候选登记（增量 B，目标 B1）
+## 4. M6 评测候选登记（增量 B，目标 B1）
 
 > 投影说明：本表是 `evals/datasets/m6-incremental-b/`（机器清单）与
 > `evals/fixtures/`（数据源与故障注入）的人读视图，登记行由机器数据生成，
@@ -236,7 +223,7 @@
 | m6b.safe.dlp.002 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_deny_export_secret |
 | m6b.safe.dlp.003 | safety_fault | secret_dlp_audit | FP-EVAL-002 | tenant-a / principal-basic-user | assert.task.terminal_status.v1, assert.secret.exposure_zero.v1, assert.audit.complete.v1, assert.tool.write_count.v1 | synthetic-knowledge-corpus-v1 | secret-dlp-audit / security | dlp_pre_write_scan |
 
-## 6. FP-ONB-001 目标登记（AC-E2E-002 新员工入职复合申请，S2-RUNTIME s2-runtime-m5a）
+## 5. FP-ONB-001 目标登记（AC-E2E-002 新员工入职复合申请，S2-RUNTIME s2-runtime-m5a）
 
 > 登记说明：本目标最初以工作包名 "M5-1" 登记，2026-08-02 由 S1 分配
 > 正式功能 ID **FP-ONB-001**（"M5-1" 保留为来源别名）。实现由注册制
@@ -249,7 +236,7 @@
 |---|---|---|---|---|
 | FP-ONB-001 新员工入职复合申请（AC-E2E-002 业务面，来源 M5-1） | 澄清循环（WAITING_USER 五字段多轮，M4-2 硬预算）→ 三只读分支并行（设备标准/库存/权限模板，逐分支独立失败定位，Trace 区间重叠）→ 双子动作计划（同一 task 两个 PlannedAction，幂等键互异）→ 权限动作经理审批 Interrupt（FP-APR-001 卡片契约）→ 进程内批准恢复 → 双写闭环（action_digest 绑定/幂等重放/UNKNOWN 先回读/写后回读/Ledger）→ 关联工单创建与汇总（仅含实际创建并回读成功的工单）；任一子动作业务失败 → FAILED + failure_code 定位子动作，已成功子动作不重复执行 | `domain-packs/onboarding/`、`evals/fixtures/onboarding-catalog-v1.json`、`packages/graph`（parallel_reads 三分支 + reducer 逐分支失败 + 子动作计划 + 部分失败终态）、`packages/application/domain_packs.py`（BUILTIN_DOMAIN_PACK_ROOTS 注册） | `tests/acceptance/onboarding/test_onboarding_composite_flow.py`、`test_onboarding_clarify_loop.py`、`test_onboarding_parallel_reads.py` | IMPLEMENTED（本地 17/17 通过；待 S1 门禁与 S7 独立复算） |
 
-## 7. M6 评测候选登记（增量 C，目标 C1）
+## 6. M6 评测候选登记（增量 C，目标 C1）
 
 > 投影说明：本表是 `evals/datasets/m6-incremental-c/`（机器清单）与
 > `evals/fixtures/`（数据源）的人读视图，登记行由机器数据生成，

@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：READY
+- 状态：DEFERRED_TO_M19
 - Attempt ID：WP-035-a1
 - 风险等级：R2
 - 责任角色：S4-QUALITY
@@ -49,6 +49,8 @@
 - 本包不调用外部模型、不产生付费 Token、不替用户填写人工标签。
 - 不实现 156 个场景 Executor，不修改 Dataset Case、公共 Contract 或业务代码。
 - 不宣称 Judge 已校准、kappa 已达标或评测成功率已完成。
+- 当前没有产品执行器和真实产品 Observation，本包不再作为活动链等待项；可信
+  输入流水线、人工参考和 Judge 预测随 M19 产品评测重新激活。
 
 ## 必须测试
 

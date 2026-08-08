@@ -1,8 +1,17 @@
 # FlowPilot 契约基线
 
-本目录保存跨模块、跨进程和评测使用的版本化契约。当前文件是架构阶段的 v1 候选基线，用来让后续代码和测试从同一 Schema 生成或校验对象。
+本目录保存跨模块、跨进程和评测使用的版本化契约。当前文件是已经被 M0～M6
+实现消费的 v1 候选基线，用来让代码、测试和证据从同一 Schema 生成或校验对象；
+`candidate` 不等于发布级 `frozen`。
 
-`contract-set.v1.json` 是 M0 契约集清单。当前候选为 `1.0.0-rc.2`。S2、S3、S4、S5、S6 五条 Review 都对同一 `content_digest` 返回 `ACCEPT` 后，该 `candidate` 可作为实现基线；实现会话必须固定该摘要，变更时重新评审，且不得复制或扩展另一套公共对象。`frozen` 是更晚的发布级状态，还要求 Registry、Dataset、Fixture 与 Traceability 全部冻结；不能让尚未实现的 120/36 数据集反向阻塞代码启动。`status/reviews/frozen_at` 不进入内容摘要，避免写入评审结论后改变被评候选身份。
+`contract-set.v1.json` 是 M0 契约集清单。当前候选为 `1.0.0-rc.2`，内容摘要为
+`sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`。
+S2、S3、S4、S5、S6 五条 Review 已对该摘要返回 `ACCEPT`，因此它可以作为实现
+基线；实现会话必须固定该摘要，变更时重新评审，且不得复制或扩展另一套公共对象。
+`frozen` 是更晚的发布级状态，还要求 Registry、Dataset、Fixture 与 Traceability
+全部冻结。M6 已在 `evals/datasets/**` 固定 120+36 语料，但尚未把产品执行结果和
+发布 Manifest 提升进本契约 Registry。`status/reviews/frozen_at` 不进入内容摘要，
+避免写入评审结论后改变被评候选身份。
 
 ## 当前 Schema
 
@@ -32,7 +41,8 @@
 配套实例：
 
 - `registries/evaluation-registry.v1.json`：断言与 Judge Rubric 的候选注册表。
-- `registries/evaluation-dataset-manifest.v1.json`：120 + 36 Case 的候选文件清单；当前为空表示尚未实现。
+- `registries/evaluation-dataset-manifest.v1.json`：发布级 120+36 Case 清单；当前为空
+  表示尚未完成 ContractSet Registry 提升，不表示 `evals/datasets/**` 没有候选语料。
 - `registries/evaluation-fixture-manifest.v1.json`：不含真实 PII/凭据的合成 Fixture 清单。
 - `docs/acceptance/traceability.v1.json`：功能、测试与证据映射的唯一机器事实源。
 

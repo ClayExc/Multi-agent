@@ -24,6 +24,7 @@ M7～M20 的目标是完成一个可在本机完整演示、能够说明企业�
 保留：
 
 - LiteLLM + DeepSeek V4 Flash 真实模型入口。
+- OpenAI/Claude Agents SDK，经统一 Runtime Adapter 运行在受限 LangGraph 节点内。
 - FastAPI、Worker、LangGraph、PostgreSQL、Redis 与 Web 的完整本地装配。
 - 本地 Keycloak、OPA/Rego、OpenTelemetry 和追加式审计。
 - 本地知识库、pgvector、Sandbox MCP 工具。
@@ -63,7 +64,7 @@ Vendor-neutral Port、Schema、Sandbox 和 Preview 可以保留，用于证明�
 
 | 阶段 | 已进入主分支 | 仍然欠缺 |
 |---|---|---|
-| M0 | 14 包 Python Workspace、公共契约、Domain/Application/API/Runtime/Persistence 骨架 | 尚未组成产品 |
+| M0 | 当前 15 成员 Python Workspace、公共契约、Domain/Application/API/Runtime/Persistence 骨架 | 尚未组成产品 |
 | M1 | VPN 信息补全、知识检索、租户与 ACL 过滤、引用回答 | 使用合成知识与 Sandbox |
 | M2 | PostgreSQL Checkpoint、Lease/Fencing、Inbox/Outbox、Redis 丢失恢复 | 生产运维不在范围内 |
 | M3 | MCP Gateway、策略、审批绑定、账本、幂等、回读和 SSE | 没有真实企业 Connector |
@@ -81,7 +82,10 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 交付：
 
 - 在 Model Gateway 后接入 LiteLLM，首个 Provider 使用 DeepSeek V4 Flash。
+- 实现 OpenAI/Claude Agents SDK Runtime Adapter；SDK Session 只保存引用，不能
+  代替 Task、Checkpoint、审批或执行账本。
 - 固定配置名、超时、重试、预算、计量、错误映射和脱敏日志。
+- 增加 Provider 限流、熔断、成本上限和故障切换可观测状态。
 - 补齐 .env.example、启动前检查和缺少密钥的明确提示。
 - 接通 Web → FastAPI → Worker → LangGraph → PostgreSQL/Redis → 只读 MCP。
 - 统一 task、run、thread、checkpoint、trace 与 SSE 的关联标识。
@@ -93,6 +97,20 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 - 中文 VPN 请求可以从产品入口进入真实模型节点并返回带来源回答。
 - 模型超时、限流、无效响应和缺少密钥均失败关闭，且能从 UI/Trace 定位。
 - 在线模型不可用不会使确定性测试失效。
+
+M7 固定拆为四个工作包，当前均未激活：
+
+1. [`WP-070`](../team/work-packages/WP-070-m7-provider-runtime-adapters.md)：
+   LiteLLM、DeepSeek 与 OpenAI/Claude Agents SDK Adapter。
+2. [`WP-071`](../team/work-packages/WP-071-m7-local-product-composition.md)：
+   API、Worker、Graph、PostgreSQL/Redis 与只读 MCP 装配。
+3. [`WP-072`](../team/work-packages/WP-072-m7-web-studio-observability.md)：
+   Web、SSE、Studio 和安全可观测投影。
+4. [`WP-073`](../team/work-packages/WP-073-m7-product-executors-final-gate.md)：
+   首批产品执行器、固定分母与 M7 最终组合门禁。
+
+四包按 `WP-070 → WP-071 → WP-072 → WP-073` 解锁。普通进度不广播给未注册
+角色；WP-073 完成后停在用户门禁，不自动启动 M8。
 
 ## 6. M8：本地身份与租户
 
@@ -242,6 +260,8 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 - 给出优先级与处理组建议，并展示依据。
 - 可编辑工单草稿；用户确认后才执行创建。
 - 创建、回读、重复提交、修改后重新确认和失败恢复。
+- 通过 Sandbox Notification MCP 展示通知预览、投递状态和失败恢复；通知失败
+  不得反向篡改已经确认的工单事实。
 - 误分类、字段矛盾、低置信度、超范围请求和恶意输入测试。
 
 退出条件：
@@ -312,6 +332,9 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 - 统一登录、导航、任务中心、审批中心、知识、记忆和用户画像页面。
 - 统一 Agent、Prompt、Model、Policy、MCP 和数据版本视图。
 - Trace、指标、Audit 和 Security Event 的本地诊断入口。
+- 运营看板与治理控制台，展示 Provider 成本/限流/熔断、策略版本、工具健康度、
+  审计完整性和评测状态。
+- GitHub CI、覆盖率、锁文件依赖审计和全新环境复现保持持续通过。
 - 为五条业务链注册真实产品执行器。
 - 120 条功能任务按五链各 24 条分配。
 - 36 条安全/故障任务覆盖租户、审批、记忆、工具、恢复和注入。
@@ -388,6 +411,10 @@ M7 → M8 → M9 → M10 → M11 → M12 → M13
 
 只有同一实现者能够在一个中型模块内完成且门禁低于 R3 时，才允许合并小包。
 S7 不参与每个小提交，只在垂直候选汇合和 RELEASE 门禁运行。
+
+M7 使用已经登记的 WP-070～WP-073，不再临时合并为一个长工作包。后续里程碑
+沿用相同上限：一个工作包只允许一个主写目标；跨 Owner 装配使用有序子步骤和
+精确交接，不让单个 Agent 同时承担 Provider、数据、页面与最终验收。
 
 ## 21. 时间估计
 

@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=WP-021
-FEATURE_IDS=FP-SEC-002,FP-DATA-001,FP-DATA-003,FP-OPS-001
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：READY_ON_BASELINE_SYNC；WP-011 H1 已接受
-- 当前工作：[WP-021 Data、Migration 与 Infra 基线](../work-packages/WP-021-data-bootstrap.md)
-- 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree。
+- 契约状态：IDLE
+- 当前工作：无；下一候选为 [WP-071](../work-packages/WP-071-m7-local-product-composition.md)
+- 激活条件：WP-070 通过，Agent Registry 分配 Base、Attempt、范围与退出条件。
 
 ## 使命
 
@@ -62,7 +62,7 @@ S6 不可以：
 - 安全：跨租户、RLS 绕过、伪造 Tenant、明文 Secret 和宽松数据库对象被拒绝。
 - 恢复/幂等：重复 Command/ToolRequest、Outbox 重投、Worker 重启和 Redis 丢失。
 
-## 当前审查任务
+## 历史基线职责
 
 在 `REVIEW_ONLY` 阶段只读确认：
 

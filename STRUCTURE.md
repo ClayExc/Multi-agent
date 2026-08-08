@@ -117,7 +117,6 @@ flowpilot/
 │   ├── datasets/
 │   │   ├── functional/               # 目标：固定 120 条
 │   │   ├── safety-fault/             # 目标：固定 36 条
-│   │   └── routing-lora/             # 可选：800 条，需数据卡
 │   ├── rubrics/
 │   ├── baselines/
 │   ├── runners/
@@ -143,7 +142,7 @@ flowpilot/
     ├── architecture/                  # 总体、Context、Runtime Port 与 Studio 非黑箱设计
     ├── acceptance/                    # 定义、机器 Traceability 与人类视图
     ├── decisions/
-    ├── roadmap/                       # 实施路线、项目交接总览与加速交付计划
+    ├── roadmap/                       # 当前实施路线与项目交接总览
     ├── review/
     ├── team/                          # Codex 会话角色、执行契约、工作包、RFC 与交接
     │   ├── session-contracts/
@@ -248,18 +247,19 @@ flowchart TD
 - 不提交密钥、未脱敏生产样本、原始附件或含个人信息的 Trace。
 - 生成型报告带哈希和命令，不将手工编辑的结果当成验收证据。
 
-## 8. 从当前仓库迁移
+## 8. 当前演进状态
 
-当前仓库已有架构文档和 M0 候选公共契约，但尚无功能实现。迁移顺序如下：
+M0～M6 工程候选与 P2 持久化恢复已经进入主分支。当前 Workspace 有 15 个
+可安装成员；ContractSet 为 `1.0.0-rc.2` 候选，内容摘要是 `1cad07bd…`，尚未
+达到整体 `FROZEN` 或 `RELEASED`。
 
-1. 由 S2、S3、S4、S5、S6 针对 `flowpilot-m0-contracts-v1-rc2` 的精确摘要重新审查；五个实现角色全部 `ACCEPT` 后，S1 激活实现基线。发布级冻结仍需候选质量资产完成。
-2. 用户保留主仓作为 S1 集成目录，并为五个实现角色建立独立 Worktree。
-3. 第一波先启动 S5/WP-011 建立 Python Workspace 与 Application/Repository Port；S4/WP-030 可并行建设不依赖运行代码的离线质量骨架。
-4. S1 接受 `WP-011-H1` Workspace/Port 交接后，并行启动 S2/WP-010 与 S6/WP-021；连同仍在运行的 S4，写会话不超过三个。
-5. S6 交付执行账本 Port、S5 Workspace 可用后启动 S3/WP-020；S4 在前置切片可运行后接入跨组件黑盒验收。
-6. 按 WP-011 → WP-010 → WP-021 → WP-020 → WP-030 的依赖顺序集成；依赖交付使用版本化 Port、契约和交接证据，不共享可写目录。
-7. 完成 VPN 垂直切片后再创建通用检索、控制台和第二 Provider。
-8. 完成审批恢复闭环后再引入新员工复合请求。
-9. 核心闭环通过后再创建 `multimodal` 和 `routing-lora` 目录。
+下一阶段从 M7 开始，但当前没有活动开发链。M7 固定拆为：
 
+1. WP-070：LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter。
+2. WP-071：API、Worker、LangGraph、PostgreSQL/Redis 与只读 MCP 装配。
+3. WP-072：Web、SSE、LangGraph Studio 与安全可观测投影。
+4. WP-073：产品执行器、固定分母和最终组合门禁。
+
+后续只在对应垂直切片激活时创建代码目录、迁移、页面和测试。路由 LoRA、真实
+企业 Connector 与生产部署不在 M7～M20 范围；安全多模态在 M20 才创建实际管道。
 禁止一次性生成整棵空目录树并将其视为“企业级改造完成”。

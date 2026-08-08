@@ -2,13 +2,14 @@
 
 ```text
 CHAIN_ID=CHAIN-M6-ACCEPTANCE-REMEDIATION-01
-STATUS=ACTIVE
+STATUS=CLOSED
 EXECUTION_MODE=ORDERED
 RISK_CLASS=R2
 BASE_COMMIT=b7fef3da91895b85a48e6c4974a61e5f1071b4e3
 CONTRACT_CONTENT_DIGEST=sha256:f3c2dd6eb7d398d9a0a0891110cbc913bb998ed72208ea179a644c97af655e56
 USER_GATE_REQUIRED=no
 FINAL_USER_GATE_REQUIRED=yes
+COMPLETION_REASON=SUPERSEDED_BY_M7_M20_PLAN;JUDGE_CALIBRATION_DEFERRED_TO_M19
 ```
 
 ## Ordered steps
@@ -28,7 +29,8 @@ FINAL_USER_GATE_REQUIRED=yes
 - Step 4 已完成五角色同摘要 `ACCEPT + PASS`，新 Attestation 已通过内容门禁。
 - Step 5 只读分析确认现有 Blind Set 使用 Case 输入而非真实回答，且混入安全用例；禁止直接人工校准。
 - 现授权 [`WP-035`](../work-packages/WP-035-judge-calibration-trust-boundary.md) 仅修复本地可信输入流水线；不授权人工标签、付费模型或外部调用。
-- Step 6 仍未解锁。
+- Step 6 未解锁；本链已经关闭。产品执行器与真实 Judge 输入尚不存在，因此校准
+  和最终产品评测按当前路线移交 M19，不保留后台活动任务。
 
 ## 停止条件
 

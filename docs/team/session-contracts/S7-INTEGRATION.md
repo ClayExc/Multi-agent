@@ -4,15 +4,16 @@
 
 ```text
 SESSION_ROLE=S7-INTEGRATION
-WORK_PACKAGE=WP-040
-FEATURE_IDS=FP-FLOW-001,FP-SEC-004,FP-DATA-001,FP-OPS-002
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=scripts/integration/**,tests/integration/**,artifacts/integration/**,WP-040授权共享文件
 EXECUTION_MODE=<READ_ONLY_PARALLEL|ORDERED|PARALLEL>
 ```
 
-- 契约状态：`REVIEW_ONLY_PENDING_WORKTREE`
-- 当前工作：[WP-040 跨分支集成与证据复现](../work-packages/WP-040-integration-verification.md)
-- 初始模式：`READ_ONLY_PARALLEL`；未取得独立 Worktree、Attempt 和 S1 的 `MODE=IMPLEMENTATION` 前不得写入。
+- 契约状态：IDLE
+- 当前工作：无；下一候选为 [WP-073](../work-packages/WP-073-m7-product-executors-final-gate.md)
+- 初始模式：`READ_ONLY_PARALLEL`；只有 M7 垂直候选汇合且取得独立 Worktree、
+  Attempt 和 S1 授权后才进入写模式。
 
 ## 使命
 

@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S3-PLATFORM
-WORK_PACKAGE=WP-020
-FEATURE_IDS=FP-MCP-001,FP-MCP-002,FP-SEC-001,FP-SEC-004
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：ACTIVE；M0 Workspace、WP-021 执行账本 Port 与组合基线已接受，按 `CHAIN-M1-PLATFORM-01` 执行 `WP-020-a1`
-- 当前工作：[WP-020 MCP、安全与策略基线](../work-packages/WP-020-platform-bootstrap.md)
-- 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree；发布级 `frozen` 不前置阻塞实现。
+- 契约状态：IDLE
+- 当前工作：无；M7 默认不激活 S3，出现 Gateway/Policy RFC 时按最小注册集合加入。
+- 激活条件：Agent Registry 分配明确工作包、Base、Attempt、写入范围与退出条件。
 
 ## 使命
 
@@ -64,7 +64,7 @@ S3 不可以：
 - 安全：跨租户、错 audience、角色伪造、审批重放、参数篡改和工具旁路。
 - 恢复：重复 ToolRequest、写超时 `UNKNOWN` 与回读确认。
 
-## 当前实现任务
+## 历史基线职责
 
 按 `CHAIN-M1-PLATFORM-01` 执行 `WP-020-a1`：
 

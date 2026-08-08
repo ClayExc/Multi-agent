@@ -93,7 +93,7 @@ CANCELLED 由用户或 S1 明确终止
 ## 4. 当前激活门禁
 
 ContractSet 摘要
-`sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc`
+`sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`
 仍是当前实现基线。M0～M6 工程候选与 P2 持久化恢复已进入主分支；M7～M20
 已批准为规划但没有激活开发链。发布级 `frozen` 仍等待正式产品执行器、Evidence、
 Judge 校准和 Traceability 提升。

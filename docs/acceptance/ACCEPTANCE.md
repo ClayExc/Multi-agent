@@ -19,7 +19,7 @@ FlowPilot 采用“**行为证据优先、质量数字随后**”：
 | `VERIFIED` | 在固定环境通过对应自动化测试并有证据 | 已实现、已验证 |
 | `RELEASED` | 核心门禁全部通过，版本已标记 | 已交付 |
 
-README 或简历中的“实现、提升、达到”只能引用 `VERIFIED` 或 `RELEASED` 证据。
+README 或工程说明中的“实现、提升、达到”只能引用 `VERIFIED` 或 `RELEASED` 证据。
 
 ## 3. 证据包
 
@@ -475,4 +475,4 @@ Judge 失败、缺失、未校准或 Prompt Hash 漂移不能覆盖任何确定�
 - 发布使用 `contract-set.v1.json.content_digest` 作为稳定候选身份；S2、S3、S4、S5、S6 的 ACCEPT 必须绑定同一摘要，Registry、Dataset、Fixture 与 Traceability 必须同步冻结。
 - README 的状态与证据清单一致。
 
-性能、Token 和质量指标报告实际值；除非提前在发布策略中注册，否则不为了达到简历数字而修改分母或筛选 Case。
+性能、Token 和质量指标报告实际值；除非提前在发布策略中注册，否则不为了达到预设数字而修改分母或筛选 Case。

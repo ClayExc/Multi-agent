@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=WP-011
-FEATURE_IDS=FP-FLOW-007,FP-FLOW-008,FP-FLOW-009,FP-APR-001
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,domain-packs/it-service/**,tests/core/**,WP-011授权共享文件
 ```
 
-- 契约状态：ACTIVE；`WP-011-a1` H1 已 `ACCEPTED_AND_MERGED`，WP-011 后续范围待实施
-- 当前工作：[WP-011 Core、API 与 Python Workspace 基线](../work-packages/WP-011-core-bootstrap.md)
-- 激活条件：S2/S3/S4/S5/S6 已对同一 rc2 `content_digest` 全部 `ACCEPT`，S1 完成实现基线激活提交并为本会话建立独立 Worktree。
+- 契约状态：IDLE
+- 当前工作：无；下一候选为 [WP-071](../work-packages/WP-071-m7-local-product-composition.md)
+- 激活条件：WP-070 通过，Agent Registry 分配 Base、Attempt、范围与退出条件。
 
 ## 使命
 
@@ -60,7 +60,7 @@ S5 不可以：
 - 安全：伪造租户/主体/用途、领域框架依赖和模型构造授权对象被拒绝。
 - 恢复/幂等：相同 Command 重放得到同一逻辑结果，同键不同摘要冲突。
 
-## 当前实现任务
+## 历史基线职责
 
 从包含本状态的激活提交创建独立 Worktree 后执行 WP-011：
 

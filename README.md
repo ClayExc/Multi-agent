@@ -31,7 +31,7 @@ HR 或客服领域扩展，也不在本阶段接入真实企业系统和生产�
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
 |---|---|---|
-| M0 工程底座 | 14 包 Python Workspace、公共 JSON Schema、领域与应用端口、API/Runtime/Persistence 骨架 | 模块可以独立测试，还没有连成产品 |
+| M0 工程底座 | 当前 15 成员 Python Workspace、公共 JSON Schema、领域与应用端口、API/Runtime/Persistence 骨架 | 模块可以独立测试，还没有连成产品 |
 | M1 VPN 只读 | 信息补全、知识检索、租户与 ACL 过滤、引用回答 | 使用合成知识源，没有真实模型 |
 | M2 持久化运行 | PostgreSQL Checkpoint、Lease/Fencing、Inbox/Outbox、Redis 丢失恢复 | 已验证恢复行为，生产备份和扩容未覆盖 |
 | M3 安全写入 | MCP Gateway、策略判定、审批绑定、执行账本、幂等、回读和 SSE | 使用 Sandbox Ticket Store，没有企业 Connector |
@@ -165,7 +165,11 @@ FlowPilot 不用“模型看起来回答得不错”作为完成标准。下面�
 | 评测 | Pytest、规则评测、LLM-as-Judge、版本化 JSONL 数据集 |
 | 本地交付 | Docker Compose |
 
-当前 Python Workspace 依赖由 `uv.lock` 固定。M7 将在 Model Gateway 后接入 LiteLLM，并以 DeepSeek V4 Flash 作为首个真实模型；README 不提前填写未经供应端和 LiteLLM 兼容性测试确认的模型字符串、版本或价格。
+当前 Python Workspace 依赖由 `uv.lock` 固定。OpenAI/Claude Agents SDK 保留为
+正式 Runtime Adapter 技术栈，只在单个 LangGraph 节点内承载受限 Agent；
+LangGraph 仍是唯一跨业务流程状态机。M7 将在 Model Gateway 后接入 LiteLLM，
+并以 DeepSeek V4 Flash 作为首个真实模型；README 不提前填写未经供应端、
+LiteLLM 与 SDK 兼容性测试确认的模型字符串、版本或价格。
 
 ## M7～M20 开发路线
 
@@ -174,7 +178,7 @@ FlowPilot 不用“模型看起来回答得不错”作为完成标准。下面�
 
 | 阶段 | 主要结果 |
 |---|---|
-| M7 | LiteLLM + DeepSeek V4 Flash；接通 Web、API、Worker、LangGraph、数据与只读 MCP |
+| M7 | LiteLLM + DeepSeek V4 Flash、OpenAI/Claude Agents SDK Adapter；接通 Web、API、Worker、LangGraph、数据与只读 MCP |
 | M8 | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS |
 | M9 | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
 | M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
@@ -261,13 +265,22 @@ uv run --frozen python web/server.py --port 8765
 make bootstrap
 make studio
 make studio-smoke
+make lint
 make test
+make test-all
 make test-contract
 make test-security
+make test-coverage
+make audit
+make ci
 make acceptance
 ```
 
-`make studio` 只启动默认失败关闭的 `studio-safe` 本地 Agent Server，不启用生产凭据或公网 Tunnel。`make test` 运行仓库 Python 测试；`make acceptance` 生成机器 Manifest 和人类报告，并在产品执行器缺失时返回失败。以下全仓接口仍未实现：
+`make studio` 只启动默认失败关闭的 `studio-safe` 本地 Agent Server，不启用
+生产凭据或公网 Tunnel。`make test` 和 `make test-all` 均包含全仓 Python 与集成
+测试，后者还执行 Contract Conformance；`make ci` 汇合静态检查、覆盖率、契约、
+安全与依赖审计。`make acceptance` 生成机器 Manifest 和人类报告，并在产品执行器
+缺失时返回失败。以下产品运行接口仍未实现：
 
 ```bash
 make dev
@@ -275,6 +288,22 @@ make eval
 ```
 
 `make acceptance` 必须生成机器可读的证据清单和人类可读报告；命令不存在或报告不可复现时，项目不能标记为已完成。
+
+Windows 没有 GNU Make 时，使用同一锁内命令的 PowerShell 入口：
+
+```powershell
+.\scripts\quality.ps1 bootstrap
+.\scripts\quality.ps1 lint
+.\scripts\quality.ps1 test-all
+.\scripts\quality.ps1 test-security
+.\scripts\quality.ps1 test-coverage
+.\scripts\quality.ps1 audit
+# 完整本地 CI 等价门禁
+.\scripts\quality.ps1 ci
+```
+
+该脚本不读取 `.env` 或 Provider 密钥，只执行工程质量命令；目标与 Makefile
+一一对应，任一步非零退出都会停止。
 
 底层契约门禁也可独立运行：
 

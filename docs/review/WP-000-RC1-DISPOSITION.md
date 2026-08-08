@@ -8,7 +8,7 @@
 - 后继候选：`flowpilot-m0-contracts-v1-rc2`
 - 功能状态：全部保持 `DESIGNED`
 
-S2、S3、S4 均对 rc1 返回 `REJECT`。所有阻塞项成立，rc1 从未进入 `frozen`，不得被实现会话或简历声明当作稳定边界。
+S2、S3、S4 均对 rc1 返回 `REJECT`。所有阻塞项成立，rc1 从未进入 `frozen`，不得被实现会话或外部声明当作稳定边界。
 
 原始会话：
 

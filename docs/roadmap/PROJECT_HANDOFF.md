@@ -3,16 +3,17 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M6_FREEZE_COMPLETE
-STATUS=MERGED_M6_FREEZE_COMPLETE
+SNAPSHOT=M0_M6_P2_ENGINEERING_BASELINE
+STATUS=MERGED_ENGINEERING_BASELINE
 S7_HEAD=0b1d6ba3aa31536d9170027f0981c0e626b71f35
-MERGED_CANDIDATE_HEAD=1b021a9
-CONTRACT_CONTENT_DIGEST=sha256:0a82e7f58c4223362721c95a50e9a820d714e550e72eebc7a90ab01e283100fc
+CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
+NEXT_MILESTONE=M7
+ACTIVE_DEVELOPMENT_CHAIN=none
 RELEASED=false
 FROZEN=false
 ```
 
-FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与 14 包 Python Workspace、
+FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与当前 15 成员 Python Workspace、
 安全 MCP 平台、PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio、
 VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
 功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。
@@ -20,7 +21,7 @@ VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture We
 整体仍不是发布版本。真实 Provider、Web/API/Worker/数据平面的完整产品装配和
 156 条任务的产品执行器尚未完成；Judge 校准仍是 `placeholder_proxy`。
 `make acceptance` 已实现，但缺少产品执行器时会保留全部失败并返回非零状态。
-这里的 `M6_FREEZE_COMPLETE` 只表示 M6 语料与工具链候选已收口，不表示
+这里的 M6 完成只表示语料与工具链候选已收口，不表示
 `RELEASED` 或整体 `FROZEN`。真实企业 Connector 已明确排除在 M7～M20 外，
 不再把“尚未接企业系统”列为本地产品的发布阻断。
 
@@ -31,7 +32,7 @@ VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture We
 
 | 增量 | 能力 | 可宣称边界 |
 |---|---|---|
-| M0 | 14 包 Python Workspace、Domain/Application/API/Runtime/Persistence 骨架 | 工程与端口基线，不等于完整业务产品 |
+| M0 | 当前 15 成员 Python Workspace、Domain/Application/API/Runtime/Persistence 骨架 | 工程与端口基线，不等于完整业务产品 |
 | M1 Platform | MCP Gateway、Policy、Security、审批绑定、账本与回读骨架 | 安全平台切片，不等于真实企业工具已接入 |
 | M2 Studio | Worker 同源 LangGraph、Interrupt/Resume、Handoff、重试与安全投影 | 可视化调试入口，不连接生产凭据或事实源 |
 | P1 | VPN 信息补全、知识检索、租户/ACL 过滤、引用回答与稳定结果引用 | 确定性只读闭环，不包含工单写入 |
@@ -128,7 +129,7 @@ make studio-smoke
 
 | 能力 | 当前状态 | 计划验收 |
 |---|---|---|
-| Provider 与产品运行链 | Sandbox Adapter 和分离模块已合入 | M7 接入 LiteLLM + DeepSeek V4 Flash，并贯通 Web/API/Worker/Graph/Data |
+| Provider 与产品运行链 | Sandbox Adapter 和分离模块已合入 | M7 接入 LiteLLM + DeepSeek V4 Flash、OpenAI/Claude Agents SDK Adapter，并贯通 Web/API/Worker/Graph/Data |
 | 身份、租户与 RLS | 契约和隔离机制已有测试 | M8 接入本地 Keycloak 和可信 SecurityContext |
 | 策略、DLP 与审计 | MCP/Policy/Security 骨架已合入 | M9 完成本地 Rego、Capability、DLP 和可查询审计 |
 | 知识检索 | 合成知识、ACL 和引用候选已合入 | M10 完成本地导入、混合检索、生命周期与稳定引用 |
@@ -163,6 +164,10 @@ M7 真实 Provider 与本地运行链
                                            ↓
                                           M20 安全多模态
 ```
+
+M7 已拆为四个未激活工作包：WP-070 Provider/SDK Adapter、WP-071 本地运行链、
+WP-072 Web/Studio 可观测体验、WP-073 产品执行器与最终组合门禁。四包按顺序解锁，
+不允许把 Adapter、产品装配、页面和最终评测再次堆入同一个长链任务。
 
 M7～M13 是平台主链。M13 后两条业务轨道可以使用互斥路径并行，之后统一进入
 审批助手、产品评测和多模态。真实 Jira/ServiceNow/CMDB/HR/IAM、企业

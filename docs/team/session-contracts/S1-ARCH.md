@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S1-ARCH
-WORK_PACKAGE=WP-000
-FEATURE_IDS=FP-FLOW-001,FP-FLOW-009,FP-DATA-001,FP-DATA-003
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=README.md,STRUCTURE.md,WORKFLOW.md,AGENTS.md,contracts/**,docs/architecture/**,docs/acceptance/**,docs/decisions/**,docs/roadmap/**,docs/review/**,docs/team/**
 ```
 
 - 契约状态：ACTIVE
-- 当前工作：[WP-000 M0 公共契约冻结](../work-packages/WP-000-m0-contract-freeze.md)
+- 当前工作：无；WP-036 已完成，M7 等待用户再次批准启动
 
 ## 使命
 
@@ -68,14 +68,14 @@ S1 不可以：
 
 ## 当前交付
 
-- 维护已接受的 M0 Core/Runtime/Data、M1 Platform 和 M2 Studio 架构事实。
-- 当前控制产品 P1 VPN 只读知识闭环的范围、顺序、停止条件与最终验收。
-- 只依据 S5/S3/S2/S4/S7 的精确 Head、Handoff 和可复现证据更新状态。
-- 真实 Provider、写工单、Web、完整 Dataset 与发布冻结仍不在当前完成声明内。
+- 维护已进入主分支的 M0～M6/P2 架构事实与当前 `1cad07bd…` 契约候选。
+- 完成 WP-036 的事实源、全仓质量命令、CI 和 M7 四包拆分。
+- 保留 OpenAI/Claude Agents SDK 为正式 Runtime Adapter 技术栈。
+- M7～M20 已批准规划但没有活动开发链；真实 Provider 和产品装配不在 WP-036。
 
 ## 完成定义
 
-- WP-000 的候选契约通过语法与 Draft 2020-12 校验。
-- 五个实现会话完成同摘要审查，阻塞 RFC 均已裁决。
-- 契约集标记为 `frozen`，工作包标记为 `DONE`。
-- 不把任何尚未实现的功能标记为 `IMPLEMENTED` 或 `VERIFIED`。
+- 当前契约候选继续通过 Conformance，且本包不改变 ContractSet Artifact。
+- 全仓测试、静态检查、覆盖率、安全和依赖审计入口可重复运行。
+- 当前控制文档不再误报旧摘要、旧 Workspace 数量或历史活动链。
+- M7 工作包保持未激活，不把未实现能力标记为 `IMPLEMENTED` 或 `VERIFIED`。

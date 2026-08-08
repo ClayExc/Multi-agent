@@ -36,6 +36,7 @@ from flowpilot_persistence import (  # noqa: E402
     PostgresDataUnitOfWorkFactory,
     RedisCoordinationAdapter,
     RetryBasis,
+    compose_application_unit_of_work_factories,
 )
 
 
@@ -142,9 +143,10 @@ async def main() -> None:
         return PsycopgConnection(connection)
 
     unit_of_work = PostgresDataUnitOfWorkFactory(connection_factory)
+    application_uows = compose_application_unit_of_work_factories(unit_of_work)
     execution = FakeExecutionPort()
     service = CommandIntakeService(
-        unit_of_work=unit_of_work,
+        unit_of_work=application_uows.command_unit_of_work,
         execution=execution,
     )
     command = command_fixture(suffix)
@@ -276,7 +278,7 @@ async def main() -> None:
     await seed.commit()
     await seed.close()
 
-    async with unit_of_work() as data:
+    async with application_uows.task_query_unit_of_work() as data:
         restored_task = await data.tasks.get("tenant-a", "task_12345678")
         if (
             restored_task is None
@@ -288,7 +290,7 @@ async def main() -> None:
         ):
             raise AssertionError("PostgreSQL Task v1 projection did not round-trip")
 
-    async with unit_of_work() as data:
+    async with application_uows.task_query_unit_of_work() as data:
         if await data.tasks.get("tenant-b", "task_12345678") is not None:
             raise AssertionError("cross-tenant Task query returned a projection")
 
@@ -311,6 +313,93 @@ async def main() -> None:
             published_at=datetime(2026, 7, 29, 4, 1, tzinfo=UTC),
         )
         await data.commit()
+
+    application_event = OutboxEvent(
+        event_id=f"evt_application{suffix}",
+        tenant_id="tenant-a",
+        aggregate_type="task",
+        aggregate_id=lease_task_id,
+        sequence=2,
+        event_type="task.status.changed.v1",
+        payload={"from": "RECEIVED", "to": "RUNNABLE"},
+        occurred_at=datetime(2026, 7, 29, 4, 2, tzinfo=UTC),
+        available_at=datetime(2026, 7, 29, 4, 2, tzinfo=UTC),
+    )
+    async with unit_of_work() as data:
+        await data.outbox.append(application_event)
+        await data.commit()
+
+    async with application_uows.task_event_unit_of_work() as event_uow:
+        if await event_uow.tasks.get("tenant-a", lease_task_id) is None:
+            raise AssertionError("application event UoW could not read its Task")
+        deliveries = await event_uow.outbox.unpublished(
+            "tenant-a",
+            now=datetime(2026, 7, 29, 4, 3, tzinfo=UTC),
+            limit=100,
+        )
+        view = next(
+            (
+                delivery
+                for delivery in deliveries
+                if delivery.event_id == application_event.event_id
+            ),
+            None,
+        )
+        if view is None or view.payload != application_event.payload:
+            raise AssertionError("application event UoW projection is invalid")
+        if not await event_uow.consumer_inbox.accept_once(
+            "tenant-a",
+            "stream:tenant-a",
+            application_event.event_id,
+            "sha256:" + "b" * 64,
+            processed_at=datetime(2026, 7, 29, 4, 3, tzinfo=UTC),
+        ):
+            raise AssertionError("first application event delivery was deduplicated")
+        await event_uow.outbox.mark_published(
+            "tenant-a",
+            application_event.event_id,
+            published_at=datetime(2026, 7, 29, 4, 3, tzinfo=UTC),
+        )
+
+    async with application_uows.task_event_unit_of_work() as retry_uow:
+        deliveries = await retry_uow.outbox.unpublished(
+            "tenant-a",
+            now=datetime(2026, 7, 29, 4, 4, tzinfo=UTC),
+            limit=100,
+        )
+        if not any(
+            delivery.event_id == application_event.event_id
+            for delivery in deliveries
+        ):
+            raise AssertionError("uncommitted application event was not redelivered")
+        if not await retry_uow.consumer_inbox.accept_once(
+            "tenant-a",
+            "stream:tenant-a",
+            application_event.event_id,
+            "sha256:" + "b" * 64,
+            processed_at=datetime(2026, 7, 29, 4, 4, tzinfo=UTC),
+        ):
+            raise AssertionError("rolled-back consumer inbox suppressed redelivery")
+        await retry_uow.outbox.mark_published(
+            "tenant-a",
+            application_event.event_id,
+            published_at=datetime(2026, 7, 29, 4, 4, tzinfo=UTC),
+        )
+        await retry_uow.commit()
+
+    async with application_uows.task_event_unit_of_work() as isolated_uow:
+        await isolated_uow.tasks.get("tenant-a", lease_task_id)
+        try:
+            await isolated_uow.outbox.unpublished(
+                "tenant-b",
+                now=datetime(2026, 7, 29, 4, 4, tzinfo=UTC),
+                limit=1,
+            )
+        except PersistenceError as exc:
+            if exc.code is not PersistenceErrorCode.TENANT_MISMATCH:
+                raise
+        else:
+            raise AssertionError("application event UoW switched tenant context")
 
     redis_client = MemoryRedisClient()
     redis_coordination = RedisCoordinationAdapter(redis_client)
@@ -684,7 +773,8 @@ async def main() -> None:
         f"command_id={command.command_id} dispatches={len(execution.calls)} "
         f"checkpoint={latest.checkpoint_id} "
         f"generation={third_fence.run_generation} rebuilt={rebuilt} "
-        f"ledger={verified.status.value} attempts={verified.attempt_count}"
+        f"ledger={verified.status.value} attempts={verified.attempt_count} "
+        f"application_event={application_event.event_id}"
     )
 
 

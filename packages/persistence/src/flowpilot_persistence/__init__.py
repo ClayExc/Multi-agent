@@ -1,3 +1,7 @@
+from .composition import (
+    ApplicationUnitOfWorkFactories,
+    compose_application_unit_of_work_factories,
+)
 from .errors import PersistenceError, PersistenceErrorCode
 from .memory import (
     MemoryDatabase,
@@ -47,6 +51,7 @@ __all__ = [
     "AsyncPostgresConnection",
     "AsyncPostgresConnectionFactory",
     "AsyncRedisClient",
+    "ApplicationUnitOfWorkFactories",
     "CheckpointPort",
     "CheckpointRecord",
     "ConsumerInboxPort",
@@ -77,4 +82,5 @@ __all__ = [
     "RecoverySignalPort",
     "RetryBasis",
     "TaskPersistencePort",
+    "compose_application_unit_of_work_factories",
 ]

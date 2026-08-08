@@ -8,6 +8,13 @@
 - S2 的 Checkpoint、Worker Lease、Fencing 和事务 Outbox。
 - 可丢弃、并可根据 PostgreSQL 事实重建的 Redis 信号。
 
+M7 产品组合通过 `compose_application_unit_of_work_factories` 将同一个
+`DataUnitOfWorkFactory` 收窄为 S5 要求的 Command、Task Query 和 Task Event
+三类工厂。每次调用都会创建独立事务；Task Event 的 Task 查询、Outbox 发布确认
+和 Consumer Inbox 去重在同一租户绑定与同一提交中完成。适配器只把持久化层
+`OutboxDelivery` 投影为 Application `OutboxEventView`，不会复制事件摘要、改变
+PostgreSQL 事实或把 Redis 提升为事实源。
+
 PostgreSQL 是唯一的业务事实源。每个租户事务通过 `flowpilot.tenant_id` 完成一次
 绑定；Repository 会拒绝在同一事务内切换租户。迁移会在租户表上启用并强制执行
 RLS。Redis 值只包含可重建的调度提示。

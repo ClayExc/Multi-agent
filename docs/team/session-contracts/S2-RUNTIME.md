@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
-WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/agent-runtime/**,packages/model-gateway/**,packages/context/**,tests/runtime/**,WP-010授权共享文件
+WORK_PACKAGE=WP-070
+FEATURE_IDS=FP-AGT-002,FP-AGT-003,FP-OPS-003,FP-SEC-006
+WRITE_SCOPE=packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：IDLE
-- 当前工作：无；下一候选为 [WP-070](../work-packages/WP-070-m7-provider-runtime-adapters.md)
-- 激活条件：用户批准 M7，Agent Registry 分配 Base、Attempt、写入范围与退出条件。
+- 契约状态：ACTIVE / WP-070-a1
+- 当前工作：[WP-070](../work-packages/WP-070-m7-provider-runtime-adapters.md) Provider 与 SDK Adapter。
+- 激活依据：`CHAIN-M7-LOCAL-PRODUCT-01`，默认 `DELTA` 热启动。
 
 ## 使命
 

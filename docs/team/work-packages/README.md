@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-- 里程碑：M7 启动前工程控制面收口
-- 阶段状态：`M7_READY_NOT_ACTIVATED`
+- 里程碑：M7 本地产品链
+- 阶段状态：`M7_ACTIVE_WP070`
 - 架构责任：`S1-ARCH`
 - 已接受基线：M0～M6 工程候选与 P2 持久化恢复
-- 当前有序链：无
-- 当前工作包：无；[WP-036](./WP-036-control-plane-reconciliation.md) 已完成
-- 批准来源：用户批准控制面、质量入口、清理与 M7 拆包
+- 当前有序链：`CHAIN-M7-LOCAL-PRODUCT-01`
+- 当前工作包：[WP-070](./WP-070-m7-provider-runtime-adapters.md) / `WP-070-a1`
+- 批准来源：用户批准 M7 热启动；WP-036 已完成
 - 发布状态：未发布、未 frozen；M7～M20 已规划但未激活
 
 ## 工作包状态
@@ -30,7 +30,7 @@
 | [WP-036](./WP-036-control-plane-reconciliation.md) | S1-ARCH | DONE | M0～M6/P2 | 事实源、工程质量入口、CI 与 M7 拆包收口 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
-| [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | READY_NOT_ACTIVATED | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |
+| [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | ACTIVE | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |
 | [WP-071](./WP-071-m7-local-product-composition.md) | S5/S6/S2 | BLOCKED_BY_WP-070 | WP-070 | API/Worker/Graph/Data/只读 MCP 本地装配 |
 | [WP-072](./WP-072-m7-web-studio-observability.md) | S4/S2 | BLOCKED_BY_WP-071 | WP-071 | Web、SSE、Studio 与安全可观测体验 |
 | [WP-073](./WP-073-m7-product-executors-final-gate.md) | S4/S7 | BLOCKED_BY_WP-072 | WP-072 | M7 产品执行器、固定分母与组合门禁 |
@@ -41,7 +41,7 @@ rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 
 
 ## 下一次启动顺序
 
-当前不启动 M7。用户再次批准后，M7 采用严格 `ORDERED` 和最小 Agent 注册集合：
+M7 已启动，采用严格 `ORDERED` 和最小 Agent 注册集合：
 
 ```text
 WP-070 Provider/SDK Adapter
@@ -51,8 +51,8 @@ WP-070 Provider/SDK Adapter
   -> S1 final/user gate
 ```
 
-历史 P2 的 S6、S2、S7、S1 final、用户门禁与主分支复验均已完成。当前没有
-活动 Agent 或开发链，也不自动启动下一链。
+历史 P2 的 S6、S2、S7、S1 final、用户门禁与主分支复验均已完成。当前只激活
+WP-070 的 S2 首步；其他注册 Agent 在前置 Handoff 到达前保持依赖等待。
 
 历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
 启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行

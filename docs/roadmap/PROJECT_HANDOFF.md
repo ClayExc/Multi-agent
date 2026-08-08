@@ -8,14 +8,14 @@ STATUS=MERGED_ENGINEERING_BASELINE
 S7_HEAD=0b1d6ba3aa31536d9170027f0981c0e626b71f35
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
 NEXT_MILESTONE=M7
-ACTIVE_DEVELOPMENT_CHAIN=none
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M7-LOCAL-PRODUCT-01
 RELEASED=false
 FROZEN=false
 ```
 
 FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与当前 15 成员 Python Workspace、
 安全 MCP 平台、PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio、
-VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
+历史知识检索样例与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
 功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。
 
 整体仍不是发布版本。真实 Provider、Web/API/Worker/数据平面的完整产品装配和
@@ -35,8 +35,8 @@ VPN 只读与安全写入、Context/Handoff、新员工复合申请、Fixture We
 | M0 | 当前 15 成员 Python Workspace、Domain/Application/API/Runtime/Persistence 骨架 | 工程与端口基线，不等于完整业务产品 |
 | M1 Platform | MCP Gateway、Policy、Security、审批绑定、账本与回读骨架 | 安全平台切片，不等于真实企业工具已接入 |
 | M2 Studio | Worker 同源 LangGraph、Interrupt/Resume、Handoff、重试与安全投影 | 可视化调试入口，不连接生产凭据或事实源 |
-| P1 | VPN 信息补全、知识检索、租户/ACL 过滤、引用回答与稳定结果引用 | 确定性只读闭环，不包含工单写入 |
-| M3 | Outbox→SSE、VPN 安全写入、审批绑定、幂等和回读 | 合成工具与安全闭环，不等于真实企业工单已接入 |
+| P1 | 信息补全、知识检索、租户/ACL 过滤、引用回答与稳定结果引用；VPN 为历史 Fixture | 确定性只读闭环，不包含工单写入 |
+| M3 | Outbox→SSE、安全写入、审批绑定、幂等和回读 | 合成工具与安全闭环，不等于真实企业工单已接入 |
 | M4 | Sandbox Provider、Context 硬预算、受限 Handoff 与多 Agent 节点 | 零凭据、零网络候选；真实模型尚未接入 |
 | M5 | Fixture Web 与新员工设备/权限复合申请 | 产品交互和第二场景代码已合入，尚未接成真实本地产品 |
 | M6 | 120+36 语料、Hash 冻结、Judge 校准工具、`make acceptance` 与 Ruff 收口 | 产品执行器缺失，Judge 仍为占位校准，不能报告成功率 |
@@ -134,7 +134,7 @@ make studio-smoke
 | 策略、DLP 与审计 | MCP/Policy/Security 骨架已合入 | M9 完成本地 Rego、Capability、DLP 和可查询审计 |
 | 知识检索 | 合成知识、ACL 和引用候选已合入 | M10 完成本地导入、混合检索、生命周期与稳定引用 |
 | Context | 硬预算、摘要和 Handoff 过滤已有机制 | M11～M13 分别完成短期记忆、长期记忆和用户画像 |
-| 业务场景 | VPN 与新员工候选已有代码 | M14～M18 完成五条 Web 可操作业务链 |
+| 业务场景 | 历史知识样例与新员工候选已有代码 | M14～M18 完成五条 Web 可操作业务链 |
 | 120+36 | 156 条 Case 与 Hash 冻结已合入 | M19 注册产品执行器、校准 Judge 并运行固定分母 |
 | `make acceptance` | 编排器可运行，缺产品执行器时按设计失败 | M19 产出可复现产品报告 |
 | 安全多模态 | 隔离与 Observation 契约已有设计项 | M20 完成隔离、扫描、脱敏、注入检测和只读 Agent |
@@ -155,22 +155,22 @@ M7 真实 Provider 与本地运行链
  → M11 短期记忆
  → M12 长期记忆
  → M13 用户画像
-      ├→ M14 VPN 排障 → M15 智能工单 ─┐
+      ├→ M14 知识库问答 → M15 智能工单 ─┐
       └→ M16 新员工入职 → M17 权限变更 ─┤
                                            ↓
-                                          M18 审批助手
+                                          M18 审批辅助
                                            ↓
                                           M19 五链集成与 120+36
                                            ↓
                                           M20 安全多模态
 ```
 
-M7 已拆为四个未激活工作包：WP-070 Provider/SDK Adapter、WP-071 本地运行链、
-WP-072 Web/Studio 可观测体验、WP-073 产品执行器与最终组合门禁。四包按顺序解锁，
+M7 已拆为四个工作包：WP-070 Provider/SDK Adapter 已热启动，WP-071 本地运行链、
+WP-072 Web/Studio 可观测体验、WP-073 产品执行器与最终组合门禁按顺序等待，
 不允许把 Adapter、产品装配、页面和最终评测再次堆入同一个长链任务。
 
 M7～M13 是平台主链。M13 后两条业务轨道可以使用互斥路径并行，之后统一进入
-审批助手、产品评测和多模态。真实 Jira/ServiceNow/CMDB/HR/IAM、企业
+审批辅助、产品评测和多模态。真实 Jira/ServiceNow/CMDB/HR/IAM、企业
 Vault/KMS/SIEM、生产高可用、跨地域部署、采购领域包和 LoRA 不在本路线范围。
 
 详细交付项、退出条件、拆包和时间估计见

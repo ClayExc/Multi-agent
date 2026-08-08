@@ -31,7 +31,7 @@ PostgreSQL/Redis → 只读 MCP，并统一 task/run/thread/checkpoint/trace/eve
 
 ## 必须测试
 
-- 正常：中文只读 VPN 请求形成 Task、模型调用、知识引用与终态事件。
+- 正常：中文知识问答形成 Task、模型调用、权限过滤后的知识引用与终态事件。
 - 边界：并行只读、SSE 重连、Checkpoint 序列和硬预算。
 - 失败：Provider/MCP/PostgreSQL/Redis 故障可定位且失败关闭。
 - 安全：跨租户读取为 0，Worker 不直连外部业务网络。

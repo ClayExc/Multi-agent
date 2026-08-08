@@ -205,4 +205,3 @@ def call_business_fingerprint(call: SDKRunCall) -> str:
     value.pop("session_ref")
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
-

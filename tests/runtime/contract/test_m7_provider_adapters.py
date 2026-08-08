@@ -520,7 +520,17 @@ def test_claude_agent_online_bridge_disables_tools_and_bounds_turns(
 
     assert result.structured_output == {"answer": "synthetic"}
     assert result.usage.cost_microunits == 1
+    assert captured["options"]["tools"] == []
     assert captured["options"]["allowed_tools"] == []
+    assert captured["options"]["disallowed_tools"] == []
+    assert captured["options"]["mcp_servers"] == {}
+    assert captured["options"]["strict_mcp_config"] is True
+    assert captured["options"]["plugins"] == []
+    assert captured["options"]["agents"] is None
+    assert captured["options"]["hooks"] is None
+    assert captured["options"]["skills"] == []
+    assert captured["options"]["setting_sources"] == []
+    assert captured["options"]["can_use_tool"] is None
     assert captured["options"]["max_turns"] == 2
     assert "synthetic-test-key" not in repr(captured)
 

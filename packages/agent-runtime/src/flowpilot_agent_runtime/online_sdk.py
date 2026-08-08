@@ -144,7 +144,20 @@ class ClaudeAgentSDKTransport:
             options: dict[str, Any] = {
                 "model": self._provider_model_id,
                 "max_turns": call.maximum_turns,
+                # ``allowed_tools`` is only an auto-approval list in the
+                # Claude Agent SDK.  ``tools=[]`` is the authoritative base
+                # tool removal and serializes to ``--tools \"\"``.
+                "tools": [],
                 "allowed_tools": [],
+                "disallowed_tools": [],
+                "mcp_servers": {},
+                "strict_mcp_config": True,
+                "plugins": [],
+                "agents": None,
+                "hooks": None,
+                "skills": [],
+                "setting_sources": [],
+                "can_use_tool": None,
                 "system_prompt": call.instructions,
             }
             if raw_session is not None:

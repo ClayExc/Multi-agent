@@ -15,11 +15,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "cryptography>=50,<51",
     "httpx>=0.28,<1",
     "jsonschema>=4.23,<5",
     "langgraph-cli[inmem]>=0.4.31,<0.5",
     "mypy>=1.14,<2",
+    "pip-audit>=2.9,<3",
     "pytest>=9.0.3,<10",
+    "pytest-cov>=7,<8",
     "ruff>=0.9,<1",
     "types-PyYAML>=6.0.12,<7",
 ]
@@ -66,7 +69,37 @@ flowpilot-worker = { workspace = true }
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers -p no:cacheprovider"
 testpaths = ["tests/core", "tests/runtime", "tests/data", "tests/platform",
-             "tests/acceptance", "tests/experience"]
+             "tests/acceptance", "tests/experience", "tests/integration"]
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source = [
+    "apps/api/src",
+    "apps/mcp-gateway/src",
+    "apps/worker/src",
+    "mcp-servers/knowledge/src",
+    "mcp-servers/ticket/src",
+    "packages/agent-runtime/src",
+    "packages/application/src",
+    "packages/context/src",
+    "packages/domain/src",
+    "packages/evaluation",
+    "packages/graph/src",
+    "packages/model-gateway/src",
+    "packages/observability",
+    "packages/persistence/src",
+    "packages/policy/src",
+    "packages/security/src",
+    "packages/tool-contracts/src",
+    "web/src",
+]
+
+[tool.coverage.report]
+fail_under = 80
+precision = 1
+show_missing = true
+skip_covered = true
 
 [tool.ruff]
 line-length = 88

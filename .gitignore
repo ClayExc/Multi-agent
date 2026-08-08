@@ -11,9 +11,14 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.codex-tmp/
 
 # Generated runtime state and acceptance artifacts
 .flow/
 infra/.state/
 artifacts/acceptance/*/
 !artifacts/acceptance/README.md
+artifacts/coverage/

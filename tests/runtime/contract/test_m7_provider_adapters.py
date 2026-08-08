@@ -535,11 +535,19 @@ def test_claude_agent_online_bridge_disables_tools_and_bounds_turns(
     assert "synthetic-test-key" not in repr(captured)
 
 
-def test_litellm_transport_failures_are_stable_and_sanitized() -> None:
+@pytest.mark.parametrize(
+    "error_code",
+    [
+        LiteLLMTransportErrorCode.UNAVAILABLE,
+        LiteLLMTransportErrorCode.RATE_LIMITED,
+        LiteLLMTransportErrorCode.TIMED_OUT,
+    ],
+)
+def test_litellm_transient_failures_are_stable_and_sanitized(
+    error_code: LiteLLMTransportErrorCode,
+) -> None:
     transport = FakeLiteLLMTransport(
-        LiteLLMScenario(
-            failure=LiteLLMTransportError(LiteLLMTransportErrorCode.RATE_LIMITED)
-        )
+        LiteLLMScenario(failure=LiteLLMTransportError(error_code))
     )
     provider = LiteLLMProvider(transport)
 
@@ -548,4 +556,28 @@ def test_litellm_transport_failures_are_stable_and_sanitized() -> None:
 
     assert captured.value.code is ProviderWireErrorCode.PROVIDER_UNAVAILABLE
     assert captured.value.retryable is True
+    assert "key" not in captured.value.safe_message.lower()
+
+
+@pytest.mark.parametrize(
+    "error_code",
+    [
+        LiteLLMTransportErrorCode.CONFIGURATION,
+        LiteLLMTransportErrorCode.INVALID_RESPONSE,
+    ],
+)
+def test_litellm_final_failures_are_stable_and_sanitized(
+    error_code: LiteLLMTransportErrorCode,
+) -> None:
+    provider = LiteLLMProvider(
+        FakeLiteLLMTransport(
+            LiteLLMScenario(failure=LiteLLMTransportError(error_code))
+        )
+    )
+
+    with pytest.raises(ProviderWireError) as captured:
+        asyncio.run(provider.complete(_wire_request()))
+
+    assert captured.value.code is ProviderWireErrorCode.INVALID_OUTPUT
+    assert captured.value.retryable is False
     assert "key" not in captured.value.safe_message.lower()

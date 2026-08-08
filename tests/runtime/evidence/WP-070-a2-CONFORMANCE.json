@@ -1,0 +1,70 @@
+{
+  "schema": "flowpilot.provider-runtime-conformance.v1",
+  "attempt_id": "WP-070-a2",
+  "base_commit": "0fb5f78f5fe876f6323a5d8afb12623b395ff974",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "gate": "PASS",
+  "logical_model": "flowpilot.primary.fast",
+  "online_provider_calls": 0,
+  "online_smoke_default_enabled": false,
+  "locked_dependencies": {
+    "claude-agent-sdk": "0.2.134",
+    "litellm": "1.95.0",
+    "openai-agents": "0.19.4"
+  },
+  "adapters": [
+    {
+      "id": "litellm",
+      "port": "ProviderPort",
+      "provider_model_id": "deepseek-v4-flash",
+      "checks": {
+        "budget": "PASS",
+        "credential_boundary": "PASS",
+        "default_offline": "PASS",
+        "empty_output": "PASS",
+        "exact_usage": "PASS",
+        "locked_api_shape": "PASS",
+        "model_identity": "PASS",
+        "stable_errors": "PASS",
+        "structured_output": "PASS",
+        "timeout": "PASS"
+      }
+    },
+    {
+      "id": "openai-agents-sdk",
+      "port": "AgentRuntimePort",
+      "checks": {
+        "budget": "PASS",
+        "credential_boundary": "PASS",
+        "default_offline": "PASS",
+        "empty_output": "PASS",
+        "exact_usage": "PASS",
+        "locked_api_shape": "PASS",
+        "provider_session_is_not_checkpoint": "PASS",
+        "session_rebuild": "PASS",
+        "stable_errors": "PASS",
+        "structured_output": "PASS",
+        "timeout": "PASS",
+        "tool_surface_empty": "PASS"
+      }
+    },
+    {
+      "id": "claude-agent-sdk",
+      "port": "AgentRuntimePort",
+      "checks": {
+        "budget": "PASS",
+        "credential_boundary": "PASS",
+        "default_offline": "PASS",
+        "empty_output": "PASS",
+        "exact_usage": "PASS",
+        "locked_api_shape": "PASS",
+        "provider_session_is_not_checkpoint": "PASS",
+        "session_rebuild": "PASS",
+        "stable_errors": "PASS",
+        "structured_output": "PASS",
+        "timeout": "PASS",
+        "tool_surface_empty": "PASS"
+      }
+    }
+  ]
+}

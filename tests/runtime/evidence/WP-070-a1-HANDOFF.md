@@ -1,22 +1,24 @@
-# WP-070-a1 S2-RUNTIME 交接
+# WP-070-a1-r1 S2-RUNTIME 修复交接
 
 ## 基本信息
 
 - Work Package：WP-070
-- Attempt ID：WP-070-a1
+- Attempt ID：WP-070-a1-r1
 - Chain ID：CHAIN-M7-LOCAL-PRODUCT-01
-- Step ID：M7-01-S2-PROVIDER
+- Step ID：M7-01-S2-PROVIDER-REPAIR
 - 责任会话：S2-RUNTIME
 - 接收会话：S5-CORE
 - 交接策略：CONSUMER_GATE
 - 功能 ID：FP-AGT-002、FP-AGT-003、FP-OPS-003、FP-SEC-006
-- 基线提交：`b363070194a404cc33764b0ae90275be68c21cb8`
-- 实现提交：`e747e73a4aa84186db78d29df53ad3bdf560abbc`
+- 原始基线提交：`b363070194a404cc33764b0ae90275be68c21cb8`
+- 修复基线提交：`6f84e350fa9c9d346a768ff00f48689dca324b50`
+- 原始实现提交：`e747e73a4aa84186db78d29df53ad3bdf560abbc`
+- P1 修复提交：`de0772389d54a896445bb16fac8fb1910416a8af`
 - 分支：`codex/s2/wp-070-provider-runtime-adapters`
 - 最终提交：本文件所在提交；精确 SHA 由唤醒信封返回
 - ContractSet 摘要：
   `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`
-- 状态：完成，等待 S5 锁定共享依赖并组合装配
+- 状态：P1 已修复，等待 S5 重新锁定共享依赖并组合装配
 
 ## 完成内容
 
@@ -28,13 +30,20 @@
   与 Provider Run 引用；每次调用限定在一个可重放 Runtime 节点内。
 - Provider Session 无效时仅清除 Provider Session 并重建一次，原业务请求、
   Context 和 Checkpoint 语义不变；第二次失败映射为稳定 Runtime 结果。
-- OpenAI Bridge 禁用工具、Handoff 和敏感 Trace；Claude Bridge 禁用工具并
-  限制最大轮次。二者均不把 SDK Session 当作业务 Checkpoint。
+- OpenAI Bridge 禁用工具、Handoff 和敏感 Trace。Claude Bridge 使用
+  `tools=[]` 从基础工具集合层移除 Read/Write/Edit/Bash 等默认工具，同时
+  固定空 MCP、插件、子 Agent、Hook、Skill 和设置源，并启用 strict MCP；
+  `allowed_tools=[]` 仅作为额外空批准清单，不再被当作工具移除机制。二者均
+  不把 SDK Session 当作业务 Checkpoint。
 - 在线 Transport 默认关闭，只有显式启用且存在对应环境变量时才延迟导入
   SDK；Adapter、Transport 和错误对象不保存或返回真实密钥与原始异常文本。
 - 新增确定性 LiteLLM/SDK Fake Transport，默认测试零网络、零付费调用，
   覆盖正常、预算、超时、空输出、模型漂移、缺密钥、Session 重建、错误映射
   和敏感字段拒绝。
+- 使用精确 `claude-agent-sdk==0.2.134` Wheel 的真实
+  `ClaudeAgentOptions` 与 CLI Serializer 离线证明：Options 的基础工具为空、
+  命令包含 `--tools ""` 与 `--strict-mcp-config`，且不包含 allowed/disallowed
+  Tool、MCP、Plugin 或 Agent 参数；测试不启动 CLI、不读取真实密钥、不联网。
 - 产品适配器保持领域中立；未新增 VPN 路由或业务硬编码。
 
 ## 未完成与非目标
@@ -57,6 +66,7 @@
 | `packages/agent-runtime/src/flowpilot_agent_runtime/online_sdk.py` | OpenAI/Claude 延迟导入在线 Bridge | S2-RUNTIME |
 | `packages/agent-runtime/src/flowpilot_agent_runtime/__init__.py` | 导出新增 Agent Runtime API | S2-RUNTIME |
 | `tests/runtime/contract/test_m7_provider_adapters.py` | Provider/SDK 正常、边界、失败、预算、恢复与 API 形状测试 | S2-RUNTIME |
+| `tests/runtime/contract/test_claude_agent_sdk_real_shape.py` | 0.2.134 真实 Options 与 CLI 空工具序列化离线证明 | S2-RUNTIME |
 | `tests/runtime/security/test_m7_provider_security.py` | 缺密钥、默认关闭、凭据泄漏和 Provider 选择负例 | S2-RUNTIME |
 | `tests/runtime/integration/test_m7_provider_online_smoke.py` | 显式启用的 DeepSeek 在线 Smoke 入口 | S2-RUNTIME |
 
@@ -95,11 +105,12 @@ ONLINE_POLICY=真实在线 Smoke 仍需显式开关、测试 Realm、密钥与�
 | 命令 | 结果 | 证据 |
 |---|---|---|
 | `.\\scripts\\quality.ps1 lint` | PASS | Ruff；strict Mypy 119 source files |
-| `.\\scripts\\quality.ps1 test-all` | PASS | 764 passed、1 explicit online skip；Contract Conformance PASS |
+| `.\\scripts\\quality.ps1 test-all` | PASS | 764 passed、2 explicit skips；Contract Conformance PASS |
 | `.\\scripts\\quality.ps1 test-security` | PASS | 102 passed |
 | `.\\scripts\\quality.ps1 audit` | PASS | 0 known vulnerabilities；editable Workspace 包按入口定义跳过 |
-| `pytest tests/runtime -q`（仓库根加入当前进程 `PYTHONPATH`） | PASS | 169 passed、1 explicit online skip |
-| M7 三个新增测试文件 | PASS | 35 passed、1 explicit online skip |
+| `python -B -m pytest tests/runtime -q` | PASS | 169 passed、2 explicit skips |
+| M7 四个新增测试文件（当前锁环境） | PASS | 35 passed、2 explicit skips |
+| `uv run --with claude-agent-sdk==0.2.134 ... test_claude_agent_sdk_real_shape.py` | PASS | 1 passed；真实 Options/CLI Serializer，零 CLI/网络调用 |
 | `git diff --check`、路径与共享文件审计 | PASS | 仅授权 S2 路径；Contract/共享文件零变化 |
 | 产品路由扫描 | PASS | 仅安全测试中的 `vpn` 否定断言命中，产品源码 0 matches |
 
@@ -118,14 +129,18 @@ CONTRACT_CONFORMANCE_OK schemas=20 cases=35 positive=18 negative=17 mutation_cas
   隐藏思维链、密钥或 SDK 内部对象。
 - 生产 Adapter 不保留完整请求历史；只有确定性 Fake Transport 保存已经通过
   凭据边界的调用结构供测试断言。
+- 已验证 Claude 工具面：`tools=[]` 序列化为 `--tools ""`；
+  `mcp_servers={}`、`strict_mcp_config=True`、`plugins=[]`、`agents=None`、
+  `hooks=None`、`skills=[]`、`setting_sources=[]`、`can_use_tool=None`，默认
+  工具、MCP、插件、子 Agent、Hook 或设置文件均不能由 Bridge 注入。
 - Secret/PII 检查：仓库安全入口 102 passed；测试只使用显式 synthetic
   sentinel，并断言其不会进入结果或 Transport 调用参数。
 
 ## 已知问题
 
-- P2：三项 Provider SDK 依赖尚未由共享 Workspace 锁定，当前在线实现只通过
-  确定性 API 形状 Fake 验证；S5 必须锁定精确版本并复跑导入/构建/API 形状
-  门禁后才可装配产品链。
+- P2：三项 Provider SDK 依赖尚未由共享 Workspace 锁定。Claude 候选
+  `0.2.134` 已通过真实 Wheel 的离线 Options/CLI Serializer 门禁；S5 仍须
+  提交共享锁文件并复跑全部导入、构建、许可和安全闭包后才可装配产品链。
 - P2：真实在线 Smoke 未运行。该测试保持默认跳过，以避免未经授权的密钥读取、
   外部网络和付费调用；后续执行需要独立显式授权。
 - P3：`pip-audit` 输出了本机缓存反序列化警告，但命令退出 0 且报告
@@ -139,7 +154,7 @@ MATURITY=VERIFIED
 TRIGGER=none
 MECHANISM=none
 STRUCTURE=none
-EVIDENCE=e747e73a4aa84186db78d29df53ad3bdf560abbc
+EVIDENCE=de0772389d54a896445bb16fac8fb1910416a8af
 RESIDUAL_RISK=none
 TARGET=none
 ```
@@ -162,10 +177,10 @@ TARGET=none
 ```text
 OUTCOME=PASS_HANDOFF
 CHAIN_ID=CHAIN-M7-LOCAL-PRODUCT-01
-STEP_ID=M7-01-S2-PROVIDER
-ATTEMPT_ID=WP-070-a1
+STEP_ID=M7-01-S2-PROVIDER-REPAIR
+ATTEMPT_ID=WP-070-a1-r1
 NEW_HEAD=<this-handoff-commit>
-BASE_COMMIT=b363070194a404cc33764b0ae90275be68c21cb8
+BASE_COMMIT=6f84e350fa9c9d346a768ff00f48689dca324b50
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
 GATE=PASS
 HANDOFF=tests/runtime/evidence/WP-070-a1-HANDOFF.md
@@ -176,6 +191,7 @@ ESCALATE_TO_S1=no
 
 ## 可回滚方式
 
-- 按逆序 revert 本 Handoff 提交和实现提交
+- 按逆序 revert 本 Handoff 提交、P1 修复提交
+  `de0772389d54a896445bb16fac8fb1910416a8af` 和原始实现提交
   `e747e73a4aa84186db78d29df53ad3bdf560abbc`；禁止 reset、rebase 或
   force-push。

@@ -1,0 +1,116 @@
+{
+  "schema": "flowpilot.wp070q1-provider-runtime-proof.v1",
+  "chain_id": "CHAIN-M7-LOCAL-PRODUCT-01",
+  "step_id": "M7-04-S4-PROVIDER-REVIEW",
+  "attempt_id": "WP-070-q1",
+  "repair_attempt_id": "WP-070-a2-r1",
+  "session_role": "S4-QUALITY",
+  "agent_id": "experience-builder",
+  "input_head": "aa3842ab746942eda6751dbff3a6619d4bfac9fb",
+  "implementation_head": "e0cc0dafea997370928cec646d5981d8035b2a18",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "upstream_evidence": {
+    "handoff": "tests/runtime/evidence/WP-070-a2-HANDOFF.md",
+    "handoff_sha256": "sha256:7a8ec9babe06db88d30260ac459cfc44e1afcfb59d0a8b2bb61160fd19d965f8",
+    "conformance_report": "tests/runtime/evidence/WP-070-a2-CONFORMANCE.json",
+    "conformance_report_sha256": "sha256:cc537b13ff70522cf9ebe97d4efcc6d7d0712b76202f168e36cb291d5f01f2b1"
+  },
+  "locked_dependencies": {
+    "litellm": "1.95.0",
+    "openai-agents": "0.19.4",
+    "claude-agent-sdk": "0.2.134"
+  },
+  "scope": {
+    "release_gate": false,
+    "real_provider_smoke_executed": false,
+    "online_provider_calls": 0,
+    "paid_provider_calls": 0,
+    "contract_change": false,
+    "shared_file_change": false,
+    "production_code_change": false
+  },
+  "coverage": {
+    "default_online_disabled": true,
+    "missing_credentials_fail_closed": true,
+    "timeout_retryable_mapping": true,
+    "rate_limit_retryable_mapping": true,
+    "malformed_and_empty_output_rejected": true,
+    "hard_budget_enforced": true,
+    "session_invalidated_and_rebuilt_once": true,
+    "session_rebuild_preserves_business_call": true,
+    "nested_context_session_ref_rejected": true,
+    "nested_output_session_ref_rejected": true,
+    "nested_tool_arguments_session_ref_rejected": true,
+    "nested_tool_resource_session_ref_rejected": true,
+    "typed_session_channel_preserved": true,
+    "credential_shaped_input_rejected_before_transport": true,
+    "credential_shaped_output_cleared": true,
+    "openai_tool_and_handoff_surface_closed": true,
+    "claude_tool_mcp_plugin_hook_skill_surface_closed": true
+  },
+  "p1_closure": {
+    "s4_original_reproduction_now_fails_closed": true,
+    "context_error": "RUNTIME_REQUEST_INCONSISTENT",
+    "output_error": "RUNTIME_INVALID_OUTPUT",
+    "tool_arguments_error": "RUNTIME_INVALID_OUTPUT",
+    "tool_resource_error": "RUNTIME_INVALID_OUTPUT",
+    "typed_request_and_result_session_ref_allowed": true,
+    "private_session_value_exposure_count": 0
+  },
+  "network_and_credentials": {
+    "acceptance_tests_use_only_fake_modules_and_transports": true,
+    "acceptance_test_provider_network_calls": 0,
+    "credential_exposure_count": 0,
+    "real_credentials_read": false,
+    "read_only_sdk_import_metadata_fetch_attempts": 1,
+    "metadata_fetch_result": "timed_out_then_local_fallback",
+    "metadata_fetch_provider_or_paid_call": false,
+    "note": "A read-only child imported LiteLLM while checking the locked shape; the import attempted a public GitHub model-cost metadata fetch. S4 acceptance tests do not import the real SDK modules and use injected fakes."
+  },
+  "test_results": [
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/provider_runtime -q",
+      "result": "PASS",
+      "summary": "31 passed in 0.43s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "264 passed in 32.67s"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test",
+      "result": "PASS",
+      "summary": "815 passed, 1 explicit online provider smoke skip in 188.75s"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test-security",
+      "result": "PASS",
+      "summary": "114 passed in 2.26s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B contracts/conformance/validate.py",
+      "result": "PASS",
+      "summary": "20 schemas; 35 cases; 43 semantic negative cases; 52 features"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 lint",
+      "result": "PASS",
+      "summary": "Ruff PASS; strict Mypy PASS for 119 source files"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_RUN",
+      "summary": "M7 fixed-denominator release acceptance is assigned to WP-073, not this provider review step"
+    }
+  ],
+  "encoding_and_safety_gates": {
+    "utf8": true,
+    "lf": true,
+    "bom": false,
+    "json_duplicate_keys": 0,
+    "high_confidence_secret_matches": 0,
+    "real_pii_matches": 0,
+    "git_diff_check": "PASS"
+  }
+}

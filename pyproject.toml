@@ -4,10 +4,13 @@ version = "0.1.0"
 description = "FlowPilot internal Python workspace"
 requires-python = ">=3.12"
 dependencies = [
+    "claude-agent-sdk==0.2.134",
     "flowpilot-api",
     "flowpilot-application",
     "flowpilot-domain",
     "langgraph>=1.2,<2",
+    "litellm==1.95.0",
+    "openai-agents==0.19.4",
     "psycopg[binary,pool]>=3.2,<4",
     "redis>=5.2,<6",
     "sqlalchemy[asyncio]>=2.0,<3",

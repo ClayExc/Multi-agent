@@ -1,5 +1,19 @@
 BEGIN;
 
+DO $linear_successor$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM flowpilot.schema_migrations
+        WHERE migration_id = '0003_api_task_initialization'
+    ) THEN
+        RAISE EXCEPTION
+            'rollback 0003_api_task_initialization before 0002_checkpoint_sequence_cas'
+            USING ERRCODE = '55000';
+    END IF;
+END
+$linear_successor$;
+
 DO $thread_uniqueness$
 BEGIN
     IF EXISTS (

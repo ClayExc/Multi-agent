@@ -11,6 +11,7 @@ from uuid import uuid4
 from flowpilot_application import (
     ExecutionReceipt,
     StoredCommand,
+    TaskInitializationDisposition,
     VersionSlotReservation,
 )
 from flowpilot_domain import Task, TaskStatus
@@ -30,6 +31,7 @@ from .models import (
     require_sha256,
     utc,
 )
+from .serialization import is_initial_task_projection
 
 Clock = Callable[[], datetime]
 
@@ -147,6 +149,23 @@ class MemoryTaskRepository:
                 "stored task projection does not match its identity",
             )
         return task
+
+    async def initialize(
+        self, tenant_id: str, task: Task
+    ) -> TaskInitializationDisposition:
+        key = (tenant_id, task.task_id)
+        if task.tenant_id != tenant_id:
+            return TaskInitializationDisposition.CONFLICT
+        if not is_initial_task_projection(task):
+            raise PersistenceError(
+                PersistenceErrorCode.DRIVER_PROTOCOL,
+                "task initialization requires a Task v0 projection",
+            )
+        if key in self._snapshot.tasks or key in self._snapshot.task_versions:
+            return TaskInitializationDisposition.CONFLICT
+        self._snapshot.tasks[key] = task
+        self._snapshot.task_versions[key] = task.version
+        return TaskInitializationDisposition.INITIALIZED
 
 
 class MemoryCommandInbox:

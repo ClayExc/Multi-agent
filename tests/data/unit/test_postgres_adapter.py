@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 import pytest
-from flowpilot_domain import Task
+from flowpilot_application import TaskInitializationDisposition
+from flowpilot_domain import Task, TaskStatus
 from flowpilot_persistence import (
     PersistenceError,
     PersistenceErrorCode,
@@ -72,6 +74,43 @@ class TaskProjectionConnection(ScriptedConnection):
         return None
 
 
+class TaskInitializationConnection(ScriptedConnection):
+    def __init__(self, affected: int) -> None:
+        super().__init__()
+        self.affected = affected
+
+    async def execute(
+        self,
+        statement: str,
+        parameters: Mapping[str, object] | None = None,
+    ) -> int:
+        self.statements.append((statement, parameters))
+        if "INSERT INTO flowpilot.tasks" in statement:
+            return self.affected
+        return 1
+
+
+def _initial_task(task: Task) -> Task:
+    return replace(
+        task,
+        task_id="task_initialize1",
+        thread_id="thread_initialize1",
+        status=TaskStatus.RECEIVED,
+        version=0,
+        run_generation=0,
+        waiting_on=None,
+        result_ref=None,
+        error=None,
+        completed_at=None,
+        active_run_id=None,
+        latest_checkpoint_id=None,
+        domain=None,
+        intent=None,
+        risk_level=None,
+        updated_at=task.created_at,
+    )
+
+
 def test_postgres_uow_binds_one_tenant_and_commits_once() -> None:
     async def scenario() -> None:
         connection = ScriptedConnection()
@@ -123,6 +162,99 @@ def test_postgres_uow_rolls_back_when_not_committed() -> None:
         assert connection.commits == 0
         assert connection.rollbacks == 1
         assert connection.closes == 1
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("affected", "expected"),
+    [
+        (1, TaskInitializationDisposition.INITIALIZED),
+        (0, TaskInitializationDisposition.CONFLICT),
+    ],
+)
+def test_postgres_task_initialize_is_insert_only(
+    task_projection: Task,
+    affected: int,
+    expected: TaskInitializationDisposition,
+) -> None:
+    async def scenario() -> None:
+        task = _initial_task(task_projection)
+        connection = TaskInitializationConnection(affected)
+
+        async def connection_factory() -> TaskInitializationConnection:
+            return connection
+
+        factory = PostgresDataUnitOfWorkFactory(connection_factory)
+        async with factory() as unit_of_work:
+            assert (
+                await unit_of_work.tasks.initialize(task.tenant_id, task)
+                is expected
+            )
+
+        inserts = [
+            parameters
+            for statement, parameters in connection.statements
+            if "INSERT INTO flowpilot.tasks" in statement
+        ]
+        assert len(inserts) == 1
+        assert inserts[0] is not None
+        assert inserts[0]["tenant_id"] == task.tenant_id
+        assert inserts[0]["task_id"] == task.task_id
+        assert inserts[0]["status"] == TaskStatus.RECEIVED.value
+        assert inserts[0]["version"] == 0
+        assert inserts[0]["run_generation"] == 0
+
+    asyncio.run(scenario())
+
+
+def test_postgres_task_initialize_rejects_tenant_mismatch_without_insert(
+    task_projection: Task,
+) -> None:
+    async def scenario() -> None:
+        task = _initial_task(task_projection)
+        connection = TaskInitializationConnection(1)
+
+        async def connection_factory() -> TaskInitializationConnection:
+            return connection
+
+        factory = PostgresDataUnitOfWorkFactory(connection_factory)
+        async with factory() as unit_of_work:
+            assert (
+                await unit_of_work.tasks.initialize("tenant-b", task)
+                is TaskInitializationDisposition.CONFLICT
+            )
+
+        assert not any(
+            "INSERT INTO flowpilot.tasks" in statement
+            for statement, _ in connection.statements
+        )
+
+    asyncio.run(scenario())
+
+
+def test_postgres_task_initialize_rejects_non_initial_projection(
+    task_projection: Task,
+) -> None:
+    async def scenario() -> None:
+        connection = TaskInitializationConnection(1)
+
+        async def connection_factory() -> TaskInitializationConnection:
+            return connection
+
+        factory = PostgresDataUnitOfWorkFactory(connection_factory)
+        async with factory() as unit_of_work:
+            with pytest.raises(PersistenceError) as caught:
+                await unit_of_work.tasks.initialize(
+                    task_projection.tenant_id,
+                    task_projection,
+                )
+            assert caught.value.code is PersistenceErrorCode.DRIVER_PROTOCOL
+
+        assert not any(
+            "INSERT INTO flowpilot.tasks" in statement
+            for statement, _ in connection.statements
+        )
 
     asyncio.run(scenario())
 

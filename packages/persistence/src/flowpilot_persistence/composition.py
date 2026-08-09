@@ -15,6 +15,7 @@ from flowpilot_application import (
     TaskEventOutboxPort,
     TaskEventUnitOfWork,
     TaskEventUnitOfWorkFactory,
+    TaskInitializationDisposition,
     TaskQueryPort,
     TaskQueryUnitOfWork,
     TaskQueryUnitOfWorkFactory,
@@ -69,6 +70,12 @@ class _ApplicationTaskRepository:
     async def get(self, tenant_id: str, task_id: str) -> Task | None:
         self._scope.bind(tenant_id)
         return await self._inner.get(tenant_id, task_id)
+
+    async def initialize(
+        self, tenant_id: str, task: Task
+    ) -> TaskInitializationDisposition:
+        self._scope.bind(tenant_id)
+        return await self._inner.initialize(tenant_id, task)
 
 
 class _ApplicationCommandInbox:

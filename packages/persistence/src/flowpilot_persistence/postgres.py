@@ -11,6 +11,7 @@ from uuid import uuid4
 from flowpilot_application import (
     ExecutionReceipt,
     StoredCommand,
+    TaskInitializationDisposition,
     VersionSlotReservation,
 )
 from flowpilot_domain import DomainViolation, Task
@@ -33,6 +34,7 @@ from .models import (
 )
 from .serialization import (
     execution_receipt_to_mapping,
+    is_initial_task_projection,
     stored_command_from_row,
     task_command_to_mapping,
 )
@@ -142,6 +144,59 @@ class PostgresTaskRepository:
         if row is None:
             return None
         return _task_from_row(row, tenant_id=tenant_id, task_id=task_id)
+
+    async def initialize(
+        self, tenant_id: str, task: Task
+    ) -> TaskInitializationDisposition:
+        await self._transaction.bind(tenant_id)
+        if task.tenant_id != tenant_id:
+            return TaskInitializationDisposition.CONFLICT
+        if not is_initial_task_projection(task):
+            raise PersistenceError(
+                PersistenceErrorCode.DRIVER_PROTOCOL,
+                "task initialization requires a Task v0 projection",
+            )
+        affected = await self._transaction.connection.execute(
+            """
+            INSERT INTO flowpilot.tasks (
+                tenant_id,
+                task_id,
+                thread_id,
+                status,
+                version,
+                run_generation,
+                projection,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                %(tenant_id)s,
+                %(task_id)s,
+                %(thread_id)s,
+                %(status)s,
+                %(version)s,
+                %(run_generation)s,
+                %(projection)s::jsonb,
+                %(created_at)s,
+                %(updated_at)s
+            )
+            ON CONFLICT DO NOTHING
+            """,
+            {
+                "tenant_id": task.tenant_id,
+                "task_id": task.task_id,
+                "thread_id": task.thread_id,
+                "status": task.status.value,
+                "version": task.version,
+                "run_generation": task.run_generation,
+                "projection": _json_dump(task.to_mapping()),
+                "created_at": task.created_at,
+                "updated_at": task.updated_at,
+            },
+        )
+        if affected == 1:
+            return TaskInitializationDisposition.INITIALIZED
+        return TaskInitializationDisposition.CONFLICT
 
 
 def _task_from_row(row: Row, *, tenant_id: str, task_id: str) -> Task:

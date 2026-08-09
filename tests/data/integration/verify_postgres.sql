@@ -2,6 +2,90 @@
 
 BEGIN;
 
+SET LOCAL ROLE flowpilot_api;
+SELECT set_config('flowpilot.tenant_id', 'tenant-a', true);
+
+DO $api_task_initialization$
+BEGIN
+    IF NOT has_table_privilege('flowpilot_api', 'flowpilot.tasks', 'INSERT') THEN
+        RAISE EXCEPTION 'flowpilot_api lacks Task initialization permission';
+    END IF;
+    IF has_table_privilege('flowpilot_api', 'flowpilot.tasks', 'UPDATE')
+       OR has_table_privilege('flowpilot_api', 'flowpilot.tasks', 'DELETE')
+       OR has_table_privilege('flowpilot_api', 'flowpilot.tasks', 'TRUNCATE') THEN
+        RAISE EXCEPTION 'flowpilot_api received non-minimal Task permission';
+    END IF;
+END
+$api_task_initialization$;
+
+INSERT INTO flowpilot.tasks (
+    tenant_id,
+    task_id,
+    thread_id,
+    status,
+    version,
+    run_generation,
+    projection,
+    created_at,
+    updated_at
+)
+VALUES (
+    'tenant-a',
+    'task_api_init12345678',
+    'thread_api_init12345678',
+    'RECEIVED',
+    0,
+    0,
+    '{
+      "tenant_id": "tenant-a",
+      "task_id": "task_api_init12345678",
+      "version": 0,
+      "run_generation": 0
+    }'::jsonb,
+    '2026-07-28T07:59:00Z',
+    '2026-07-28T07:59:00Z'
+);
+
+SELECT set_config('flowpilot.tenant_id', 'tenant-b', true);
+
+DO $api_cross_tenant$
+BEGIN
+    BEGIN
+        INSERT INTO flowpilot.tasks (
+            tenant_id,
+            task_id,
+            thread_id,
+            status,
+            version,
+            run_generation,
+            projection,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            'tenant-a',
+            'task_api_attack12345678',
+            'thread_api_attack12345678',
+            'RECEIVED',
+            0,
+            0,
+            '{
+              "tenant_id": "tenant-a",
+              "task_id": "task_api_attack12345678",
+              "version": 0,
+              "run_generation": 0
+            }'::jsonb,
+            '2026-07-28T07:59:00Z',
+            '2026-07-28T07:59:00Z'
+        );
+        RAISE EXCEPTION 'flowpilot_api cross-tenant Task insert succeeded';
+    EXCEPTION
+        WHEN insufficient_privilege THEN
+            NULL;
+    END;
+END
+$api_cross_tenant$;
+
 SET LOCAL ROLE flowpilot_worker;
 SELECT set_config('flowpilot.tenant_id', 'tenant-a', true);
 

@@ -31,7 +31,12 @@ def test_redis_is_explicitly_rebuildable_not_durable() -> None:
 
 
 def test_forward_migration_only_is_mounted() -> None:
-    assert "0001_persistence_baseline.sql:" in COMPOSE
+    for migration in (
+        "0001_persistence_baseline.sql:",
+        "0002_checkpoint_sequence_cas.sql:",
+        "0003_api_task_initialization.sql:",
+    ):
+        assert migration in COMPOSE
     assert ".down.sql" not in COMPOSE
 
 

@@ -6,7 +6,11 @@ from datetime import UTC, datetime
 
 import pytest
 from flowpilot_application import compose_core_application
-from flowpilot_application.testing import FakeExecutionPort
+from flowpilot_application.testing import (
+    FAKE_TASK_INITIALIZATION,
+    FakeExecutionPort,
+    FakeThreadIdFactory,
+)
 from flowpilot_domain import Task, TaskCommand
 from flowpilot_persistence import (
     MemoryDataUnitOfWorkFactory,
@@ -46,16 +50,28 @@ def test_composed_command_and_query_factories_use_fresh_transactions(
             task_id="task_compose123",
         )
         execution = FakeExecutionPort()
+        thread_ids = FakeThreadIdFactory()
         services = compose_core_application(
             command_unit_of_work=composed.command_unit_of_work,
             task_query_unit_of_work=composed.task_query_unit_of_work,
             execution=execution,
+            task_initialization=FAKE_TASK_INITIALIZATION,
+            thread_id_factory=thread_ids,
             clock=lambda: NOW,
         )
 
         accepted = await services.command_intake.accept(command)
         assert accepted.replayed is False
         assert len(execution.calls) == 1
+        assert thread_ids.calls == 1
+
+        initialized = await services.task_query.get(
+            command.tenant_id,
+            command.task_id,
+        )
+        assert initialized.status.value == "RECEIVED"
+        assert initialized.version == 0
+        assert initialized.thread_id == "thread_00000001"
 
         assert (
             await services.task_query.get(
@@ -73,6 +89,11 @@ def test_composed_command_and_query_factories_use_fresh_transactions(
             assert stored is not None
             assert stored.command == command
             assert stored.execution_receipt == accepted.execution_receipt
+
+        replayed = await services.command_intake.accept(command)
+        assert replayed.replayed is True
+        assert thread_ids.calls == 1
+        assert len(execution.calls) == 1
 
     asyncio.run(scenario())
 

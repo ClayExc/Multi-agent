@@ -9,8 +9,9 @@ docker compose --env-file .env -f infra/compose/compose.yaml up -d
 docker compose --env-file .env -f infra/compose/compose.yaml ps
 ```
 
-PostgreSQL 迁移只会在命名卷为空时运行。如果需要在不删除业务事实的情况下再次
-验证正向迁移，请执行 `migrations/README.md` 中的 `psql` 命令。
+PostgreSQL 会在命名卷为空时按 `0001 -> 0002 -> 0003` 运行正向迁移。如果需要
+在不删除业务事实的情况下再次验证，请执行 `migrations/README.md` 中的 `psql`
+命令。
 
 PostgreSQL 健康后，运行真实的 RLS 与过期时间绑定负向用例：
 

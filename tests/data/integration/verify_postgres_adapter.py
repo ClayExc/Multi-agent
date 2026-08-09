@@ -20,8 +20,18 @@ ROOT = Path(__file__).resolve().parents[3]
 for package in ("domain", "application", "persistence"):
     sys.path.insert(0, str(ROOT / "packages" / package / "src"))
 
-from flowpilot_application import CommandIntakeService  # noqa: E402
-from flowpilot_application.testing import FakeExecutionPort  # noqa: E402
+from flowpilot_application import (  # noqa: E402
+    ApplicationError,
+    CommandIntakeService,
+    ErrorCode,
+    TaskInitializationDisposition,
+    VersionSlotReservation,
+)
+from flowpilot_application.testing import (  # noqa: E402
+    FAKE_TASK_INITIALIZATION,
+    FakeExecutionPort,
+    FakeThreadIdFactory,
+)
 from flowpilot_domain import PlannedAction, Task, TaskCommand  # noqa: E402
 from flowpilot_persistence import (  # noqa: E402
     CheckpointRecord,
@@ -93,13 +103,24 @@ def case_instance(case_id: str) -> dict[str, Any]:
     )
 
 
-def command_fixture(suffix: str) -> TaskCommand:
+def command_fixture(
+    suffix: str,
+    *,
+    tenant_id: str = "tenant-a",
+    command_id: str | None = None,
+    task_id: str | None = None,
+) -> TaskCommand:
     value = case_instance("task_command.create.valid")
-    value["command_id"] = f"cmd_{suffix}"
-    value["task_id"] = f"task_{suffix}"
+    value["command_id"] = command_id or f"cmd_{suffix}"
+    value["tenant_id"] = tenant_id
+    value["task_id"] = task_id or f"task_{suffix}"
     value["idempotency_key"] = (
-        "sha256:" + hashlib.sha256(suffix.encode("ascii")).hexdigest()
+        "sha256:"
+        + hashlib.sha256(
+            f"{tenant_id}:{suffix}".encode("ascii")
+        ).hexdigest()
     )
+    value["security_context"]["tenant_id"] = tenant_id
     value["command_digest"] = "sha256:" + "0" * 64
     unsigned = TaskCommand.from_mapping(value)
     value["command_digest"] = unsigned.recompute_digest()
@@ -142,12 +163,40 @@ async def main() -> None:
         )
         return PsycopgConnection(connection)
 
+    async def api_connection_factory() -> PsycopgConnection:
+        connection = await psycopg.AsyncConnection.connect(
+            database_url,
+            row_factory=dict_row,
+        )
+        await connection.execute("SET ROLE flowpilot_api")
+        return PsycopgConnection(connection)
+
+    async def worker_connection_factory() -> PsycopgConnection:
+        connection = await psycopg.AsyncConnection.connect(
+            database_url,
+            row_factory=dict_row,
+        )
+        await connection.execute("SET ROLE flowpilot_worker")
+        return PsycopgConnection(connection)
+
     unit_of_work = PostgresDataUnitOfWorkFactory(connection_factory)
-    application_uows = compose_application_unit_of_work_factories(unit_of_work)
+    api_unit_of_work = PostgresDataUnitOfWorkFactory(api_connection_factory)
+    worker_unit_of_work = PostgresDataUnitOfWorkFactory(
+        worker_connection_factory
+    )
+    api_application_uows = compose_application_unit_of_work_factories(
+        api_unit_of_work
+    )
+    worker_application_uows = compose_application_unit_of_work_factories(
+        worker_unit_of_work
+    )
     execution = FakeExecutionPort()
+    thread_ids = FakeThreadIdFactory()
     service = CommandIntakeService(
-        unit_of_work=application_uows.command_unit_of_work,
+        unit_of_work=api_application_uows.command_unit_of_work,
         execution=execution,
+        task_initialization=FAKE_TASK_INITIALIZATION,
+        thread_id_factory=thread_ids,
     )
     command = command_fixture(suffix)
 
@@ -160,6 +209,111 @@ async def main() -> None:
         raise AssertionError("PostgreSQL replay did not return the first receipt")
     if len(execution.calls) != 1:
         raise AssertionError("PostgreSQL inbox dispatched a duplicate command")
+    if thread_ids.calls != 1:
+        raise AssertionError("PostgreSQL replay regenerated a Task thread")
+
+    async with api_application_uows.task_query_unit_of_work() as data:
+        initialized_task = await data.tasks.get(
+            command.tenant_id,
+            command.task_id,
+        )
+        if (
+            initialized_task is None
+            or initialized_task.status.value != "RECEIVED"
+            or initialized_task.version != 0
+            or initialized_task.run_generation != 0
+        ):
+            raise AssertionError("PostgreSQL did not persist the complete Task v0")
+
+    collision_id = f"cmd_collision{suffix}"
+    tenant_b_command = command_fixture(
+        f"tenantb{suffix}",
+        tenant_id="tenant-b",
+        command_id=collision_id,
+        task_id=f"task_tenantb{suffix}",
+    )
+    tenant_b_service = CommandIntakeService(
+        unit_of_work=api_application_uows.command_unit_of_work,
+        execution=execution,
+        task_initialization=FAKE_TASK_INITIALIZATION,
+        thread_id_factory=thread_ids,
+    )
+    await tenant_b_service.accept(tenant_b_command)
+    async with api_application_uows.task_query_unit_of_work() as data:
+        tenant_b_task = await data.tasks.get(
+            tenant_b_command.tenant_id,
+            tenant_b_command.task_id,
+        )
+        if tenant_b_task is None:
+            raise AssertionError("tenant-b Task initialization was not durable")
+
+    rolled_back_task_id = f"task_rollback{suffix}"
+    colliding_command = command_fixture(
+        f"collision{suffix}",
+        command_id=collision_id,
+        task_id=rolled_back_task_id,
+    )
+    try:
+        await service.accept(colliding_command)
+    except ApplicationError as exc:
+        if exc.code is not ErrorCode.REPOSITORY_UNAVAILABLE:
+            raise
+    else:
+        raise AssertionError("global Command conflict did not fail Tx-A")
+
+    rollback_slot_task_id = f"task_initrb{suffix}"
+    rollback_slot_command_id = f"cmd_initrb{suffix}"
+    async with api_unit_of_work() as data:
+        if (
+            await data.commands.reserve_version_slot(
+                "tenant-a",
+                rollback_slot_task_id,
+                -1,
+                rollback_slot_command_id,
+            )
+            is not VersionSlotReservation.RESERVED
+        ):
+            raise AssertionError("Task initialization rollback slot was rejected")
+        if (
+            await data.tasks.initialize("tenant-a", tenant_b_task)
+            is not TaskInitializationDisposition.CONFLICT
+        ):
+            raise AssertionError("cross-tenant Task initialization was accepted")
+
+    rollback_probe = await psycopg.AsyncConnection.connect(
+        database_url,
+        row_factory=dict_row,
+    )
+    rolled_back = await rollback_probe.execute(
+        """
+        SELECT
+            (SELECT count(*) FROM flowpilot.tasks WHERE task_id = %(task_id)s)
+                AS task_count,
+            (SELECT count(*) FROM flowpilot.task_command_slots
+             WHERE task_id = %(task_id)s) AS slot_count,
+            (SELECT count(*) FROM flowpilot.task_commands
+             WHERE tenant_id = 'tenant-a' AND command_id = %(command_id)s)
+                AS command_count,
+            (SELECT count(*) FROM flowpilot.task_command_slots
+             WHERE task_id = %(slot_task_id)s) AS init_slot_count,
+            (SELECT count(*) FROM flowpilot.outbox_events
+             WHERE aggregate_id IN (%(created_task_id)s, %(tenant_b_task_id)s))
+                AS tx_a_event_count
+        """,
+        {
+            "task_id": rolled_back_task_id,
+            "command_id": collision_id,
+            "slot_task_id": rollback_slot_task_id,
+            "created_task_id": command.task_id,
+            "tenant_b_task_id": tenant_b_command.task_id,
+        },
+    )
+    rollback_row = await rolled_back.fetchone()
+    await rollback_probe.close()
+    if rollback_row is None or any(
+        int(value) != 0 for value in rollback_row.values()
+    ):
+        raise AssertionError("Task initialization transaction left partial facts")
 
     seed = await psycopg.AsyncConnection.connect(
         database_url,
@@ -278,7 +432,7 @@ async def main() -> None:
     await seed.commit()
     await seed.close()
 
-    async with application_uows.task_query_unit_of_work() as data:
+    async with api_application_uows.task_query_unit_of_work() as data:
         restored_task = await data.tasks.get("tenant-a", "task_12345678")
         if (
             restored_task is None
@@ -290,7 +444,7 @@ async def main() -> None:
         ):
             raise AssertionError("PostgreSQL Task v1 projection did not round-trip")
 
-    async with application_uows.task_query_unit_of_work() as data:
+    async with api_application_uows.task_query_unit_of_work() as data:
         if await data.tasks.get("tenant-b", "task_12345678") is not None:
             raise AssertionError("cross-tenant Task query returned a projection")
 
@@ -329,7 +483,7 @@ async def main() -> None:
         await data.outbox.append(application_event)
         await data.commit()
 
-    async with application_uows.task_event_unit_of_work() as event_uow:
+    async with worker_application_uows.task_event_unit_of_work() as event_uow:
         if await event_uow.tasks.get("tenant-a", lease_task_id) is None:
             raise AssertionError("application event UoW could not read its Task")
         deliveries = await event_uow.outbox.unpublished(
@@ -361,7 +515,7 @@ async def main() -> None:
             published_at=datetime(2026, 7, 29, 4, 3, tzinfo=UTC),
         )
 
-    async with application_uows.task_event_unit_of_work() as retry_uow:
+    async with worker_application_uows.task_event_unit_of_work() as retry_uow:
         deliveries = await retry_uow.outbox.unpublished(
             "tenant-a",
             now=datetime(2026, 7, 29, 4, 4, tzinfo=UTC),
@@ -387,7 +541,7 @@ async def main() -> None:
         )
         await retry_uow.commit()
 
-    async with application_uows.task_event_unit_of_work() as isolated_uow:
+    async with worker_application_uows.task_event_unit_of_work() as isolated_uow:
         await isolated_uow.tasks.get("tenant-a", lease_task_id)
         try:
             await isolated_uow.outbox.unpublished(

@@ -8,9 +8,29 @@ from flowpilot_application import (
     ExecutionReceipt,
     StoredCommand,
 )
-from flowpilot_domain import TaskCommand
+from flowpilot_domain import Task, TaskCommand, TaskStatus
 
 from .models import format_utc, thaw_json
+
+
+def is_initial_task_projection(task: Task) -> bool:
+    """Return whether a Task is the authoritative Command Tx-A projection."""
+
+    return (
+        task.status is TaskStatus.RECEIVED
+        and task.version == 0
+        and task.run_generation == 0
+        and task.waiting_on is None
+        and task.result_ref is None
+        and task.error is None
+        and task.completed_at is None
+        and task.active_run_id is None
+        and task.latest_checkpoint_id is None
+        and task.domain is None
+        and task.intent is None
+        and task.risk_level is None
+        and task.created_at == task.updated_at
+    )
 
 
 def task_command_to_mapping(command: TaskCommand) -> dict[str, Any]:

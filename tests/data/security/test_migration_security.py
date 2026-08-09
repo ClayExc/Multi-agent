@@ -12,6 +12,12 @@ CHECKPOINT_MIGRATION = (
 CHECKPOINT_DOWN = (
     ROOT / "migrations" / "0002_checkpoint_sequence_cas.down.sql"
 ).read_text(encoding="utf-8")
+TASK_INITIALIZATION_MIGRATION = (
+    ROOT / "migrations" / "0003_api_task_initialization.sql"
+).read_text(encoding="utf-8")
+TASK_INITIALIZATION_DOWN = (
+    ROOT / "migrations" / "0003_api_task_initialization.down.sql"
+).read_text(encoding="utf-8")
 
 TENANT_TABLES = {
     "tasks",
@@ -86,6 +92,8 @@ def test_real_database_verification_covers_rls_and_expiry_negative_cases() -> No
     assert "unknown execution returned directly to running" in script
     assert "unknown execution accepted not-sent retry proof" in script
     assert "WHEN foreign_key_violation" in script
+    assert "flowpilot_api received non-minimal Task permission" in script
+    assert "flowpilot_api cross-tenant Task insert succeeded" in script
 
 
 def test_checkpoint_migration_is_linear_atomic_and_repeatable() -> None:
@@ -111,6 +119,44 @@ def test_checkpoint_down_fails_before_lossy_thread_rollback() -> None:
         "DROP COLUMN IF EXISTS checkpoint_sequence"
     )
     assert guard < destructive_change
+
+
+def test_task_initialization_migration_is_linear_atomic_and_minimal() -> None:
+    assert TASK_INITIALIZATION_MIGRATION.startswith("BEGIN;\n")
+    assert TASK_INITIALIZATION_MIGRATION.rstrip().endswith("COMMIT;")
+    assert "requires 0002_checkpoint_sequence_cas" in (
+        TASK_INITIALIZATION_MIGRATION
+    )
+    assert (
+        "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2"
+        in TASK_INITIALIZATION_MIGRATION
+    )
+    assert "GRANT INSERT ON flowpilot.tasks TO flowpilot_api" in (
+        TASK_INITIALIZATION_MIGRATION
+    )
+    for forbidden in ("UPDATE", "DELETE", "TRUNCATE"):
+        assert f"GRANT {forbidden} ON flowpilot.tasks TO flowpilot_api" not in (
+            TASK_INITIALIZATION_MIGRATION
+        )
+
+
+def test_task_initialization_down_revokes_before_migration_record() -> None:
+    assert TASK_INITIALIZATION_DOWN.startswith("BEGIN;\n")
+    assert TASK_INITIALIZATION_DOWN.rstrip().endswith("COMMIT;")
+    revoke = TASK_INITIALIZATION_DOWN.index(
+        "REVOKE INSERT ON flowpilot.tasks FROM flowpilot_api"
+    )
+    delete_record = TASK_INITIALIZATION_DOWN.index(
+        "DELETE FROM flowpilot.schema_migrations"
+    )
+    assert revoke < delete_record
+    successor_guard = CHECKPOINT_DOWN.index(
+        "rollback 0003_api_task_initialization before 0002_checkpoint_sequence_cas"
+    )
+    destructive_change = CHECKPOINT_DOWN.index(
+        "DROP COLUMN IF EXISTS checkpoint_sequence"
+    )
+    assert successor_guard < destructive_change
 
 
 def test_persistence_does_not_import_graph_package() -> None:

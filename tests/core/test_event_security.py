@@ -13,7 +13,11 @@ import jsonschema
 import pytest
 from flowpilot_api.app import _sse_frame
 from flowpilot_api.stream import InMemoryEventStream
-from flowpilot_application import TaskEventEnvelope
+from flowpilot_application import (
+    TaskEventEnvelope,
+    TaskEventErrorCode,
+    TaskEventValidationError,
+)
 from flowpilot_application.task_events import TASK_EVENT_PAYLOAD_RULES
 from flowpilot_security import (
     CREDENTIAL_FAMILIES,
@@ -24,14 +28,13 @@ from flowpilot_security import (
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TASK_EVENT_SCHEMA = json.loads(
     (
-        REPOSITORY_ROOT
-        / "contracts"
-        / "jsonschema"
-        / "task-event.v1.schema.json"
+        REPOSITORY_ROOT / "contracts" / "jsonschema" / "task-event.v1.schema.json"
     ).read_text(encoding="utf-8")
 )
 NOW = datetime(2026, 8, 9, 8, 0, tzinfo=UTC)
 DIGEST = "sha256:" + "a" * 64
+ERROR_KEY_CANARY = "customer_extension_8f4c2d91"
+ERROR_VALUE_CANARY = "customer-value-8f4c2d91"
 TOKEN_FAMILY_CASES: tuple[tuple[str, str], ...] = (
     ("openai_legacy", "sk-" + "Ab9" * 12),
     ("openai_project", "sk-" + "proj-" + "Ab9" * 12),
@@ -59,9 +62,7 @@ TOKEN_FAMILY_CASES: tuple[tuple[str, str], ...] = (
     ),
     (
         "jwt",
-        "eyJhbGciOiJIUzI1NiJ9."
-        "eyJzdWIiOiIxMjM0NTY3ODkwIn0."
-        "Ab9_Ab9_Ab9_Ab9_",
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.Ab9_Ab9_Ab9_Ab9_",
     ),
     ("sensitive_assignment", "token=" + "Ab9" * 8),
     (
@@ -209,9 +210,7 @@ def _envelope(
         causation_id=None,
         data_classification="internal",
         payload=(
-            payload
-            if payload is not None
-            else {"result_ref": "result://task/12345678"}
+            payload if payload is not None else {"result_ref": "result://task/12345678"}
         ),
         occurred_at=NOW,
     )
@@ -231,6 +230,20 @@ def _schema_branches() -> dict[str, tuple[frozenset[str], str]]:
         payload_ref = properties["payload"]["$ref"].rsplit("/", 1)[-1]
         result[event_type] = (producers, payload_ref)
     return result
+
+
+def _assert_safe_task_event_error(
+    error: TaskEventValidationError,
+    *,
+    code: TaskEventErrorCode,
+    forbidden: tuple[str, ...] = (),
+) -> None:
+    assert error.code is code
+    assert error.count >= 1
+    assert str(error) == (f"{error.code.value}; path={error.path}; count={error.count}")
+    for value in forbidden:
+        assert value not in str(error)
+        assert value not in repr(error)
 
 
 def _wrong_producer(allowed: frozenset[str]) -> str:
@@ -290,8 +303,11 @@ def test_each_task_event_rejects_additional_missing_and_wrong_producer(
     additional_wire["payload"] = additional
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(additional_wire, TASK_EVENT_SCHEMA)
-    with pytest.raises(ValueError, match="additional task-event.v1"):
+    with pytest.raises(TaskEventValidationError) as additional_error:
         _envelope(event_type, producer, additional)
+    assert additional_error.value.code is TaskEventErrorCode.ADDITIONAL_FIELDS
+    assert additional_error.value.count == 1
+    assert additional_error.value.path == "payload"
 
     missing = copy.deepcopy(payload)
     missing.pop(next(iter(TASK_EVENT_PAYLOAD_RULES[event_type].required)))
@@ -299,12 +315,13 @@ def test_each_task_event_rejects_additional_missing_and_wrong_producer(
     missing_wire["payload"] = missing
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(missing_wire, TASK_EVENT_SCHEMA)
-    with pytest.raises(ValueError, match="missing required task-event.v1"):
+    with pytest.raises(TaskEventValidationError) as missing_error:
         _envelope(event_type, producer, missing)
+    assert missing_error.value.code is TaskEventErrorCode.MISSING_FIELDS
+    assert missing_error.value.count == 1
+    assert missing_error.value.path == "payload"
 
-    wrong_producer = _wrong_producer(
-        TASK_EVENT_PAYLOAD_RULES[event_type].producers
-    )
+    wrong_producer = _wrong_producer(TASK_EVENT_PAYLOAD_RULES[event_type].producers)
     producer_wire = copy.deepcopy(valid_wire)
     producer_wire["producer"] = wrong_producer
     producer_wire["run_id"] = (
@@ -312,8 +329,11 @@ def test_each_task_event_rejects_additional_missing_and_wrong_producer(
     )
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(producer_wire, TASK_EVENT_SCHEMA)
-    with pytest.raises(ValueError, match="producer is not allowed"):
+    with pytest.raises(TaskEventValidationError) as producer_error:
         _envelope(event_type, wrong_producer, payload)
+    assert producer_error.value.code is TaskEventErrorCode.PRODUCER_MISMATCH
+    assert producer_error.value.count == 1
+    assert producer_error.value.path == "envelope.producer"
 
 
 @pytest.mark.parametrize(
@@ -397,16 +417,15 @@ def test_each_task_event_rejects_invalid_types_or_formats(
 def test_envelope_construction_recursively_rejects_sensitive_keys(
     payload: dict[str, Any],
 ) -> None:
-    with pytest.raises(ValueError, match="sensitive key"):
+    with pytest.raises(TaskEventValidationError) as captured:
         _envelope(payload=payload)
+    assert captured.value.code is TaskEventErrorCode.SENSITIVE_PROJECTION
 
 
 def test_envelope_construction_uses_central_error_for_credential_keys() -> None:
     payload = {
         "result_ref": "result://safe",
-        "metadata": [
-            {"provider_session": {"credential": {"access_token": "secret"}}}
-        ],
+        "metadata": [{"provider_session": {"credential": {"access_token": "secret"}}}],
     }
 
     with pytest.raises(SecurityError) as captured:
@@ -569,8 +588,9 @@ def test_every_payload_reference_field_rejects_plaintext(
     producer: str,
     payload: dict[str, Any],
 ) -> None:
-    with pytest.raises(ValueError, match="opaque URI reference"):
+    with pytest.raises(TaskEventValidationError) as captured:
         _envelope(event_type, producer, payload)
+    assert captured.value.code is TaskEventErrorCode.INVALID_REFERENCE
 
 
 @pytest.mark.parametrize(
@@ -607,8 +627,9 @@ def test_optional_empty_refs_remain_contract_compatible() -> None:
 
 
 def test_producer_principal_ref_must_be_an_opaque_uri() -> None:
-    with pytest.raises(ValueError, match="opaque URI reference"):
+    with pytest.raises(TaskEventValidationError) as captured:
         _envelope(producer_principal_ref="worker principal in plaintext")
+    assert captured.value.code is TaskEventErrorCode.INVALID_REFERENCE
 
 
 @pytest.mark.parametrize(
@@ -637,8 +658,9 @@ def test_noncredential_projection_values_remain_forbidden(
     sensitive_value: str,
 ) -> None:
     assert case_id
-    with pytest.raises(ValueError, match="sensitive value"):
+    with pytest.raises(TaskEventValidationError) as captured:
         _envelope(correlation_id=sensitive_value)
+    assert captured.value.code is TaskEventErrorCode.SENSITIVE_PROJECTION
 
 
 def test_central_registry_contains_required_consumer_families() -> None:
@@ -766,9 +788,7 @@ def test_opaque_reference_values_reject_token_families(
 ) -> None:
     assert family
     with pytest.raises(SecurityError):
-        _envelope(
-            payload={"result_ref": "result://artifact/" + sensitive_value}
-        )
+        _envelope(payload={"result_ref": "result://artifact/" + sensitive_value})
 
 
 def test_payload_nested_mapping_rejects_sensitive_string_before_schema_use() -> None:
@@ -787,8 +807,9 @@ def test_cross_tenant_emit_writes_neither_subscriber_nor_replay() -> None:
         subscriber = stream.subscribe("tenant-a")
         foreign = _envelope(tenant_id="tenant-b")
 
-        with pytest.raises(ValueError, match="tenant does not match"):
+        with pytest.raises(TaskEventValidationError) as captured:
             await stream.emit("tenant-a", foreign)
+        assert captured.value.code is TaskEventErrorCode.TENANT_MISMATCH
 
         assert subscriber.empty()
         replay = stream.subscribe("tenant-a")
@@ -812,14 +833,16 @@ def test_tampered_envelope_cannot_pollute_stream_or_produce_sse() -> None:
     async def scenario() -> None:
         stream = InMemoryEventStream()
         subscriber = stream.subscribe("tenant-a")
-        with pytest.raises(ValueError, match="sensitive key"):
+        with pytest.raises(TaskEventValidationError) as captured:
             await stream.emit("tenant-a", envelope)
+        assert captured.value.code is TaskEventErrorCode.SENSITIVE_PROJECTION
         assert subscriber.empty()
         assert stream.subscribe("tenant-a").empty()
 
     asyncio.run(scenario())
-    with pytest.raises(ValueError, match="sensitive key"):
+    with pytest.raises(TaskEventValidationError) as captured:
         _sse_frame(envelope)
+    assert captured.value.code is TaskEventErrorCode.SENSITIVE_PROJECTION
 
 
 def test_tampered_reference_writes_no_stream_or_sse_output() -> None:
@@ -833,15 +856,17 @@ def test_tampered_reference_writes_no_stream_or_sse_output() -> None:
     async def scenario() -> None:
         stream = InMemoryEventStream()
         subscriber = stream.subscribe("tenant-a")
-        with pytest.raises(ValueError, match="opaque URI reference"):
+        with pytest.raises(TaskEventValidationError) as captured:
             await stream.emit("tenant-a", envelope)
+        assert captured.value.code is TaskEventErrorCode.INVALID_REFERENCE
         assert subscriber.empty()
         assert stream.subscribe("tenant-a").empty()
 
     asyncio.run(scenario())
     frames: list[str] = []
-    with pytest.raises(ValueError, match="opaque URI reference"):
+    with pytest.raises(TaskEventValidationError) as captured:
         frames.append(_sse_frame(envelope))
+    assert captured.value.code is TaskEventErrorCode.INVALID_REFERENCE
     assert frames == []
 
 
@@ -912,7 +937,7 @@ def test_credential_errors_and_logs_never_render_original_material(
     sensitive_value: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    logger = logging.getLogger("flowpilot.tests.task-event-credentials")
+    logger = logging.getLogger("flowpilot.tests.event-credentials")
     with pytest.raises(SecurityError) as captured:
         _envelope(correlation_id=sensitive_value)
 
@@ -937,7 +962,7 @@ def test_credential_mapping_keys_are_rejected_before_projection_errors(
     sensitive_value: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    logger = logging.getLogger("flowpilot.tests.task-event-credential-keys")
+    logger = logging.getLogger("flowpilot.tests.event-credential-keys")
     with pytest.raises(SecurityError) as captured:
         _envelope(
             payload={
@@ -955,3 +980,165 @@ def test_credential_mapping_keys_are_rejected_before_projection_errors(
     assert sensitive_value not in str(error)
     assert sensitive_value not in repr(error)
     assert sensitive_value not in caplog.text
+
+
+def test_additional_fields_report_only_safe_code_path_and_count(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    payload = {
+        "result_ref": "result://safe",
+        ERROR_KEY_CANARY: ERROR_VALUE_CANARY,
+        ERROR_KEY_CANARY + "_second": ERROR_VALUE_CANARY + "-second",
+    }
+
+    with pytest.raises(TaskEventValidationError) as captured:
+        _envelope(payload=payload)
+
+    error = captured.value
+    logger = logging.getLogger("flowpilot.tests.event-additional-fields")
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        logger.error("task event rejected: %s", error)
+
+    _assert_safe_task_event_error(
+        error,
+        code=TaskEventErrorCode.ADDITIONAL_FIELDS,
+        forbidden=(ERROR_KEY_CANARY, ERROR_VALUE_CANARY),
+    )
+    assert error.path == "payload"
+    assert error.count == 2
+    assert ERROR_KEY_CANARY not in caplog.text
+    assert ERROR_VALUE_CANARY not in caplog.text
+
+
+def test_invalid_nested_shape_uses_only_structural_indices(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    payload = {
+        "result_ref": "result://safe",
+        ERROR_KEY_CANARY: {ERROR_VALUE_CANARY: object()},
+    }
+
+    with pytest.raises(TaskEventValidationError) as captured:
+        _envelope(payload=payload)
+
+    error = captured.value
+    logger = logging.getLogger("flowpilot.tests.event-shape")
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        logger.error("task event rejected: %s", error)
+
+    _assert_safe_task_event_error(
+        error,
+        code=TaskEventErrorCode.INVALID_SHAPE,
+        forbidden=(ERROR_KEY_CANARY, ERROR_VALUE_CANARY),
+    )
+    assert error.path == "payload.values[1].values[0]"
+    assert ERROR_KEY_CANARY not in caplog.text
+    assert ERROR_VALUE_CANARY not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("field", "expected_code"),
+    (
+        ("event_type", TaskEventErrorCode.SCHEMA_VIOLATION),
+        ("producer", TaskEventErrorCode.PRODUCER_MISMATCH),
+        ("data_classification", TaskEventErrorCode.SCHEMA_VIOLATION),
+    ),
+)
+def test_unknown_envelope_values_are_never_rendered(
+    field: str,
+    expected_code: TaskEventErrorCode,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    envelope = _envelope()
+    object.__setattr__(envelope, field, ERROR_VALUE_CANARY)
+
+    with pytest.raises(TaskEventValidationError) as captured:
+        envelope.assert_valid()
+
+    error = captured.value
+    logger = logging.getLogger("flowpilot.tests.event-envelope")
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        logger.error("task event rejected: %s", error)
+
+    _assert_safe_task_event_error(
+        error,
+        code=expected_code,
+        forbidden=(ERROR_VALUE_CANARY,),
+    )
+    assert ERROR_VALUE_CANARY not in caplog.text
+
+
+def test_additional_field_contaminates_no_event_output_boundary(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    errors: list[TaskEventValidationError] = []
+    constructed: list[TaskEventEnvelope] = []
+    with pytest.raises(TaskEventValidationError) as construction_error:
+        constructed.append(
+            _envelope(
+                payload={
+                    "result_ref": "result://safe",
+                    ERROR_KEY_CANARY: ERROR_VALUE_CANARY,
+                }
+            )
+        )
+    errors.append(construction_error.value)
+    assert constructed == []
+
+    async def scenario() -> None:
+        stream = InMemoryEventStream()
+        subscriber = stream.subscribe("tenant-a")
+        tampered = _envelope()
+        object.__setattr__(
+            tampered,
+            "payload",
+            {
+                "result_ref": "result://safe",
+                ERROR_KEY_CANARY: ERROR_VALUE_CANARY,
+            },
+        )
+
+        with pytest.raises(TaskEventValidationError) as emit_error:
+            await stream.emit("tenant-a", tampered)
+        errors.append(emit_error.value)
+        assert subscriber.empty()
+        assert stream.subscribe("tenant-a").empty()
+
+        replay_stream = InMemoryEventStream()
+        replay_event = _envelope()
+        await replay_stream.emit("tenant-a", replay_event)
+        object.__setattr__(
+            replay_event,
+            "payload",
+            {
+                "result_ref": "result://safe",
+                ERROR_KEY_CANARY: ERROR_VALUE_CANARY,
+            },
+        )
+        with pytest.raises(TaskEventValidationError) as replay_error:
+            replay_stream.subscribe("tenant-a")
+        errors.append(replay_error.value)
+        assert replay_stream._subscribers.get("tenant-a") is None
+
+        frames: list[str] = []
+        with pytest.raises(TaskEventValidationError) as sse_error:
+            frames.append(_sse_frame(tampered))
+        errors.append(sse_error.value)
+        assert frames == []
+
+    asyncio.run(scenario())
+
+    logger = logging.getLogger("flowpilot.tests.event-output-boundaries")
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        for error in errors:
+            logger.error("task event rejected: %s", error)
+
+    assert len(errors) == 4
+    for error in errors:
+        _assert_safe_task_event_error(
+            error,
+            code=TaskEventErrorCode.ADDITIONAL_FIELDS,
+            forbidden=(ERROR_KEY_CANARY, ERROR_VALUE_CANARY),
+        )
+    assert ERROR_KEY_CANARY not in caplog.text
+    assert ERROR_VALUE_CANARY not in caplog.text

@@ -15,7 +15,9 @@ from flowpilot_application import (
     CommandIntakeService,
     ErrorCode,
     TaskEventEnvelope,
+    TaskEventErrorCode,
     TaskEventSubscriptionService,
+    TaskEventValidationError,
     TaskQueryService,
 )
 from flowpilot_domain import (
@@ -134,8 +136,7 @@ def create_app(
             service="flowpilot-api",
             version="0.1.0",
             configured=all(
-                dependency is not None
-                for dependency in (task_query, request_security)
+                dependency is not None for dependency in (task_query, request_security)
             )
             and (command_intake is not None or approval_decisions is not None),
         )
@@ -336,12 +337,25 @@ def _task_body(task: Task) -> TaskBody:
 
 
 def _sse_frame(envelope: TaskEventEnvelope) -> str:
+    if not isinstance(envelope, TaskEventEnvelope):
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_SHAPE,
+            path="sse.event",
+        )
     envelope.assert_valid()
-    data = json.dumps(
-        envelope.to_mapping(),
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
+    try:
+        data = json.dumps(
+            envelope.to_mapping(),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    except TaskEventValidationError:
+        raise
+    except (TypeError, ValueError):
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_SHAPE,
+            path="sse.frame",
+        ) from None
     return f"id: {envelope.event_id}\nevent: task.event\ndata: {data}\n\n"
 
 

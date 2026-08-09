@@ -16,7 +16,12 @@ from .domain_packs import (
     DomainRiskRule,
     load_domain_pack,
 )
-from .errors import ApplicationError, ErrorCode
+from .errors import (
+    ApplicationError,
+    ErrorCode,
+    TaskEventErrorCode,
+    TaskEventValidationError,
+)
 from .models import (
     APPLICATION_PORT_VERSION,
     REFERENCE_PORT_VERSION,
@@ -105,12 +110,14 @@ __all__ = [
     "TaskInitializationConfig",
     "TaskInitializationDisposition",
     "TaskEventConsumerInboxPort",
+    "TaskEventErrorCode",
     "TaskEventEnvelope",
     "TaskEventOutboxPort",
     "TaskEventStreamConfig",
     "TaskEventSubscriptionService",
     "TaskEventUnitOfWork",
     "TaskEventUnitOfWorkFactory",
+    "TaskEventValidationError",
     "TaskQueryPort",
     "TaskQueryService",
     "TaskQueryUnitOfWork",

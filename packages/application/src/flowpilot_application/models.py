@@ -17,6 +17,7 @@ from flowpilot_domain import (
     canonical_sha256,
 )
 
+from .errors import TaskEventErrorCode, TaskEventValidationError
 from .task_events import (
     TASK_EVENT_PAYLOAD_RULES,
     TASK_EVENT_PRODUCERS,
@@ -330,9 +331,7 @@ class OutboxEventView:
 
 
 _TASK_EVENT_TYPES = frozenset(TASK_EVENT_PAYLOAD_RULES)
-_CLASSIFICATIONS = frozenset(
-    {"public", "internal", "confidential", "restricted"}
-)
+_CLASSIFICATIONS = frozenset({"public", "internal", "confidential", "restricted"})
 _RUN_ID_PATTERN = re.compile(r"^run_[A-Za-z0-9_-]{8,128}$")
 
 
@@ -358,21 +357,66 @@ class TaskEventEnvelope:
     occurred_at: datetime
 
     def __post_init__(self) -> None:
+        assert_task_event_content_safe(self.payload, "payload")
         if not isinstance(self.occurred_at, datetime):
-            raise ValueError("occurred_at must be a datetime")
-        object.__setattr__(self, "payload", _freeze_json(self.payload, "payload"))
-        object.__setattr__(self, "occurred_at", _utc(self.occurred_at, "occurred_at"))
+            raise TaskEventValidationError(
+                TaskEventErrorCode.INVALID_SHAPE,
+                path="envelope.occurred_at",
+            )
+        object.__setattr__(self, "payload", _freeze_task_event_payload(self.payload))
+        try:
+            occurred_at = _utc(self.occurred_at, "occurred_at")
+        except ValueError:
+            raise TaskEventValidationError(
+                TaskEventErrorCode.INVALID_SHAPE,
+                path="envelope.occurred_at",
+            ) from None
+        object.__setattr__(self, "occurred_at", occurred_at)
         self.assert_valid()
 
     def assert_valid(self) -> None:
         """Revalidate the complete envelope before any trust-boundary use."""
+
+        assert_task_event_content_safe(
+            {
+                "event_id": self.event_id,
+                "event_type": self.event_type,
+                "tenant_id": self.tenant_id,
+                "task_id": self.task_id,
+                "thread_id": self.thread_id,
+                "trace_id": self.trace_id,
+                "run_id": self.run_id,
+                "producer": self.producer,
+                "producer_principal_ref": self.producer_principal_ref,
+                "correlation_id": self.correlation_id,
+                "causation_id": self.causation_id,
+                "data_classification": self.data_classification,
+                "occurred_at": self.occurred_at,
+            },
+            "envelope",
+        )
+        try:
+            self._assert_valid_structure()
+        except TaskEventValidationError:
+            raise
+        except ValueError:
+            raise TaskEventValidationError(
+                TaskEventErrorCode.INVALID_SHAPE,
+                path="envelope",
+            ) from None
+
+    def _assert_valid_structure(self) -> None:
+        """Validate contract shape after safe content scanning."""
 
         _require_identifier(self.event_id, "event_id", r"^evt_[A-Za-z0-9_-]{8,128}$")
         if (
             not isinstance(self.event_type, str)
             or self.event_type not in _TASK_EVENT_TYPES
         ):
-            raise ValueError(f"{self.event_type} is not a task-event.v1 type")
+            raise TaskEventValidationError(
+                TaskEventErrorCode.SCHEMA_VIOLATION,
+                path="envelope.event_type",
+            )
         _require_text(self.tenant_id, "tenant_id", maximum=128)
         _require_identifier(self.task_id, "task_id", r"^task_[A-Za-z0-9_-]{8,128}$")
         _require_identifier(
@@ -399,15 +443,16 @@ class TaskEventEnvelope:
             not isinstance(self.producer, str)
             or self.producer not in TASK_EVENT_PRODUCERS
         ):
-            raise ValueError(f"{self.producer} is not a task-event.v1 producer")
+            raise TaskEventValidationError(
+                TaskEventErrorCode.PRODUCER_MISMATCH,
+                path="envelope.producer",
+            )
         if self.producer != "approval_service" and self.run_id is None:
             raise ValueError("run_id is required for this task-event.v1 producer")
         _require_text(
             self.producer_principal_ref, "producer_principal_ref", maximum=512
         )
-        validate_task_event_ref(
-            self.producer_principal_ref, "producer_principal_ref"
-        )
+        validate_task_event_ref(self.producer_principal_ref, "producer_principal_ref")
         _require_text(self.correlation_id, "correlation_id", maximum=128)
         if self.causation_id is not None and (
             not isinstance(self.causation_id, str) or len(self.causation_id) > 128
@@ -417,31 +462,15 @@ class TaskEventEnvelope:
             not isinstance(self.data_classification, str)
             or self.data_classification not in _CLASSIFICATIONS
         ):
-            raise ValueError(
-                f"{self.data_classification} is not a task-event classification"
+            raise TaskEventValidationError(
+                TaskEventErrorCode.SCHEMA_VIOLATION,
+                path="envelope.data_classification",
             )
         validate_task_event_payload(self.event_type, self.producer, self.payload)
         if not isinstance(self.occurred_at, datetime):
             raise ValueError("occurred_at must be a datetime")
         occurred_at = _utc(self.occurred_at, "occurred_at")
-        assert_task_event_content_safe(
-            {
-                "event_id": self.event_id,
-                "event_type": self.event_type,
-                "tenant_id": self.tenant_id,
-                "task_id": self.task_id,
-                "thread_id": self.thread_id,
-                "trace_id": self.trace_id,
-                "run_id": self.run_id,
-                "producer": self.producer,
-                "producer_principal_ref": self.producer_principal_ref,
-                "correlation_id": self.correlation_id,
-                "causation_id": self.causation_id,
-                "data_classification": self.data_classification,
-                "occurred_at": _format_utc(occurred_at),
-            },
-            "envelope",
-        )
+        _format_utc(occurred_at)
 
     def to_mapping(self) -> dict[str, Any]:
         self.assert_valid()
@@ -519,9 +548,7 @@ def _freeze_json_value(value: Any, field: str) -> Any:
         return value
     if isinstance(value, Mapping):
         return _freeze_json(value, field)
-    if isinstance(value, Sequence) and not isinstance(
-        value, (str, bytes, bytearray)
-    ):
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return tuple(
             _freeze_json_value(item, f"{field}[{index}]")
             for index, item in enumerate(value)
@@ -529,12 +556,57 @@ def _freeze_json_value(value: Any, field: str) -> Any:
     raise ValueError(f"{field} must contain JSON values")
 
 
+def _freeze_task_event_payload(value: Any) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_SHAPE,
+            path="payload",
+        )
+    frozen: dict[str, Any] = {}
+    for index, (key, item) in enumerate(value.items()):
+        if not isinstance(key, str):
+            raise TaskEventValidationError(
+                TaskEventErrorCode.INVALID_SHAPE,
+                path=f"payload.keys[{index}]",
+            )
+        frozen[key] = _freeze_task_event_value(
+            item,
+            f"payload.values[{index}]",
+        )
+    return MappingProxyType(frozen)
+
+
+def _freeze_task_event_value(value: Any, path: str) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        frozen: dict[str, Any] = {}
+        for index, (key, item) in enumerate(value.items()):
+            if not isinstance(key, str):
+                raise TaskEventValidationError(
+                    TaskEventErrorCode.INVALID_SHAPE,
+                    path=f"{path}.keys[{index}]",
+                )
+            frozen[key] = _freeze_task_event_value(
+                item,
+                f"{path}.values[{index}]",
+            )
+        return MappingProxyType(frozen)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return tuple(
+            _freeze_task_event_value(item, f"{path}[{index}]")
+            for index, item in enumerate(value)
+        )
+    raise TaskEventValidationError(
+        TaskEventErrorCode.INVALID_SHAPE,
+        path=path,
+    )
+
+
 def _json_wire_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {key: _json_wire_value(item) for key, item in value.items()}
-    if isinstance(value, Sequence) and not isinstance(
-        value, (str, bytes, bytearray)
-    ):
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [_json_wire_value(item) for item in value]
     return value
 

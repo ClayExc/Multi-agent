@@ -10,7 +10,12 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict, deque
 
-from flowpilot_application import EventStreamPort, TaskEventEnvelope
+from flowpilot_application import (
+    EventStreamPort,
+    TaskEventEnvelope,
+    TaskEventErrorCode,
+    TaskEventValidationError,
+)
 
 
 class InMemoryEventStream(EventStreamPort):
@@ -25,9 +30,7 @@ class InMemoryEventStream(EventStreamPort):
             lambda: deque(maxlen=replay_buffer_size)
         )
 
-    def subscribe(
-        self, tenant_id: str
-    ) -> asyncio.Queue[TaskEventEnvelope]:
+    def subscribe(self, tenant_id: str) -> asyncio.Queue[TaskEventEnvelope]:
         """Register a connection queue, replaying buffered events first."""
         _require_tenant_route(tenant_id)
         buffered = tuple(self._replay[tenant_id])
@@ -60,10 +63,21 @@ class InMemoryEventStream(EventStreamPort):
 
 def _require_tenant_route(tenant_id: str) -> None:
     if not isinstance(tenant_id, str) or not tenant_id or len(tenant_id) > 128:
-        raise ValueError("stream tenant must be a bounded non-empty string")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_ROUTE,
+            path="stream.route.tenant_id",
+        )
 
 
 def _assert_event_route(tenant_id: str, event: TaskEventEnvelope) -> None:
+    if not isinstance(event, TaskEventEnvelope):
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_SHAPE,
+            path="stream.event",
+        )
     if event.tenant_id != tenant_id:
-        raise ValueError("event tenant does not match the stream route")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.TENANT_MISMATCH,
+            path="stream.route.tenant_id",
+        )
     event.assert_valid()

@@ -8,6 +8,8 @@ from types import MappingProxyType
 
 from flowpilot_security import assert_no_secret_material
 
+from .errors import TaskEventErrorCode, TaskEventValidationError
+
 type _FieldValidator = Callable[[object, str], None]
 
 _TASK_STATUSES = frozenset(
@@ -34,9 +36,7 @@ _TOOL_EXECUTION_STATUSES = frozenset(
         "unknown",
     }
 )
-_APPROVAL_DECISIONS = frozenset(
-    {"approved", "rejected", "expired", "revoked"}
-)
+_APPROVAL_DECISIONS = frozenset({"approved", "rejected", "expired", "revoked"})
 _SHA256_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
 _RFC3339_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}"
@@ -88,12 +88,11 @@ def _bounded_string(
     maximum: int,
 ) -> _FieldValidator:
     def validate(value: object, field: str) -> None:
-        if (
-            not isinstance(value, str)
-            or len(value) < minimum
-            or len(value) > maximum
-        ):
-            raise ValueError(f"{field} must be a bounded string")
+        if not isinstance(value, str) or len(value) < minimum or len(value) > maximum:
+            raise TaskEventValidationError(
+                TaskEventErrorCode.SCHEMA_VIOLATION,
+                path=field,
+            )
 
     return validate
 
@@ -109,7 +108,10 @@ def _nullable(validator: _FieldValidator) -> _FieldValidator:
 def _enum(values: frozenset[str]) -> _FieldValidator:
     def validate(value: object, field: str) -> None:
         if not isinstance(value, str) or value not in values:
-            raise ValueError(f"{field} is not allowed by task-event.v1")
+            raise TaskEventValidationError(
+                TaskEventErrorCode.SCHEMA_VIOLATION,
+                path=field,
+            )
 
     return validate
 
@@ -117,7 +119,10 @@ def _enum(values: frozenset[str]) -> _FieldValidator:
 def _literal(expected: str) -> _FieldValidator:
     def validate(value: object, field: str) -> None:
         if value != expected:
-            raise ValueError(f"{field} must equal {expected}")
+            raise TaskEventValidationError(
+                TaskEventErrorCode.SCHEMA_VIOLATION,
+                path=field,
+            )
 
     return validate
 
@@ -127,46 +132,71 @@ def _pattern(pattern: str) -> _FieldValidator:
 
     def validate(value: object, field: str) -> None:
         if not isinstance(value, str) or compiled.fullmatch(value) is None:
-            raise ValueError(f"{field} has an invalid format")
+            raise TaskEventValidationError(
+                TaskEventErrorCode.SCHEMA_VIOLATION,
+                path=field,
+            )
 
     return validate
 
 
 def _boolean(value: object, field: str) -> None:
     if not isinstance(value, bool):
-        raise ValueError(f"{field} must be a boolean")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
 
 
 def _sha256(value: object, field: str) -> None:
     if not isinstance(value, str) or _SHA256_PATTERN.fullmatch(value) is None:
-        raise ValueError(f"{field} must be a lowercase sha256 digest")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
 
 
 def _rfc3339(value: object, field: str) -> None:
     if not isinstance(value, str) or _RFC3339_PATTERN.fullmatch(value) is None:
-        raise ValueError(f"{field} must be an RFC 3339 date-time")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
     normalized = value[:-1] + "+00:00" if value[-1:].casefold() == "z" else value
     try:
         parsed = datetime.fromisoformat(normalized)
-    except ValueError as exc:
-        raise ValueError(f"{field} must be an RFC 3339 date-time") from exc
+    except ValueError:
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        ) from None
     if parsed.utcoffset() is None:
-        raise ValueError(f"{field} must include an offset")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
 
 
 def _missing_fields(value: object, field: str) -> None:
-    if not isinstance(value, Sequence) or isinstance(
-        value, (str, bytes, bytearray)
-    ):
-        raise ValueError(f"{field} must be an array")
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
     if not value:
-        raise ValueError(f"{field} must not be empty")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
     validated: list[str] = []
     for index, item in enumerate(value):
         _bounded_string(minimum=1, maximum=128)(item, f"{field}[{index}]")
         validated.append(item)
     if len(validated) != len(set(validated)):
-        raise ValueError(f"{field} must contain unique items")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path=field,
+        )
 
 
 TASK_EVENT_PAYLOAD_RULES: Mapping[str, TaskEventPayloadRule] = MappingProxyType(
@@ -270,43 +300,62 @@ def validate_task_event_payload(
     """Execute the exact task-event.v1 payload and producer branch."""
 
     if not isinstance(payload, Mapping):
-        raise ValueError("payload must be an object")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_SHAPE,
+            path="payload",
+        )
     assert_task_event_content_safe(payload, "payload")
     rule = TASK_EVENT_PAYLOAD_RULES.get(event_type)
     if rule is None:
-        raise ValueError(f"{event_type} is not a task-event.v1 type")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SCHEMA_VIOLATION,
+            path="envelope.event_type",
+        )
     if producer not in rule.producers:
-        raise ValueError(
-            f"producer is not allowed for {event_type} by task-event.v1"
+        raise TaskEventValidationError(
+            TaskEventErrorCode.PRODUCER_MISMATCH,
+            path="envelope.producer",
         )
     keys: set[str] = set()
-    for key in payload:
+    for index, key in enumerate(payload):
         if not isinstance(key, str):
-            raise ValueError("payload keys must be strings")
+            raise TaskEventValidationError(
+                TaskEventErrorCode.INVALID_SHAPE,
+                path=f"payload.keys[{index}]",
+            )
         keys.add(key)
     missing = rule.required - keys
     if missing:
-        raise ValueError(
-            "payload is missing required task-event.v1 fields: "
-            + ", ".join(sorted(missing))
+        raise TaskEventValidationError(
+            TaskEventErrorCode.MISSING_FIELDS,
+            path="payload",
+            count=len(missing),
         )
     additional = keys - set(rule.fields)
     if additional:
-        raise ValueError(
-            "payload contains additional task-event.v1 fields: "
-            + ", ".join(sorted(additional))
+        raise TaskEventValidationError(
+            TaskEventErrorCode.ADDITIONAL_FIELDS,
+            path="payload",
+            count=len(additional),
         )
-    for field, value in payload.items():
-        rule.fields[field](value, f"payload.{field}")
+    for index, (field, validator) in enumerate(rule.fields.items()):
+        if field not in payload:
+            continue
+        value = payload[field]
+        structural_path = f"payload.fields[{index}]"
+        validator(value, structural_path)
         if field.endswith("_ref") and isinstance(value, str) and value:
-            validate_task_event_ref(value, f"payload.{field}")
+            validate_task_event_ref(value, structural_path)
 
 
 def validate_task_event_ref(value: str, field: str) -> None:
     """Require a non-empty event reference to remain an opaque URI."""
 
     if _OPAQUE_REF_PATTERN.fullmatch(value) is None:
-        raise ValueError(f"{field} must be an opaque URI reference")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.INVALID_REFERENCE,
+            path=field,
+        )
 
 
 def assert_task_event_content_safe(value: object, path: str) -> None:
@@ -320,28 +369,35 @@ def _assert_no_sensitive_projection_content(value: object, path: str) -> None:
     """Keep non-credential session/reasoning fields out of Task Events."""
 
     if isinstance(value, Mapping):
-        for key, item in value.items():
+        for index, (key, item) in enumerate(value.items()):
             if not isinstance(key, str):
-                raise ValueError(f"{path} keys must be strings")
+                raise TaskEventValidationError(
+                    TaskEventErrorCode.INVALID_SHAPE,
+                    path=f"{path}.keys[{index}]",
+                )
             compact = "".join(
-                character
-                for character in key.casefold()
-                if character.isalnum()
+                character for character in key.casefold() if character.isalnum()
             )
             if any(
-                fragment in compact
-                for fragment in _SENSITIVE_PROJECTION_KEY_FRAGMENTS
+                fragment in compact for fragment in _SENSITIVE_PROJECTION_KEY_FRAGMENTS
             ):
-                raise ValueError(f"{path} contains a sensitive key")
-            _assert_no_sensitive_projection_content(item, f"{path}.{key}")
+                raise TaskEventValidationError(
+                    TaskEventErrorCode.SENSITIVE_PROJECTION,
+                    path=f"{path}.keys[{index}]",
+                )
+            _assert_no_sensitive_projection_content(
+                item,
+                f"{path}.values[{index}]",
+            )
         return
-    if isinstance(value, Sequence) and not isinstance(
-        value, (str, bytes, bytearray)
-    ):
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         for index, item in enumerate(value):
             _assert_no_sensitive_projection_content(item, f"{path}[{index}]")
         return
     if isinstance(value, str) and (
         _SENSITIVE_PROJECTION_VALUE_PATTERN.search(value) is not None
     ):
-        raise ValueError(f"{path} contains sensitive value material")
+        raise TaskEventValidationError(
+            TaskEventErrorCode.SENSITIVE_PROJECTION,
+            path=path,
+        )

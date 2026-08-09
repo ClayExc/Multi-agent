@@ -56,6 +56,26 @@ _SENSITIVE_KEY_FRAGMENTS = frozenset(
         "token",
     }
 )
+_OPAQUE_REF_PATTERN = re.compile(
+    r"^[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9][A-Za-z0-9._~:/+-]*$"
+)
+_SENSITIVE_VALUE_PATTERNS = (
+    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{12,}"),
+    re.compile(r"(?i)\bbasic\s+[A-Za-z0-9+/=]{12,}"),
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
+    re.compile(
+        r"(?i)\b(?:api[_-]?key|authorization|chain[_-]?of[_-]?thought|"
+        r"cookie|credential|password|private[_-]?key|provider[_-]?session|"
+        r"reasoning|secret|session[_-]?ref|token)\s*[:=]\s*\S+"
+    ),
+    re.compile(r"(?i)\b(?:sk|gh[pousr]|xox[baprs])[-_][A-Za-z0-9]{16,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(
+        r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\."
+        r"[A-Za-z0-9_-]{8,}\b"
+    ),
+    re.compile(r"(?i)\b[A-Za-z][A-Za-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,7 +289,7 @@ def validate_task_event_payload(
 
     if not isinstance(payload, Mapping):
         raise ValueError("payload must be an object")
-    _assert_no_sensitive_keys(payload, "payload")
+    assert_task_event_content_safe(payload, "payload")
     rule = TASK_EVENT_PAYLOAD_RULES.get(event_type)
     if rule is None:
         raise ValueError(f"{event_type} is not a task-event.v1 type")
@@ -296,9 +316,20 @@ def validate_task_event_payload(
         )
     for field, value in payload.items():
         rule.fields[field](value, f"payload.{field}")
+        if field.endswith("_ref") and isinstance(value, str) and value:
+            validate_task_event_ref(value, f"payload.{field}")
 
 
-def _assert_no_sensitive_keys(value: object, path: str) -> None:
+def validate_task_event_ref(value: str, field: str) -> None:
+    """Require a non-empty event reference to remain an opaque URI."""
+
+    if _OPAQUE_REF_PATTERN.fullmatch(value) is None:
+        raise ValueError(f"{field} must be an opaque URI reference")
+
+
+def assert_task_event_content_safe(value: object, path: str) -> None:
+    """Recursively reject sensitive keys and high-confidence secret values."""
+
     if isinstance(value, Mapping):
         for key, item in value.items():
             if not isinstance(key, str):
@@ -310,10 +341,15 @@ def _assert_no_sensitive_keys(value: object, path: str) -> None:
             )
             if any(fragment in compact for fragment in _SENSITIVE_KEY_FRAGMENTS):
                 raise ValueError(f"{path} contains a sensitive key")
-            _assert_no_sensitive_keys(item, f"{path}.{key}")
+            assert_task_event_content_safe(item, f"{path}.{key}")
         return
     if isinstance(value, Sequence) and not isinstance(
         value, (str, bytes, bytearray)
     ):
         for index, item in enumerate(value):
-            _assert_no_sensitive_keys(item, f"{path}[{index}]")
+            assert_task_event_content_safe(item, f"{path}[{index}]")
+        return
+    if isinstance(value, str) and any(
+        pattern.search(value) for pattern in _SENSITIVE_VALUE_PATTERNS
+    ):
+        raise ValueError(f"{path} contains sensitive value material")

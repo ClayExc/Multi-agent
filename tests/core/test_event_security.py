@@ -99,6 +99,8 @@ def _envelope(
     payload: Mapping[str, Any] | None = None,
     *,
     tenant_id: str = "tenant-a",
+    producer_principal_ref: str | None = None,
+    correlation_id: str = "correlation-security-0001",
 ) -> TaskEventEnvelope:
     return TaskEventEnvelope(
         event_id="evt_security01",
@@ -111,8 +113,12 @@ def _envelope(
         trace_id="trace-security-0001",
         run_id=None if producer == "approval_service" else "run_12345678",
         producer=producer,
-        producer_principal_ref=f"workload://{producer}/test",
-        correlation_id="correlation-security-0001",
+        producer_principal_ref=(
+            producer_principal_ref
+            if producer_principal_ref is not None
+            else f"workload://{producer}/test"
+        ),
+        correlation_id=correlation_id,
         causation_id=None,
         data_classification="internal",
         payload=(
@@ -314,6 +320,275 @@ def test_envelope_construction_recursively_rejects_sensitive_keys(
         _envelope(payload=payload)
 
 
+@pytest.mark.parametrize(
+    ("event_type", "producer", "payload"),
+    (
+        (
+            "task.created.v1",
+            "worker",
+            {"status": "RECEIVED", "task_ref": "task://task_12345678"},
+        ),
+        (
+            "task.input.required.v1",
+            "worker",
+            {
+                "request_id": "request-123",
+                "prompt_ref": "prompt://request-123",
+                "missing_fields": ["environment"],
+            },
+        ),
+        (
+            "task.approval.required.v1",
+            "worker",
+            {
+                "approval_id": "apr_12345678",
+                "action_digest": DIGEST,
+                "display_ref": "display://approval/12345678",
+                "expires_at": "2026-08-09T09:00:00Z",
+            },
+        ),
+        (
+            "task.approval.required.v1",
+            "worker",
+            {
+                "approval_id": "apr_12345678",
+                "action_digest": DIGEST,
+                "display_ref": "proposal://approval/12345678",
+                "expires_at": "2026-08-09T09:00:00Z",
+            },
+        ),
+        (
+            "task.completed.v1",
+            "worker",
+            {"result_ref": "result://task/12345678"},
+        ),
+        (
+            "task.completed.v1",
+            "worker",
+            {"result_ref": "runtime-result://task/12345678"},
+        ),
+        (
+            "task.failed.v1",
+            "worker",
+            {
+                "error_code": "PROVIDER_TIMEOUT",
+                "retryable": True,
+                "detail_ref": "detail://task/12345678",
+            },
+        ),
+        (
+            "task.escalated.v1",
+            "worker",
+            {
+                "reason_code": "HUMAN_REQUIRED",
+                "handoff_ref": "handoff://task/12345678",
+            },
+        ),
+    ),
+    ids=(
+        "task-ref",
+        "prompt-ref",
+        "display-ref",
+        "proposal-ref",
+        "result-ref",
+        "runtime-result-ref",
+        "detail-ref",
+        "handoff-ref",
+    ),
+)
+def test_task_event_reference_fields_accept_opaque_uris(
+    event_type: str,
+    producer: str,
+    payload: dict[str, Any],
+) -> None:
+    envelope = _envelope(event_type, producer, payload)
+
+    jsonschema.validate(
+        envelope.to_mapping(),
+        TASK_EVENT_SCHEMA,
+        format_checker=jsonschema.FormatChecker(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("event_type", "producer", "payload"),
+    (
+        (
+            "task.created.v1",
+            "worker",
+            {"status": "RECEIVED", "task_ref": "plain task reference"},
+        ),
+        (
+            "task.input.required.v1",
+            "worker",
+            {
+                "request_id": "request-123",
+                "prompt_ref": "plain prompt reference",
+                "missing_fields": ["environment"],
+            },
+        ),
+        (
+            "task.approval.required.v1",
+            "worker",
+            {
+                "approval_id": "apr_12345678",
+                "action_digest": DIGEST,
+                "display_ref": "plain display reference",
+                "expires_at": "2026-08-09T09:00:00Z",
+            },
+        ),
+        (
+            "task.completed.v1",
+            "worker",
+            {"result_ref": "plain result reference"},
+        ),
+        (
+            "task.failed.v1",
+            "worker",
+            {
+                "error_code": "PROVIDER_TIMEOUT",
+                "retryable": True,
+                "detail_ref": "plain detail reference",
+            },
+        ),
+        (
+            "task.escalated.v1",
+            "worker",
+            {
+                "reason_code": "HUMAN_REQUIRED",
+                "handoff_ref": "plain handoff reference",
+            },
+        ),
+    ),
+    ids=(
+        "task-ref",
+        "prompt-ref",
+        "display-ref",
+        "result-ref",
+        "detail-ref",
+        "handoff-ref",
+    ),
+)
+def test_every_payload_reference_field_rejects_plaintext(
+    event_type: str,
+    producer: str,
+    payload: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError, match="opaque URI reference"):
+        _envelope(event_type, producer, payload)
+
+
+@pytest.mark.parametrize(
+    "reference",
+    (
+        "result://",
+        "result://user@example/path",
+        "result://safe?token=value",
+        "result://safe#fragment",
+        "result://safe\nnext-header",
+        "result://safe path",
+    ),
+    ids=("empty", "userinfo", "query", "fragment", "control", "space"),
+)
+def test_opaque_reference_rejects_unsafe_uri_components(reference: str) -> None:
+    with pytest.raises(ValueError):
+        _envelope(payload={"result_ref": reference})
+
+
+def test_optional_empty_refs_remain_contract_compatible() -> None:
+    failed = _envelope(
+        "task.failed.v1",
+        "worker",
+        {"error_code": "FAILED", "retryable": False, "detail_ref": ""},
+    )
+    escalated = _envelope(
+        "task.escalated.v1",
+        "worker",
+        {"reason_code": "HUMAN_REQUIRED", "handoff_ref": ""},
+    )
+
+    jsonschema.validate(failed.to_mapping(), TASK_EVENT_SCHEMA)
+    jsonschema.validate(escalated.to_mapping(), TASK_EVENT_SCHEMA)
+
+
+def test_producer_principal_ref_must_be_an_opaque_uri() -> None:
+    with pytest.raises(ValueError, match="opaque URI reference"):
+        _envelope(producer_principal_ref="worker principal in plaintext")
+
+
+@pytest.mark.parametrize(
+    "sensitive_value",
+    (
+        "Bearer " + "a" * 22,
+        "Basic " + "QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
+        "authorization=Basic-QWxhZGRpbjpvcGVuIHNlc2FtZQ",
+        "cookie=sessionid-abcdefghijklmnop",
+        "credential=abcdefghijklmnop",
+        "password=customer-secret",
+        "api_key:abcdefghijklmnop",
+        "secret=abcdefghijklmnop",
+        "token=abcdefghijklmnop",
+        "session_ref=provider-session-123456",
+        "provider_session=provider-session-123456",
+        "reasoning=hidden-chain-content",
+        "chain_of_thought=hidden-chain-content",
+        "sk-" + "a" * 22,
+        "AKIA" + "A" * 16,
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop",
+        "postgresql://user:password@example.internal/database",
+        "-----BEGIN " + "PRIVATE KEY-----",
+    ),
+    ids=(
+        "bearer",
+        "basic",
+        "authorization",
+        "cookie",
+        "credential",
+        "assignment",
+        "api-key",
+        "secret",
+        "token",
+        "session-ref",
+        "provider-session",
+        "reasoning",
+        "chain-of-thought",
+        "provider-token",
+        "aws-key",
+        "jwt",
+        "credential-uri",
+        "private-key",
+    ),
+)
+def test_envelope_top_level_strings_reject_sensitive_values(
+    sensitive_value: str,
+) -> None:
+    with pytest.raises(ValueError, match="sensitive value"):
+        _envelope(correlation_id=sensitive_value)
+
+
+def test_payload_nested_sequence_rejects_sensitive_string_value() -> None:
+    with pytest.raises(ValueError, match="sensitive value"):
+        _envelope(
+            "task.input.required.v1",
+            "worker",
+            {
+                "request_id": "request-123",
+                "prompt_ref": "prompt://request-123",
+                "missing_fields": ["Bearer " + "a" * 22],
+            },
+        )
+
+
+def test_payload_nested_mapping_rejects_sensitive_string_before_schema_use() -> None:
+    with pytest.raises(ValueError, match="sensitive value"):
+        _envelope(
+            payload={
+                "result_ref": "result://safe",
+                "metadata": [{"note": "password=customer-secret"}],
+            }
+        )
+
+
 def test_cross_tenant_emit_writes_neither_subscriber_nor_replay() -> None:
     async def scenario() -> None:
         stream = InMemoryEventStream()
@@ -353,3 +628,49 @@ def test_tampered_envelope_cannot_pollute_stream_or_produce_sse() -> None:
     asyncio.run(scenario())
     with pytest.raises(ValueError, match="sensitive key"):
         _sse_frame(envelope)
+
+
+def test_tampered_reference_writes_no_stream_or_sse_output() -> None:
+    envelope = _envelope()
+    object.__setattr__(
+        envelope,
+        "payload",
+        {"result_ref": "result://safe?view=full"},
+    )
+
+    async def scenario() -> None:
+        stream = InMemoryEventStream()
+        subscriber = stream.subscribe("tenant-a")
+        with pytest.raises(ValueError, match="opaque URI reference"):
+            await stream.emit("tenant-a", envelope)
+        assert subscriber.empty()
+        assert stream.subscribe("tenant-a").empty()
+
+    asyncio.run(scenario())
+    frames: list[str] = []
+    with pytest.raises(ValueError, match="opaque URI reference"):
+        frames.append(_sse_frame(envelope))
+    assert frames == []
+
+
+def test_tampered_sensitive_value_writes_no_stream_or_sse_output() -> None:
+    envelope = _envelope()
+    object.__setattr__(
+        envelope,
+        "correlation_id",
+        "password=customer-secret",
+    )
+
+    async def scenario() -> None:
+        stream = InMemoryEventStream()
+        subscriber = stream.subscribe("tenant-a")
+        with pytest.raises(ValueError, match="sensitive value"):
+            await stream.emit("tenant-a", envelope)
+        assert subscriber.empty()
+        assert stream.subscribe("tenant-a").empty()
+
+    asyncio.run(scenario())
+    frames: list[str] = []
+    with pytest.raises(ValueError, match="sensitive value"):
+        frames.append(_sse_frame(envelope))
+    assert frames == []

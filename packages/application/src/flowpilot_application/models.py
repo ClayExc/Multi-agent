@@ -20,7 +20,9 @@ from flowpilot_domain import (
 from .task_events import (
     TASK_EVENT_PAYLOAD_RULES,
     TASK_EVENT_PRODUCERS,
+    assert_task_event_content_safe,
     validate_task_event_payload,
+    validate_task_event_ref,
 )
 
 APPLICATION_PORT_VERSION = "flowpilot.application-ports.m0.v1"
@@ -403,6 +405,9 @@ class TaskEventEnvelope:
         _require_text(
             self.producer_principal_ref, "producer_principal_ref", maximum=512
         )
+        validate_task_event_ref(
+            self.producer_principal_ref, "producer_principal_ref"
+        )
         _require_text(self.correlation_id, "correlation_id", maximum=128)
         if self.causation_id is not None and (
             not isinstance(self.causation_id, str) or len(self.causation_id) > 128
@@ -418,7 +423,25 @@ class TaskEventEnvelope:
         validate_task_event_payload(self.event_type, self.producer, self.payload)
         if not isinstance(self.occurred_at, datetime):
             raise ValueError("occurred_at must be a datetime")
-        _utc(self.occurred_at, "occurred_at")
+        occurred_at = _utc(self.occurred_at, "occurred_at")
+        assert_task_event_content_safe(
+            {
+                "event_id": self.event_id,
+                "event_type": self.event_type,
+                "tenant_id": self.tenant_id,
+                "task_id": self.task_id,
+                "thread_id": self.thread_id,
+                "trace_id": self.trace_id,
+                "run_id": self.run_id,
+                "producer": self.producer,
+                "producer_principal_ref": self.producer_principal_ref,
+                "correlation_id": self.correlation_id,
+                "causation_id": self.causation_id,
+                "data_classification": self.data_classification,
+                "occurred_at": _format_utc(occurred_at),
+            },
+            "envelope",
+        )
 
     def to_mapping(self) -> dict[str, Any]:
         self.assert_valid()

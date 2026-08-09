@@ -37,7 +37,13 @@ def test_candidate_is_exact_and_dependency_complete(verifier: ModuleType) -> Non
     assert manifest["branch"] == verifier.CANDIDATE_BRANCH
     assert manifest["workspace"]["member_count"] == 9
     assert manifest["workspace"]["lock_package_count"] == 73
-    assert manifest["migrations"]["head"] == "0002_checkpoint_sequence_cas"
+    assert manifest["migrations"]["head"] == "0003_api_task_initialization"
+    assert manifest["migrations"]["linear_chain"] == [
+        "0001_persistence_baseline",
+        "0002_checkpoint_sequence_cas",
+        "0003_api_task_initialization",
+    ]
+    assert manifest["migrations"]["predecessor_down_successor_guard"] is True
     assert (
         manifest["integration"]["recommended_mainline_mode"]
         == "ATOMIC_FINAL_CANDIDATE"
@@ -108,12 +114,12 @@ def test_manifest_and_report_are_deterministic(
     assert first_paths[1].read_bytes() == second_paths[1].read_bytes()
     assert first_paths[2:] == second_paths[2:]
     assert first_paths[2] == (
-        "sha256:1e9140e267470a0b4404a34b07254569"
-        "875c3d8c582517599cc328ba8b5dddb1"
+        "sha256:a731ae741e5d22a158485671672156e1"
+        "05cf5704c10e98ae6dfa664b46f33cbf"
     )
     assert first_paths[3] == (
-        "sha256:533a2540a2d41264fe38bbc84c92ae5f"
-        "a9bd5f3e1292b57598139e470c4e143c"
+        "sha256:1b1bca696a21251be8ddf2608bca651"
+        "03b000f5618e4cdfd7e5d35e748e8448c"
     )
 
 
@@ -272,6 +278,21 @@ def test_multiple_migration_heads_are_rejected(
         "0002_left",
         "0002_right",
     ]
+
+
+def test_authorized_migration_chain_and_hashes_pass_closed(
+    verifier: ModuleType,
+) -> None:
+    migration, checks = verifier.verify_migrations(ROOT)
+
+    assert migration["head"] == verifier.MIGRATION_HEAD
+    assert migration["linear_chain"] == [
+        "0001_persistence_baseline",
+        "0002_checkpoint_sequence_cas",
+        verifier.MIGRATION_HEAD,
+    ]
+    assert migration["predecessor_down_successor_guard"] is True
+    assert {check.outcome for check in checks} == {"PASS"}
 
 
 def test_digest_changes_when_lock_bytes_drift(

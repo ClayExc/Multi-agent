@@ -116,14 +116,28 @@ MIGRATION_HASHES = {
         "a79841771575541c3c8bc372f38808cd"
     ),
     "migrations/0002_checkpoint_sequence_cas.down.sql": (
-        "beb71df8b0f82fdc11f9b59a3f323f9"
-        "d43857356b76d136742f43fc67ff1f22c"
+        "7fb129dc31993e5bb64180fcbb3ba2307"
+        "78da14371ccd3e4bac662c60430bd9f"
     ),
     "migrations/0002_checkpoint_sequence_cas.sql": (
         "e5ca8fca2de8e913caedd488821356e4"
         "41b2adc5ae72a20d015fe4df5b403112"
     ),
+    "migrations/0003_api_task_initialization.down.sql": (
+        "8ecfcbc518f18a9c8d5346669c61dc8d"
+        "9ec78bffa7be6ed6949761b76857e4a4"
+    ),
+    "migrations/0003_api_task_initialization.sql": (
+        "3c10f73ccc33fad8cc304b4945cf8acf"
+        "443dae6a8b401e926f4b2e1896d1cd15"
+    ),
 }
+
+MIGRATION_HEAD = "0003_api_task_initialization"
+MIGRATION_HEAD_CONTRACT_DIGEST = (
+    "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c"
+    "5e3039c15f88f7b624211abf2b5b42a2"
+)
 
 CONTRACT_CONTENT_FIELDS = (
     "$schema",
@@ -1165,14 +1179,28 @@ def verify_migrations(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
         for path, expected in MIGRATION_HASHES.items()
         if actual_hashes[path] != expected
     ]
-    upgrade_source = (
+    second_upgrade_source = (
         repo / "migrations/0002_checkpoint_sequence_cas.sql"
     ).read_text(encoding="utf-8")
+    second_down_source = (
+        repo / "migrations/0002_checkpoint_sequence_cas.down.sql"
+    ).read_text(encoding="utf-8")
+    third_upgrade_source = (
+        repo / "migrations/0003_api_task_initialization.sql"
+    ).read_text(encoding="utf-8")
+    predecessor_down_successor_guard = (
+        "rollback 0003_api_task_initialization before "
+        "0002_checkpoint_sequence_cas" in second_down_source
+    )
     linear = (
-        "requires 0001_persistence_baseline" in upgrade_source
-        and "0002_checkpoint_sequence_cas" in upgrade_source
-        and CONTRACT_DIGEST in upgrade_source
-        and "checkpoint_sequence bigint" in upgrade_source
+        "requires 0001_persistence_baseline" in second_upgrade_source
+        and "0002_checkpoint_sequence_cas" in second_upgrade_source
+        and CONTRACT_DIGEST in second_upgrade_source
+        and "checkpoint_sequence bigint" in second_upgrade_source
+        and "requires 0002_checkpoint_sequence_cas" in third_upgrade_source
+        and MIGRATION_HEAD in third_upgrade_source
+        and MIGRATION_HEAD_CONTRACT_DIGEST in third_upgrade_source
+        and predecessor_down_successor_guard
     )
     heads = discover_migration_heads(repo / "migrations")
     checks = [
@@ -1183,17 +1211,24 @@ def verify_migrations(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
         ),
         make_check(
             "migrations.linear_head",
-            linear and heads == ["0002_checkpoint_sequence_cas"],
+            linear and heads == [MIGRATION_HEAD],
             (
                 "0001_persistence_baseline -> "
+                "0002_checkpoint_sequence_cas -> "
                 f"{','.join(heads) if heads else 'none'}"
             ),
         ),
     ]
     record = {
-        "head": "0002_checkpoint_sequence_cas",
+        "head": MIGRATION_HEAD,
         "discovered_heads": heads,
-        "predecessor": "0001_persistence_baseline",
+        "predecessor": "0002_checkpoint_sequence_cas",
+        "linear_chain": [
+            "0001_persistence_baseline",
+            "0002_checkpoint_sequence_cas",
+            MIGRATION_HEAD,
+        ],
+        "predecessor_down_successor_guard": predecessor_down_successor_guard,
         "file_sha256": {
             path: f"sha256:{digest}"
             for path, digest in actual_hashes.items()

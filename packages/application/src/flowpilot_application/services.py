@@ -15,6 +15,7 @@ from flowpilot_domain import (
     DomainViolation,
     Task,
     TaskCommand,
+    TaskStatus,
 )
 
 from .errors import ApplicationError, ErrorCode
@@ -29,6 +30,7 @@ from .models import (
     ResultArtifactReceipt,
     StoredCommand,
     TaskEventEnvelope,
+    TaskInitializationConfig,
 )
 from .ports import (
     EventStreamPort,
@@ -37,7 +39,9 @@ from .ports import (
     ResultArtifactPort,
     TaskEventUnitOfWork,
     TaskEventUnitOfWorkFactory,
+    TaskInitializationDisposition,
     TaskQueryUnitOfWorkFactory,
+    ThreadIdFactory,
     UnitOfWorkFactory,
     VersionSlotReservation,
 )
@@ -82,6 +86,13 @@ class _OutboxEventRecord(Protocol):
     def available_at(self) -> datetime: ...
 
 
+class _TrustedTaskInitializationProvider(Protocol):
+    """Composition capability used by direct service construction in tests."""
+
+    task_initialization: TaskInitializationConfig
+    thread_id_factory: ThreadIdFactory
+
+
 class TaskQueryService:
     """Read a tenant-scoped Task projection without mutating workflow state."""
 
@@ -109,17 +120,34 @@ class TaskQueryService:
 
 
 class CommandIntakeService:
-    """Deterministic TaskCommand intake; it never mutates task state directly."""
+    """Deterministic TaskCommand intake and atomic CREATE initialization."""
 
     def __init__(
         self,
         *,
         unit_of_work: UnitOfWorkFactory,
         execution: ExecutionPort,
+        task_initialization: TaskInitializationConfig | None = None,
+        thread_id_factory: ThreadIdFactory | None = None,
         clock: Clock | None = None,
     ) -> None:
+        if task_initialization is None and thread_id_factory is None:
+            provider = cast(_TrustedTaskInitializationProvider, unit_of_work)
+            try:
+                task_initialization = provider.task_initialization
+                thread_id_factory = provider.thread_id_factory
+            except AttributeError as exc:
+                raise ValueError(
+                    "trusted task initialization must be explicitly configured"
+                ) from exc
+        elif task_initialization is None or thread_id_factory is None:
+            raise ValueError(
+                "task initialization config and thread factory must be paired"
+            )
         self._unit_of_work = unit_of_work
         self._execution = execution
+        self._task_initialization = task_initialization
+        self._thread_id_factory = thread_id_factory
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def accept(self, command: TaskCommand) -> CommandAcceptance:
@@ -194,18 +222,45 @@ class CommandIntakeService:
                     command.tenant_id, command.task_id
                 )
                 self._validate_version(command, current_version)
+                reservation_version = (
+                    -1
+                    if command.command_type is CommandType.CREATE
+                    else command.expected_task_version
+                )
                 reservation = await unit_of_work.commands.reserve_version_slot(
                     command.tenant_id,
                     command.task_id,
-                    command.expected_task_version,
+                    reservation_version,
                     command.command_id,
                 )
                 if reservation is VersionSlotReservation.CONFLICT:
+                    if command.command_type is CommandType.CREATE:
+                        raise ApplicationError(
+                            ErrorCode.TASK_ALREADY_EXISTS,
+                            "task already exists",
+                        )
                     raise ApplicationError(
                         ErrorCode.VERSION_SLOT_CONFLICT,
                         "another command already reserved the task version",
                     )
-                stored = StoredCommand(command=command, accepted_at=self._clock())
+                accepted_at = self._clock()
+                if command.command_type is CommandType.CREATE:
+                    task = self._build_initial_task(command, accepted_at)
+                    disposition = await unit_of_work.tasks.initialize(
+                        command.tenant_id,
+                        task,
+                    )
+                    if disposition is TaskInitializationDisposition.CONFLICT:
+                        raise ApplicationError(
+                            ErrorCode.TASK_ALREADY_EXISTS,
+                            "task already exists",
+                        )
+                    if disposition is not TaskInitializationDisposition.INITIALIZED:
+                        raise ApplicationError(
+                            ErrorCode.TASK_INITIALIZATION_PROTOCOL_ERROR,
+                            "task repository returned an invalid initialization result",
+                        )
+                stored = StoredCommand(command=command, accepted_at=accepted_at)
                 await unit_of_work.commands.add(stored)
                 await unit_of_work.commit()
                 return stored, False
@@ -216,6 +271,51 @@ class CommandIntakeService:
                 ErrorCode.REPOSITORY_UNAVAILABLE,
                 "command repository is unavailable",
                 retryable=True,
+            ) from exc
+
+    def _build_initial_task(
+        self,
+        command: TaskCommand,
+        accepted_at: datetime,
+    ) -> Task:
+        classification = self._task_initialization.data_classification
+        ceiling = command.security_context.data_classification_ceiling
+        if _CLASSIFICATION_RANK[classification] > _CLASSIFICATION_RANK[ceiling]:
+            raise ApplicationError(
+                ErrorCode.SECURITY_BINDING_MISMATCH,
+                "task classification exceeds the trusted security context",
+            )
+        try:
+            thread_id = self._thread_id_factory()
+            return Task(
+                task_id=command.task_id,
+                thread_id=thread_id,
+                tenant_id=command.tenant_id,
+                status=TaskStatus.RECEIVED,
+                version=0,
+                run_generation=0,
+                purpose=command.security_context.purpose,
+                data_classification=classification,
+                security_context=command.security_context,
+                release=self._task_initialization.release,
+                waiting_on=None,
+                result_ref=None,
+                error=None,
+                created_at=accepted_at,
+                updated_at=accepted_at,
+                completed_at=None,
+                active_run_id=None,
+                latest_checkpoint_id=None,
+                domain=None,
+                intent=None,
+                risk_level=None,
+            )
+        except ApplicationError:
+            raise
+        except Exception as exc:
+            raise ApplicationError(
+                ErrorCode.TASK_INITIALIZATION_PROTOCOL_ERROR,
+                "trusted task initialization is invalid",
             ) from exc
 
     @staticmethod

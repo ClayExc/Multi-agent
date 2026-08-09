@@ -25,6 +25,17 @@ class VersionSlotReservation(StrEnum):
     CONFLICT = "conflict"
 
 
+class TaskInitializationDisposition(StrEnum):
+    INITIALIZED = "initialized"
+    CONFLICT = "conflict"
+
+
+class ThreadIdFactory(Protocol):
+    """Generate an opaque server-owned thread identifier."""
+
+    def __call__(self) -> str: ...
+
+
 class ExecutionPort(Protocol):
     """Idempotent command submission boundary implemented by S2-RUNTIME."""
 
@@ -49,10 +60,15 @@ class ResultArtifactPort(Protocol):
 
 
 class TaskRepositoryPort(Protocol):
-    """Read-only task facts needed by command intake."""
+    """Tenant-bound Task facts and CREATE initialization in Command Tx-A."""
 
     async def get_version(self, tenant_id: str, task_id: str) -> int | None:
         """Return the tenant-scoped task version, or None when absent."""
+
+    async def initialize(
+        self, tenant_id: str, task: Task
+    ) -> TaskInitializationDisposition:
+        """Insert Task v0 once without overwriting an existing projection."""
 
 
 class TaskQueryPort(Protocol):

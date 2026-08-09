@@ -375,6 +375,7 @@ def _application_status(code: ErrorCode) -> int:
     if code in {
         ErrorCode.EXECUTION_PROTOCOL_ERROR,
         ErrorCode.REPOSITORY_PROTOCOL_ERROR,
+        ErrorCode.TASK_INITIALIZATION_PROTOCOL_ERROR,
     }:
         return 502
     return 500

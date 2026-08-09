@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 from flowpilot_application import ApplicationError, CommandIntakeService, ErrorCode
 from flowpilot_application.testing import (
+    FAKE_TASK_INITIALIZATION,
     FakeExecutionPort,
+    FakeThreadIdFactory,
     FakeUnitOfWorkFactory,
 )
 from flowpilot_domain import DomainViolation, TaskCommand
@@ -66,7 +68,10 @@ def test_command_security_binding_rejected_before_persistence(
     unit_of_work = FakeUnitOfWorkFactory()
     execution = FakeExecutionPort()
     service = CommandIntakeService(
-        unit_of_work=unit_of_work, execution=execution
+        unit_of_work=unit_of_work,
+        execution=execution,
+        task_initialization=FAKE_TASK_INITIALIZATION,
+        thread_id_factory=FakeThreadIdFactory(),
     )
 
     with pytest.raises(ApplicationError) as captured:
@@ -105,7 +110,10 @@ def test_tenant_scoped_deduplication_does_not_cross_tenants(
     unit_of_work = FakeUnitOfWorkFactory()
     execution = FakeExecutionPort()
     service = CommandIntakeService(
-        unit_of_work=unit_of_work, execution=execution
+        unit_of_work=unit_of_work,
+        execution=execution,
+        task_initialization=FAKE_TASK_INITIALIZATION,
+        thread_id_factory=FakeThreadIdFactory(),
     )
     tenant_a = command_factory()
     tenant_b = command_factory(

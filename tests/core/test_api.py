@@ -34,7 +34,9 @@ from flowpilot_application import (  # noqa: E402
     TaskQueryService,
 )
 from flowpilot_application.testing import (  # noqa: E402
+    FAKE_TASK_INITIALIZATION,
     FakeExecutionPort,
+    FakeThreadIdFactory,
     FakeUnitOfWorkFactory,
 )
 from flowpilot_domain import ActorType, Task, TaskCommand  # noqa: E402
@@ -128,6 +130,8 @@ def _configured_client(
         command_intake=CommandIntakeService(
             unit_of_work=unit_of_work,
             execution=execution,
+            task_initialization=FAKE_TASK_INITIALIZATION,
+            thread_id_factory=FakeThreadIdFactory(),
         ),
         task_query=TaskQueryService(unit_of_work),
         request_security=security,

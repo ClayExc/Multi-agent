@@ -10,7 +10,12 @@ import httpx
 from flowpilot_api import TrustedRequestIdentity, create_product_app
 from flowpilot_api.testing import StaticRequestSecurity
 from flowpilot_application import ErrorCode
-from flowpilot_application.testing import FakeExecutionPort, FakeUnitOfWorkFactory
+from flowpilot_application.testing import (
+    FAKE_TASK_INITIALIZATION,
+    FakeExecutionPort,
+    FakeThreadIdFactory,
+    FakeUnitOfWorkFactory,
+)
 from flowpilot_domain import ActorType, TaskCommand
 from flowpilot_persistence import MemoryDataUnitOfWorkFactory
 
@@ -53,6 +58,8 @@ def _product_client(
         task_query_unit_of_work=unit_of_work,
         task_event_unit_of_work=MemoryDataUnitOfWorkFactory(),
         execution=execution,
+        task_initialization=FAKE_TASK_INITIALIZATION,
+        thread_id_factory=FakeThreadIdFactory(),
         request_security=security,
         clock=lambda: NOW,
     )
@@ -94,11 +101,21 @@ def test_product_app_composes_command_runtime_and_replays_idempotently(
 
     health = _request(transport, "GET", "/health")
     accepted = _request(transport, "POST", "/v1/task-commands", body=command)
+    task = _request(
+        transport,
+        "GET",
+        f"/v1/tasks/{command['task_id']}",
+    )
     replayed = _request(transport, "POST", "/v1/task-commands", body=command)
 
     assert health.json()["configured"] is True
     assert accepted.status_code == 202
     assert accepted.json()["replayed"] is False
+    assert task.status_code == 200
+    assert task.json()["status"] == "RECEIVED"
+    assert task.json()["thread_id"] == "thread_00000001"
+    assert task.json()["version"] == 0
+    assert task.json()["release"] == FAKE_TASK_INITIALIZATION.release.to_mapping()
     assert replayed.status_code == 202
     assert replayed.json()["replayed"] is True
     assert replayed.json()["command_id"] == accepted.json()["command_id"]

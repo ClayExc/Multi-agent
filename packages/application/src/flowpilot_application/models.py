@@ -10,7 +10,12 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any
 
-from flowpilot_domain import DataClassification, TaskCommand, canonical_sha256
+from flowpilot_domain import (
+    DataClassification,
+    ReleaseRef,
+    TaskCommand,
+    canonical_sha256,
+)
 
 APPLICATION_PORT_VERSION = "flowpilot.application-ports.m0.v1"
 REFERENCE_PORT_VERSION = "flowpilot.reference-ports.p1.v1"
@@ -27,6 +32,20 @@ class ArtifactWriteDisposition(StrEnum):
     STORED = "stored"
     DUPLICATE = "duplicate"
     CONFLICT = "conflict"
+
+
+@dataclass(frozen=True, slots=True)
+class TaskInitializationConfig:
+    """Trusted composition values for a new Task projection."""
+
+    release: ReleaseRef
+    data_classification: DataClassification
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.release, ReleaseRef):
+            raise TypeError("release must be a ReleaseRef")
+        if not isinstance(self.data_classification, DataClassification):
+            raise TypeError("data_classification must be a DataClassification")
 
 
 @dataclass(frozen=True, slots=True)

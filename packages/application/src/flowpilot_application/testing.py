@@ -4,7 +4,13 @@ from dataclasses import dataclass, field, replace
 from types import TracebackType
 from typing import Self
 
-from flowpilot_domain import Approval, Task, TaskCommand
+from flowpilot_domain import (
+    Approval,
+    DataClassification,
+    ReleaseRef,
+    Task,
+    TaskCommand,
+)
 
 from .models import (
     ArtifactWriteDisposition,
@@ -15,8 +21,31 @@ from .models import (
     ResultArtifactDraft,
     ResultArtifactReceipt,
     StoredCommand,
+    TaskInitializationConfig,
 )
-from .ports import VersionSlotReservation
+from .ports import TaskInitializationDisposition, VersionSlotReservation
+
+FAKE_TASK_INITIALIZATION = TaskInitializationConfig(
+    release=ReleaseRef(
+        graph_version="graph-test-v1",
+        domain_pack_version="it-service-test-v1",
+        context_policy_version="context-test-v1",
+        policy_version="policy-test-v1",
+        tool_schema_set="tools-test-v1",
+    ),
+    data_classification=DataClassification.CONFIDENTIAL,
+)
+
+
+class FakeThreadIdFactory:
+    """Deterministic server-owned identifiers for application tests."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def __call__(self) -> str:
+        self.calls += 1
+        return f"thread_{self.calls:08d}"
 
 
 @dataclass(slots=True)
@@ -33,8 +62,16 @@ class InMemoryStore:
 
 
 class FakeTaskRepository:
-    def __init__(self, store: InMemoryStore) -> None:
+    def __init__(
+        self,
+        store: InMemoryStore,
+        *,
+        initialize_calls: list[tuple[str, Task]],
+        initialize_failure: Exception | None,
+    ) -> None:
         self._store = store
+        self._initialize_calls = initialize_calls
+        self._initialize_failure = initialize_failure
 
     async def get_version(self, tenant_id: str, task_id: str) -> int | None:
         return self._store.task_versions.get((tenant_id, task_id))
@@ -42,10 +79,29 @@ class FakeTaskRepository:
     async def get(self, tenant_id: str, task_id: str) -> Task | None:
         return self._store.tasks_by_id.get((tenant_id, task_id))
 
+    async def initialize(
+        self, tenant_id: str, task: Task
+    ) -> TaskInitializationDisposition:
+        self._initialize_calls.append((tenant_id, task))
+        if self._initialize_failure is not None:
+            raise self._initialize_failure
+        key = (tenant_id, task.task_id)
+        if task.tenant_id != tenant_id or key in self._store.tasks_by_id:
+            return TaskInitializationDisposition.CONFLICT
+        self._store.tasks_by_id[key] = task
+        self._store.task_versions[key] = task.version
+        return TaskInitializationDisposition.INITIALIZED
+
 
 class FakeCommandInbox:
-    def __init__(self, store: InMemoryStore) -> None:
+    def __init__(
+        self,
+        store: InMemoryStore,
+        *,
+        add_failure: Exception | None,
+    ) -> None:
         self._store = store
+        self._add_failure = add_failure
 
     async def get_by_idempotency_key(
         self, tenant_id: str, idempotency_key: str
@@ -77,6 +133,8 @@ class FakeCommandInbox:
         return VersionSlotReservation.RESERVED
 
     async def add(self, stored: StoredCommand) -> None:
+        if self._add_failure is not None:
+            raise self._add_failure
         command = stored.command
         self._store.commands_by_id[(command.tenant_id, command.command_id)] = stored
         self._store.command_id_by_key[
@@ -94,8 +152,18 @@ class FakeCommandInbox:
 
 
 class FakeUnitOfWork:
-    def __init__(self, shared: InMemoryStore) -> None:
+    def __init__(
+        self,
+        shared: InMemoryStore,
+        *,
+        task_initialize_calls: list[tuple[str, Task]],
+        task_initialize_failure: Exception | None,
+        command_add_failure: Exception | None,
+    ) -> None:
         self._shared = shared
+        self._task_initialize_calls = task_initialize_calls
+        self._task_initialize_failure = task_initialize_failure
+        self._command_add_failure = command_add_failure
         self._working: InMemoryStore | None = None
         self.tasks: FakeTaskRepository
         self.commands: FakeCommandInbox
@@ -109,8 +177,15 @@ class FakeUnitOfWork:
             command_id_by_key=dict(self._shared.command_id_by_key),
             version_slots=dict(self._shared.version_slots),
         )
-        self.tasks = FakeTaskRepository(self._working)
-        self.commands = FakeCommandInbox(self._working)
+        self.tasks = FakeTaskRepository(
+            self._working,
+            initialize_calls=self._task_initialize_calls,
+            initialize_failure=self._task_initialize_failure,
+        )
+        self.commands = FakeCommandInbox(
+            self._working,
+            add_failure=self._command_add_failure,
+        )
         self._committed = False
         return self
 
@@ -135,9 +210,19 @@ class FakeUnitOfWork:
 class FakeUnitOfWorkFactory:
     def __init__(self, store: InMemoryStore | None = None) -> None:
         self.store = store or InMemoryStore()
+        self.task_initialization = FAKE_TASK_INITIALIZATION
+        self.thread_id_factory = FakeThreadIdFactory()
+        self.task_initialize_calls: list[tuple[str, Task]] = []
+        self.task_initialize_failure: Exception | None = None
+        self.command_add_failure: Exception | None = None
 
     def __call__(self) -> FakeUnitOfWork:
-        return FakeUnitOfWork(self.store)
+        return FakeUnitOfWork(
+            self.store,
+            task_initialize_calls=self.task_initialize_calls,
+            task_initialize_failure=self.task_initialize_failure,
+            command_add_failure=self.command_add_failure,
+        )
 
 
 class FakeApprovalRepository:

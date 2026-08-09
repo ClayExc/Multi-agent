@@ -10,7 +10,9 @@ from flowpilot_application import (
     TaskEventStreamConfig,
     TaskEventSubscriptionService,
     TaskEventUnitOfWorkFactory,
+    TaskInitializationConfig,
     TaskQueryUnitOfWorkFactory,
+    ThreadIdFactory,
     UnitOfWorkFactory,
     compose_core_application,
 )
@@ -26,6 +28,8 @@ def create_product_app(
     task_query_unit_of_work: TaskQueryUnitOfWorkFactory,
     task_event_unit_of_work: TaskEventUnitOfWorkFactory,
     execution: ExecutionPort,
+    task_initialization: TaskInitializationConfig,
+    thread_id_factory: ThreadIdFactory,
     request_security: RequestSecurityPort,
     approval_decisions: ApprovalDecisionService | None = None,
     event_stream: InMemoryEventStream | None = None,
@@ -43,6 +47,8 @@ def create_product_app(
         command_unit_of_work=command_unit_of_work,
         task_query_unit_of_work=task_query_unit_of_work,
         execution=execution,
+        task_initialization=task_initialization,
+        thread_id_factory=thread_id_factory,
         clock=clock,
     )
     effective_stream = event_stream or InMemoryEventStream()

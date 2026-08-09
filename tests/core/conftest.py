@@ -42,6 +42,7 @@ def command_factory(
         subject_id: str = "user-123",
         security_tenant_id: str | None = None,
         security_purpose: str = "it_support",
+        security_classification_ceiling: str = "confidential",
     ) -> TaskCommand:
         value = copy.deepcopy(valid_create_mapping)
         value["command_id"] = command_id
@@ -58,6 +59,9 @@ def command_factory(
             security_tenant_id or tenant_id
         )
         value["security_context"]["purpose"] = security_purpose
+        value["security_context"]["data_classification_ceiling"] = (
+            security_classification_ceiling
+        )
         if payload is not None:
             value["payload"] = payload
         value["command_digest"] = "sha256:" + "0" * 64

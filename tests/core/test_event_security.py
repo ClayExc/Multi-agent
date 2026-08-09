@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,9 +14,11 @@ import pytest
 from flowpilot_api.app import _sse_frame
 from flowpilot_api.stream import InMemoryEventStream
 from flowpilot_application import TaskEventEnvelope
-from flowpilot_application.task_events import (
-    TASK_EVENT_PAYLOAD_RULES,
-    TASK_EVENT_TOKEN_FAMILY_PATTERNS,
+from flowpilot_application.task_events import TASK_EVENT_PAYLOAD_RULES
+from flowpilot_security import (
+    CREDENTIAL_FAMILIES,
+    SecurityError,
+    SecurityErrorCode,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -32,17 +35,28 @@ DIGEST = "sha256:" + "a" * 64
 TOKEN_FAMILY_CASES: tuple[tuple[str, str], ...] = (
     ("openai_legacy", "sk-" + "Ab9" * 12),
     ("openai_project", "sk-" + "proj-" + "Ab9" * 12),
+    ("openai_admin", "sk-" + "admin-" + "Ab9" * 12),
     ("openai_service_account", "sk-" + "svcacct-" + "Ab9" * 12),
+    ("anthropic_secret_key", "sk-" + "ant-api03-" + "Ab9" * 12),
     (
         "slack_multisegment",
         "xoxb-" + "2-" + "1" * 12 + "-" + "Ab9" * 8,
+    ),
+    (
+        "slack_xapp_token",
+        "xapp-" + "1-2-" + "1" * 12 + "-" + "Ab9" * 8,
     ),
     ("github_classic", "ghp_" + "Ab9" * 12),
     ("github_fine_grained", "github_" + "pat_" + "Ab9_" * 8),
     ("authorization_bearer", "Bearer " + "Ab9" * 8),
     ("authorization_basic", "Basic " + "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="),
     ("aws_access_key", "AKIA" + "A1" * 8),
+    ("aws_session_key", "ASIA" + "A1" * 8),
     ("private_key_header", "-----BEGIN " + "PRIVATE KEY-----"),
+    (
+        "encrypted_private_key_header",
+        "-----BEGIN " + "ENCRYPTED PRIVATE KEY-----",
+    ),
     (
         "jwt",
         "eyJhbGciOiJIUzI1NiJ9."
@@ -55,6 +69,17 @@ TOKEN_FAMILY_CASES: tuple[tuple[str, str], ...] = (
         "postgresql://user:" + "credential-value@example.internal/database",
     ),
 )
+P0_CREDENTIAL_CASES = tuple(
+    case
+    for case in TOKEN_FAMILY_CASES
+    if case[0]
+    in {
+        "aws_session_key",
+        "openai_admin",
+        "slack_xapp_token",
+        "encrypted_private_key_header",
+    }
+)
 OPAQUE_TOKEN_FAMILY_CASES = tuple(
     case
     for case in TOKEN_FAMILY_CASES
@@ -62,21 +87,27 @@ OPAQUE_TOKEN_FAMILY_CASES = tuple(
     in {
         "openai_legacy",
         "openai_project",
+        "openai_admin",
         "openai_service_account",
+        "anthropic_secret_key",
         "slack_multisegment",
+        "slack_xapp_token",
         "github_classic",
         "github_fine_grained",
         "aws_access_key",
+        "aws_session_key",
         "jwt",
     }
 )
-SENSITIVE_ASSIGNMENT_CASES: tuple[tuple[str, str], ...] = (
+CENTRAL_ASSIGNMENT_CASES: tuple[tuple[str, str], ...] = (
     ("authorization-assignment", "authorization=Basic-placeholder"),
-    ("cookie-assignment", "cookie=sessionid-placeholder"),
     ("credential-assignment", "credential=placeholder"),
     ("password-assignment", "password=placeholder"),
     ("api-key-assignment", "api_key:placeholder"),
     ("secret-assignment", "secret=placeholder"),
+)
+PROJECTION_ASSIGNMENT_CASES: tuple[tuple[str, str], ...] = (
+    ("cookie-assignment", "cookie=sessionid-placeholder"),
     ("session-ref-assignment", "session_ref=provider-session"),
     ("provider-session-assignment", "provider_session=provider-session"),
     ("reasoning-assignment", "reasoning=hidden-content"),
@@ -360,20 +391,28 @@ def test_each_task_event_rejects_invalid_types_or_formats(
     (
         {"result_ref": "result://safe", "session_ref": "provider://private"},
         {"result_ref": "result://safe", "reasoning": "hidden reasoning"},
-        {
-            "result_ref": "result://safe",
-            "metadata": [
-                {"provider_session": {"credential": {"access_token": "secret"}}}
-            ],
-        },
     ),
-    ids=("session-ref", "reasoning", "nested-sensitive-key"),
+    ids=("session-ref", "reasoning"),
 )
 def test_envelope_construction_recursively_rejects_sensitive_keys(
     payload: dict[str, Any],
 ) -> None:
     with pytest.raises(ValueError, match="sensitive key"):
         _envelope(payload=payload)
+
+
+def test_envelope_construction_uses_central_error_for_credential_keys() -> None:
+    payload = {
+        "result_ref": "result://safe",
+        "metadata": [
+            {"provider_session": {"credential": {"access_token": "secret"}}}
+        ],
+    }
+
+    with pytest.raises(SecurityError) as captured:
+        _envelope(payload=payload)
+
+    assert captured.value.code is SecurityErrorCode.UNSAFE_PROJECTION
 
 
 @pytest.mark.parametrize(
@@ -574,11 +613,26 @@ def test_producer_principal_ref_must_be_an_opaque_uri() -> None:
 
 @pytest.mark.parametrize(
     ("case_id", "sensitive_value"),
-    TOKEN_FAMILY_CASES + SENSITIVE_ASSIGNMENT_CASES,
+    TOKEN_FAMILY_CASES + CENTRAL_ASSIGNMENT_CASES,
     ids=[case_id for case_id, _value in TOKEN_FAMILY_CASES]
-    + [case_id for case_id, _value in SENSITIVE_ASSIGNMENT_CASES],
+    + [case_id for case_id, _value in CENTRAL_ASSIGNMENT_CASES],
 )
 def test_envelope_top_level_strings_reject_sensitive_values(
+    case_id: str,
+    sensitive_value: str,
+) -> None:
+    assert case_id
+    with pytest.raises(SecurityError) as captured:
+        _envelope(correlation_id=sensitive_value)
+    assert captured.value.code is SecurityErrorCode.UNSAFE_PROJECTION
+
+
+@pytest.mark.parametrize(
+    ("case_id", "sensitive_value"),
+    PROJECTION_ASSIGNMENT_CASES,
+    ids=[case_id for case_id, _value in PROJECTION_ASSIGNMENT_CASES],
+)
+def test_noncredential_projection_values_remain_forbidden(
     case_id: str,
     sensitive_value: str,
 ) -> None:
@@ -587,43 +641,49 @@ def test_envelope_top_level_strings_reject_sensitive_values(
         _envelope(correlation_id=sensitive_value)
 
 
-def test_declared_token_families_have_complete_examples() -> None:
-    examples = dict(TOKEN_FAMILY_CASES)
+def test_central_registry_contains_required_consumer_families() -> None:
+    family_ids = {family.family_id for family in CREDENTIAL_FAMILIES}
 
-    assert set(examples) == set(TASK_EVENT_TOKEN_FAMILY_PATTERNS)
-    for family, pattern in TASK_EVENT_TOKEN_FAMILY_PATTERNS.items():
-        assert pattern.search(examples[family]) is not None
+    assert len(family_ids) == len(CREDENTIAL_FAMILIES)
+    assert {
+        "aws_access_key",
+        "openai_admin",
+        "slack_xapp_token",
+        "private_key_header",
+    } <= family_ids
 
 
 @pytest.mark.parametrize("prefix", ("xoxb", "xoxa", "xoxp", "xoxr", "xoxs"))
 def test_slack_token_family_covers_registered_prefixes(prefix: str) -> None:
     token = prefix + "-2-" + "1" * 12 + "-" + "Ab9" * 8
 
-    assert TASK_EVENT_TOKEN_FAMILY_PATTERNS["slack_multisegment"].search(token)
+    with pytest.raises(SecurityError):
+        _envelope(correlation_id=token)
 
 
 @pytest.mark.parametrize("prefix", ("ghp_", "gho_", "ghu_", "ghs_", "ghr_"))
 def test_github_classic_family_covers_registered_prefixes(prefix: str) -> None:
     token = prefix + "Ab9" * 12
 
-    assert TASK_EVENT_TOKEN_FAMILY_PATTERNS["github_classic"].search(token)
+    with pytest.raises(SecurityError):
+        _envelope(correlation_id=token)
 
 
 @pytest.mark.parametrize(
     ("field", "value"),
     (
-        ("event_id", "evt_" + "sk-" + "proj-" + "Ab9" * 10),
-        ("tenant_id", "sk-" + "proj-" + "Ab9" * 10),
-        ("task_id", "task_" + "sk-" + "proj-" + "Ab9" * 10),
-        ("thread_id", "thread_" + "sk-" + "proj-" + "Ab9" * 10),
-        ("trace_id", "sk-" + "proj-" + "Ab9" * 10),
-        ("run_id", "run_" + "sk-" + "proj-" + "Ab9" * 10),
+        ("event_id", "evt_" + "ASIA" + "A1" * 8),
+        ("tenant_id", "ASIA" + "A1" * 8),
+        ("task_id", "task_" + "ASIA" + "A1" * 8),
+        ("thread_id", "thread_" + "ASIA" + "A1" * 8),
+        ("trace_id", "ASIA" + "A1" * 8),
+        ("run_id", "run_" + "ASIA" + "A1" * 8),
         (
             "producer_principal_ref",
-            "workload://worker/" + "sk-" + "proj-" + "Ab9" * 10,
+            "workload://worker/" + "ASIA" + "A1" * 8,
         ),
-        ("correlation_id", "sk-" + "proj-" + "Ab9" * 10),
-        ("causation_id", "sk-" + "proj-" + "Ab9" * 10),
+        ("correlation_id", "ASIA" + "A1" * 8),
+        ("causation_id", "ASIA" + "A1" * 8),
     ),
     ids=(
         "event-id",
@@ -644,8 +704,9 @@ def test_every_variable_envelope_string_scans_token_families(
     envelope = _envelope()
     object.__setattr__(envelope, field, value)
 
-    with pytest.raises(ValueError, match="sensitive value"):
+    with pytest.raises(SecurityError) as captured:
         envelope.assert_valid()
+    assert captured.value.code is SecurityErrorCode.UNSAFE_PROJECTION
 
 
 def test_hyphenated_business_identifiers_remain_valid() -> None:
@@ -682,7 +743,7 @@ def test_payload_nested_sequence_rejects_sensitive_string_value(
     sensitive_value: str,
 ) -> None:
     assert family
-    with pytest.raises(ValueError, match="sensitive value"):
+    with pytest.raises(SecurityError):
         _envelope(
             "task.input.required.v1",
             "worker",
@@ -704,14 +765,14 @@ def test_opaque_reference_values_reject_token_families(
     sensitive_value: str,
 ) -> None:
     assert family
-    with pytest.raises(ValueError, match="sensitive value"):
+    with pytest.raises(SecurityError):
         _envelope(
             payload={"result_ref": "result://artifact/" + sensitive_value}
         )
 
 
 def test_payload_nested_mapping_rejects_sensitive_string_before_schema_use() -> None:
-    with pytest.raises(ValueError, match="sensitive value"):
+    with pytest.raises(SecurityError):
         _envelope(
             payload={
                 "result_ref": "result://safe",
@@ -804,13 +865,93 @@ def test_tampered_sensitive_value_writes_no_stream_or_sse_output(
     async def scenario() -> None:
         stream = InMemoryEventStream()
         subscriber = stream.subscribe("tenant-a")
-        with pytest.raises(ValueError, match="sensitive value"):
+        with pytest.raises(SecurityError):
             await stream.emit("tenant-a", envelope)
         assert subscriber.empty()
         assert stream.subscribe("tenant-a").empty()
 
     asyncio.run(scenario())
     frames: list[str] = []
-    with pytest.raises(ValueError, match="sensitive value"):
+    with pytest.raises(SecurityError):
         frames.append(_sse_frame(envelope))
     assert frames == []
+
+
+@pytest.mark.parametrize(
+    ("family", "sensitive_value"),
+    P0_CREDENTIAL_CASES,
+    ids=[family for family, _value in P0_CREDENTIAL_CASES],
+)
+def test_tampered_replay_is_revalidated_before_subscriber_registration(
+    family: str,
+    sensitive_value: str,
+) -> None:
+    assert family
+
+    async def scenario() -> None:
+        stream = InMemoryEventStream()
+        envelope = _envelope()
+        await stream.emit("tenant-a", envelope)
+        object.__setattr__(envelope, "correlation_id", sensitive_value)
+
+        with pytest.raises(SecurityError):
+            stream.subscribe("tenant-a")
+
+        assert stream._subscribers.get("tenant-a") is None
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("family", "sensitive_value"),
+    P0_CREDENTIAL_CASES,
+    ids=[family for family, _value in P0_CREDENTIAL_CASES],
+)
+def test_credential_errors_and_logs_never_render_original_material(
+    family: str,
+    sensitive_value: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    logger = logging.getLogger("flowpilot.tests.task-event-credentials")
+    with pytest.raises(SecurityError) as captured:
+        _envelope(correlation_id=sensitive_value)
+
+    error = captured.value
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        logger.error("task event rejected: %s", error)
+
+    assert family
+    assert error.code is SecurityErrorCode.UNSAFE_PROJECTION
+    assert sensitive_value not in str(error)
+    assert sensitive_value not in repr(error)
+    assert sensitive_value not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("family", "sensitive_value"),
+    P0_CREDENTIAL_CASES,
+    ids=[family for family, _value in P0_CREDENTIAL_CASES],
+)
+def test_credential_mapping_keys_are_rejected_before_projection_errors(
+    family: str,
+    sensitive_value: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    logger = logging.getLogger("flowpilot.tests.task-event-credential-keys")
+    with pytest.raises(SecurityError) as captured:
+        _envelope(
+            payload={
+                "result_ref": "result://safe",
+                sensitive_value: {"reasoning": "hidden-content"},
+            }
+        )
+
+    error = captured.value
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        logger.error("task event rejected: %s", error)
+
+    assert family
+    assert error.code is SecurityErrorCode.UNSAFE_PROJECTION
+    assert sensitive_value not in str(error)
+    assert sensitive_value not in repr(error)
+    assert sensitive_value not in caplog.text

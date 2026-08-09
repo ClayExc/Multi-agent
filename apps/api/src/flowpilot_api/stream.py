@@ -30,8 +30,11 @@ class InMemoryEventStream(EventStreamPort):
     ) -> asyncio.Queue[TaskEventEnvelope]:
         """Register a connection queue, replaying buffered events first."""
         _require_tenant_route(tenant_id)
+        buffered = tuple(self._replay[tenant_id])
+        for event in buffered:
+            _assert_event_route(tenant_id, event)
         queue: asyncio.Queue[TaskEventEnvelope] = asyncio.Queue()
-        for event in self._replay[tenant_id]:
+        for event in buffered:
             queue.put_nowait(event)
         self._subscribers[tenant_id].add(queue)
         return queue
@@ -49,9 +52,7 @@ class InMemoryEventStream(EventStreamPort):
 
     async def emit(self, tenant_id: str, event: TaskEventEnvelope) -> None:
         _require_tenant_route(tenant_id)
-        if event.tenant_id != tenant_id:
-            raise ValueError("event tenant does not match the stream route")
-        event.assert_valid()
+        _assert_event_route(tenant_id, event)
         self._replay[tenant_id].append(event)
         for queue in tuple(self._subscribers.get(tenant_id, ())):
             queue.put_nowait(event)
@@ -60,3 +61,9 @@ class InMemoryEventStream(EventStreamPort):
 def _require_tenant_route(tenant_id: str) -> None:
     if not isinstance(tenant_id, str) or not tenant_id or len(tenant_id) > 128:
         raise ValueError("stream tenant must be a bounded non-empty string")
+
+
+def _assert_event_route(tenant_id: str, event: TaskEventEnvelope) -> None:
+    if event.tenant_id != tenant_id:
+        raise ValueError("event tenant does not match the stream route")
+    event.assert_valid()

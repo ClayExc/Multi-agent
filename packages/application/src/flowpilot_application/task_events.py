@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
 
+from flowpilot_security import assert_no_secret_material
+
 type _FieldValidator = Callable[[object, str], None]
 
 _TASK_STATUSES = frozenset(
@@ -40,79 +42,21 @@ _RFC3339_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}"
     r"(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$"
 )
-_SENSITIVE_KEY_FRAGMENTS = frozenset(
+_SENSITIVE_PROJECTION_KEY_FRAGMENTS = frozenset(
     {
-        "apikey",
-        "authorization",
         "chainofthought",
         "cookie",
-        "credential",
-        "password",
-        "privatekey",
         "providersession",
         "reasoning",
-        "secret",
         "sessionref",
-        "token",
     }
+)
+_SENSITIVE_PROJECTION_VALUE_PATTERN = re.compile(
+    r"(?i)\b(?:chain[_-]?of[_-]?thought|cookie|provider[_-]?session|"
+    r"reasoning|session[_-]?ref)\s*[:=]\s*\S+"
 )
 _OPAQUE_REF_PATTERN = re.compile(
     r"^[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9][A-Za-z0-9._~:/+-]*$"
-)
-TASK_EVENT_TOKEN_FAMILY_PATTERNS: Mapping[str, re.Pattern[str]] = (
-    MappingProxyType(
-        {
-            "openai_legacy": re.compile(
-                r"(?<![A-Za-z0-9])sk-[A-Za-z0-9]{20,}(?![A-Za-z0-9])"
-            ),
-            "openai_project": re.compile(
-                r"(?<![A-Za-z0-9])sk-proj-[A-Za-z0-9_-]{20,}"
-                r"(?![A-Za-z0-9_-])"
-            ),
-            "openai_service_account": re.compile(
-                r"(?<![A-Za-z0-9])sk-svcacct-[A-Za-z0-9_-]{20,}"
-                r"(?![A-Za-z0-9_-])"
-            ),
-            "slack_multisegment": re.compile(
-                r"(?<![A-Za-z0-9])xox[baprs]-"
-                r"(?=[A-Za-z0-9-]{20,}(?![A-Za-z0-9-]))"
-                r"(?:[A-Za-z0-9]+-){1,}[A-Za-z0-9]+"
-                r"(?![A-Za-z0-9-])"
-            ),
-            "github_classic": re.compile(
-                r"(?<![A-Za-z0-9])gh[pousr]_[A-Za-z0-9]{20,}"
-                r"(?![A-Za-z0-9])"
-            ),
-            "github_fine_grained": re.compile(
-                r"(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{20,}"
-                r"(?![A-Za-z0-9_])"
-            ),
-            "authorization_bearer": re.compile(
-                r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{12,}"
-            ),
-            "authorization_basic": re.compile(
-                r"(?i)\bbasic\s+[A-Za-z0-9+/=]{12,}"
-            ),
-            "aws_access_key": re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-            "private_key_header": re.compile(
-                r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
-            ),
-            "jwt": re.compile(
-                r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\."
-                r"[A-Za-z0-9_-]{8,}\b"
-            ),
-            "sensitive_assignment": re.compile(
-                r"(?i)\b(?:api[_-]?key|authorization|"
-                r"chain[_-]?of[_-]?thought|cookie|credential|password|"
-                r"private[_-]?key|provider[_-]?session|reasoning|secret|"
-                r"session[_-]?ref|token)\s*[:=]\s*\S+"
-            ),
-            "credential_uri": re.compile(
-                r"(?i)\b[A-Za-z][A-Za-z0-9+.-]*://"
-                r"[^\s/@:]+:[^\s/@]+@"
-            ),
-        }
-    )
 )
 
 
@@ -366,7 +310,14 @@ def validate_task_event_ref(value: str, field: str) -> None:
 
 
 def assert_task_event_content_safe(value: object, path: str) -> None:
-    """Recursively reject sensitive keys and high-confidence secret values."""
+    """Reject hidden projection fields and centralized credential families."""
+
+    assert_no_secret_material(value, field=path)
+    _assert_no_sensitive_projection_content(value, path)
+
+
+def _assert_no_sensitive_projection_content(value: object, path: str) -> None:
+    """Keep non-credential session/reasoning fields out of Task Events."""
 
     if isinstance(value, Mapping):
         for key, item in value.items():
@@ -377,18 +328,20 @@ def assert_task_event_content_safe(value: object, path: str) -> None:
                 for character in key.casefold()
                 if character.isalnum()
             )
-            if any(fragment in compact for fragment in _SENSITIVE_KEY_FRAGMENTS):
+            if any(
+                fragment in compact
+                for fragment in _SENSITIVE_PROJECTION_KEY_FRAGMENTS
+            ):
                 raise ValueError(f"{path} contains a sensitive key")
-            assert_task_event_content_safe(item, f"{path}.{key}")
+            _assert_no_sensitive_projection_content(item, f"{path}.{key}")
         return
     if isinstance(value, Sequence) and not isinstance(
         value, (str, bytes, bytearray)
     ):
         for index, item in enumerate(value):
-            assert_task_event_content_safe(item, f"{path}[{index}]")
+            _assert_no_sensitive_projection_content(item, f"{path}[{index}]")
         return
-    if isinstance(value, str) and any(
-        pattern.search(value)
-        for pattern in TASK_EVENT_TOKEN_FAMILY_PATTERNS.values()
+    if isinstance(value, str) and (
+        _SENSITIVE_PROJECTION_VALUE_PATTERN.search(value) is not None
     ):
         raise ValueError(f"{path} contains sensitive value material")

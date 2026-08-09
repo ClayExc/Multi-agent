@@ -1,4 +1,9 @@
 from .adapter import ExecutionSubmissionError, RuntimeExecutionAdapter
+from .composition import (
+    LocalProductRuntime,
+    compose_local_product_runtime,
+    compose_postgres_local_product_runtime,
+)
 from .durable import (
     DurableCoordinationRecovery,
     DurableGraphFactory,
@@ -6,6 +11,19 @@ from .durable import (
     build_durable_runtime,
 )
 from .events import TaskEventPublisher
+from .knowledge import (
+    KNOWLEDGE_AGENT_ID,
+    KNOWLEDGE_GRAPH_VERSION,
+    KNOWLEDGE_INTENT,
+    KNOWLEDGE_QUESTION_FIELD,
+    KNOWLEDGE_SCHEMA_PIN,
+    KNOWLEDGE_TOOL_NAME,
+    EnterpriseKnowledgeDurableGraphFactory,
+    EnterpriseKnowledgeGraph,
+    KnowledgeGraphConfig,
+    KnowledgeGraphState,
+    build_knowledge_gateway_call,
+)
 from .onboarding_factory import OnboardingDurableGraphFactory
 from .persistence import (
     PersistenceCheckpointAdapter,
@@ -17,8 +35,6 @@ from .persistence import (
 from .queue import ExecutionEnvelope, ExecutionQueuePort
 from .testing import InMemoryExecutionQueue
 from .vpn import (
-    KNOWLEDGE_SCHEMA_PIN,
-    KNOWLEDGE_TOOL_NAME,
     VPN_GRAPH_VERSION,
     VpnGraphConfig,
     VpnGraphState,
@@ -43,10 +59,15 @@ __all__ = [
     "ExecutionGuardPort",
     "ExecutionQueuePort",
     "ExecutionSubmissionError",
+    "EnterpriseKnowledgeDurableGraphFactory",
+    "EnterpriseKnowledgeGraph",
     "DurableCoordinationRecovery",
     "DurableGraphFactory",
     "DurableRuntime",
     "InMemoryExecutionQueue",
+    "KnowledgeGraphConfig",
+    "KnowledgeGraphState",
+    "LocalProductRuntime",
     "OnboardingDurableGraphFactory",
     "PersistenceCheckpointAdapter",
     "PersistenceExecutionGuard",
@@ -58,6 +79,10 @@ __all__ = [
     "WorkerRun",
     "KNOWLEDGE_SCHEMA_PIN",
     "KNOWLEDGE_TOOL_NAME",
+    "KNOWLEDGE_AGENT_ID",
+    "KNOWLEDGE_GRAPH_VERSION",
+    "KNOWLEDGE_INTENT",
+    "KNOWLEDGE_QUESTION_FIELD",
     "TICKET_SCHEMA_PIN",
     "TICKET_TOOL_NAME",
     "VPN_GRAPH_VERSION",
@@ -69,9 +94,12 @@ __all__ = [
     "VpnTicketWriteGraph",
     "VpnTicketWriteState",
     "build_ticket_proposal",
+    "build_knowledge_gateway_call",
     "build_vpn_gateway_call",
     "build_vpn_ticket_gateway_call",
     "build_durable_runtime",
+    "compose_local_product_runtime",
+    "compose_postgres_local_product_runtime",
     "vpn_debug_projection",
     "TrustedTenantInventory",
 ]

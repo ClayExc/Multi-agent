@@ -7,6 +7,7 @@ from typing import Protocol
 from flowpilot_graph import CheckpointPort, GraphExecutionPort
 from flowpilot_persistence import CoordinationRebuilder, DataUnitOfWorkFactory
 
+from .events import TaskEventPublisher
 from .persistence import (
     PersistenceCheckpointAdapter,
     PersistenceExecutionGuard,
@@ -97,12 +98,17 @@ def build_durable_runtime(
     runtime_config: PersistenceRuntimeConfig | None = None,
     clock: Callable[[], datetime] | None = None,
     run_id_factory: Callable[[], str] | None = None,
+    event_publisher: TaskEventPublisher | None = None,
 ) -> DurableRuntime:
     """Assemble a durable worker without an implicit process-memory checkpointer."""
 
     if control_checkpointer is None:
         raise ValueError("a control checkpointer must be explicitly configured")
-    checkpoints = PersistenceCheckpointAdapter(unit_of_work, clock=clock)
+    checkpoints = PersistenceCheckpointAdapter(
+        unit_of_work,
+        clock=clock,
+        event_publisher=event_publisher,
+    )
     leases = PersistenceLeaseAdapter(
         unit_of_work,
         config=runtime_config,

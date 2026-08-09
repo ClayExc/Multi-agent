@@ -1,0 +1,60 @@
+{
+  "checks": [
+    {
+      "check_id": "manifest.identity",
+      "detail": "head=b8a18af3afa5a84bf6b16fcaae259805599c7c42",
+      "passed": true
+    },
+    {
+      "check_id": "denominator.fixed",
+      "detail": "results=156 pass=24 fail=132",
+      "passed": true
+    },
+    {
+      "check_id": "release.remains_blocked",
+      "detail": "gate=fail",
+      "passed": true
+    },
+    {
+      "check_id": "test_suites.pass",
+      "detail": "passed=6/6",
+      "passed": true
+    },
+    {
+      "check_id": "executor.exact_cases",
+      "detail": "registered=24",
+      "passed": true
+    },
+    {
+      "check_id": "execution.complete",
+      "detail": "completed=24 unimplemented=132",
+      "passed": true
+    },
+    {
+      "check_id": "failure_closure.explicit",
+      "detail": "failures=132",
+      "passed": true
+    },
+    {
+      "check_id": "security.zero_and_replay_idle",
+      "detail": "case_evidence=24",
+      "passed": true
+    },
+    {
+      "check_id": "artifacts.hash_closure",
+      "detail": "hashes=39 mismatches=[]",
+      "passed": true
+    }
+  ],
+  "summary": {
+    "artifact_hashes": 39,
+    "declared": 156,
+    "failed": 132,
+    "manifest_gate": "fail",
+    "passed": 24,
+    "quarantined": 0,
+    "release_claimed": false,
+    "skipped": 0
+  },
+  "verdict": "PASS"
+}

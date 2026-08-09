@@ -336,6 +336,7 @@ def _task_body(task: Task) -> TaskBody:
 
 
 def _sse_frame(envelope: TaskEventEnvelope) -> str:
+    envelope.assert_valid()
     data = json.dumps(
         envelope.to_mapping(),
         ensure_ascii=False,

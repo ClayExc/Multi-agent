@@ -29,6 +29,7 @@ class InMemoryEventStream(EventStreamPort):
         self, tenant_id: str
     ) -> asyncio.Queue[TaskEventEnvelope]:
         """Register a connection queue, replaying buffered events first."""
+        _require_tenant_route(tenant_id)
         queue: asyncio.Queue[TaskEventEnvelope] = asyncio.Queue()
         for event in self._replay[tenant_id]:
             queue.put_nowait(event)
@@ -38,6 +39,7 @@ class InMemoryEventStream(EventStreamPort):
     def unsubscribe(
         self, tenant_id: str, queue: asyncio.Queue[TaskEventEnvelope]
     ) -> None:
+        _require_tenant_route(tenant_id)
         subscribers = self._subscribers.get(tenant_id)
         if subscribers is None:
             return
@@ -46,6 +48,15 @@ class InMemoryEventStream(EventStreamPort):
             self._subscribers.pop(tenant_id, None)
 
     async def emit(self, tenant_id: str, event: TaskEventEnvelope) -> None:
+        _require_tenant_route(tenant_id)
+        if event.tenant_id != tenant_id:
+            raise ValueError("event tenant does not match the stream route")
+        event.assert_valid()
         self._replay[tenant_id].append(event)
         for queue in tuple(self._subscribers.get(tenant_id, ())):
             queue.put_nowait(event)
+
+
+def _require_tenant_route(tenant_id: str) -> None:
+    if not isinstance(tenant_id, str) or not tenant_id or len(tenant_id) > 128:
+        raise ValueError("stream tenant must be a bounded non-empty string")

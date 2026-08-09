@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from functools import wraps
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, NoReturn, TypedDict
 
 try:
     from flowpilot_graph import (
@@ -392,11 +392,10 @@ class _StudioSafeNodes:
                 "required_fields": [required_field],
             }
         )
-        if not isinstance(resume, Mapping) or resume.get("confirmed") is not True:
-            raise GraphError(
-                GraphErrorCode.STATE_INVALID,
-                "Studio clarification resume was not confirmed",
-            )
+        _validate_studio_interrupt_resume(
+            resume,
+            expected_kind="clarification",
+        )
         return self._advance(
             state,
             "clarification_interrupt",
@@ -491,7 +490,10 @@ class _StudioSafeNodes:
                 "expires": "synthetic",
             }
         )
-        approved = isinstance(resume, Mapping) and resume.get("approved") is True
+        approved = _validate_studio_interrupt_resume(
+            resume,
+            expected_kind="approval",
+        )
         update: dict[str, Any] = {
             "approval_granted": approved,
             "interrupt_kind": "approval",
@@ -831,7 +833,76 @@ def _command_goto_is_empty(value: object) -> bool:
     )
 
 
-def _raise_studio_state_update_forbidden() -> None:
+def _validate_studio_interrupt_resume(
+    resume: object,
+    *,
+    expected_kind: str,
+) -> bool:
+    if isinstance(resume, Mapping):
+        fields = frozenset(resume)
+        if (
+            expected_kind == "clarification"
+            and fields == {"confirmed"}
+            and resume.get("confirmed") is True
+        ):
+            return True
+        if (
+            expected_kind == "approval"
+            and fields == {"approved"}
+            and isinstance(resume.get("approved"), bool)
+        ):
+            return bool(resume["approved"])
+    raise GraphError(
+        GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+        "Studio resume decision does not match the current interrupt",
+    )
+
+
+def _assert_studio_command_matches_snapshot(
+    command: Command[Any],
+    snapshot: Any,
+) -> None:
+    next_nodes = tuple(snapshot.next)
+    if len(next_nodes) != 1 or next_nodes[0] not in {
+        "clarification_interrupt",
+        "approval_interrupt",
+    }:
+        _raise_studio_interrupt_binding_forbidden()
+    expected_kind = next_nodes[0].removesuffix("_interrupt")
+    tasks = tuple(snapshot.tasks)
+    if len(tasks) != 1 or tasks[0].name != next_nodes[0]:
+        _raise_studio_interrupt_binding_forbidden()
+    interrupts = tuple(tasks[0].interrupts)
+    if len(interrupts) != 1 or not isinstance(
+        interrupts[0].value, Mapping
+    ):
+        _raise_studio_interrupt_binding_forbidden()
+    if interrupts[0].value.get("kind") != expected_kind:
+        _raise_studio_interrupt_binding_forbidden()
+    _validate_studio_interrupt_resume(
+        command.resume,
+        expected_kind=expected_kind,
+    )
+
+
+def _raise_studio_interrupt_binding_forbidden() -> NoReturn:
+    raise GraphError(
+        GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+        "Studio resume decision does not match the current interrupt",
+    )
+
+
+def _invocation_config(
+    args: tuple[Any, ...],
+    kwargs: Mapping[str, Any],
+) -> dict[str, Any]:
+    config = args[0] if args else kwargs.get("config")
+    if not isinstance(config, dict):
+        _raise_studio_interrupt_binding_forbidden()
+    return config
+
+
+def _raise_studio_state_update_forbidden() -> NoReturn:
     raise GraphError(
         GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
         "Studio state update entry points are forbidden",
@@ -854,6 +925,11 @@ def _install_studio_ingress_guard(compiled_graph: Any) -> None:
         **kwargs: Any,
     ) -> AsyncIterator[Any]:
         _assert_studio_invocation_input(value)
+        if isinstance(value, Command):
+            snapshot = await compiled_graph.aget_state(
+                _invocation_config(args, kwargs)
+            )
+            _assert_studio_command_matches_snapshot(value, snapshot)
         async for chunk in original_astream(value, *args, **kwargs):
             yield chunk
 
@@ -864,6 +940,11 @@ def _install_studio_ingress_guard(compiled_graph: Any) -> None:
         **kwargs: Any,
     ) -> Iterator[Any]:
         _assert_studio_invocation_input(value)
+        if isinstance(value, Command):
+            snapshot = compiled_graph.get_state(
+                _invocation_config(args, kwargs)
+            )
+            _assert_studio_command_matches_snapshot(value, snapshot)
         yield from original_stream(value, *args, **kwargs)
 
     @wraps(original_copy)

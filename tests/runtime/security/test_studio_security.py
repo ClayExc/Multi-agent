@@ -347,8 +347,9 @@ def test_rejected_resume_command_cannot_mutate_a_suspended_interrupt(
 
         after = await _studio_checkpoint_fingerprint(graph, config, saver)
         assert after == before
-        values, next_nodes, _, _ = after
+        values, next_nodes, _, _, interrupt_kind = after
         assert next_nodes == ("clarification_interrupt",)
+        assert interrupt_kind == "clarification"
         assert values["approval_granted"] is False
         assert values["checkpoint_sequence"] == 0
         assert values["status"] == "RUNNING"
@@ -411,6 +412,70 @@ def test_studio_state_update_entry_points_fail_closed_without_checkpoint(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("server_copy", [False, True])
+@pytest.mark.parametrize(
+    ("current_kind", "wrong_resume"),
+    [
+        ("clarification", {"approved": True}),
+        ("approval", {"confirmed": True}),
+    ],
+)
+def test_resume_kind_must_match_the_current_interrupt_without_state_change(
+    server_copy: bool,
+    current_kind: str,
+    wrong_resume: dict[str, bool],
+) -> None:
+    async def scenario() -> None:
+        saver = InMemorySaver()
+        graph = create_studio_graph_definition(checkpointer=saver).graph
+        if server_copy:
+            graph = graph.copy(update={"checkpointer": saver})
+        config = {
+            "configurable": {
+                "thread_id": f"studio-resume-kind-{server_copy}-{current_kind}",
+            }
+        }
+        waiting = await graph.ainvoke(
+            {"scenario": "full_demo"},
+            config=config,
+        )
+        assert waiting["__interrupt__"][0].value["kind"] == "clarification"
+        if current_kind == "approval":
+            waiting = await graph.ainvoke(
+                Command(resume={"confirmed": True}),
+                config=config,
+            )
+            assert waiting["__interrupt__"][0].value["kind"] == "approval"
+
+        before = await _studio_checkpoint_fingerprint(graph, config, saver)
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke(
+                Command(resume=wrong_resume),
+                config=config,
+            )
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+        assert captured.value.safe_message == (
+            "Studio resume decision does not match the current interrupt"
+        )
+
+        after = await _studio_checkpoint_fingerprint(graph, config, saver)
+        assert after == before
+        values, next_nodes, _, _, interrupt_kind = after
+        assert next_nodes == (f"{current_kind}_interrupt",)
+        assert interrupt_kind == current_kind
+        assert values["approval_granted"] is False
+        assert values["checkpoint_sequence"] == (
+            1 if current_kind == "approval" else 0
+        )
+        assert values["status"] == "RUNNING"
+        assert values["artifact_count"] == 0
+        assert "failure_code" not in values
+
+    asyncio.run(scenario())
+
+
 def test_registered_clarification_and_approval_resumes_remain_supported() -> None:
     async def scenario() -> None:
         graph = create_studio_graph_definition(
@@ -450,17 +515,26 @@ async def _studio_checkpoint_fingerprint(
     graph: Any,
     config: dict[str, dict[str, str]],
     saver: InMemorySaver,
-) -> tuple[dict[str, object], tuple[str, ...], int, int]:
+) -> tuple[dict[str, object], tuple[str, ...], int, int, str]:
     state = await graph.aget_state(config)
     history = [
         item
         async for item in graph.aget_state_history(config)
     ]
+    interrupts = [
+        item
+        for task in state.tasks
+        for item in task.interrupts
+    ]
+    assert len(interrupts) == 1
+    interrupt_value = interrupts[0].value
+    assert isinstance(interrupt_value, dict)
     return (
         copy.deepcopy(dict(state.values)),
         tuple(state.next),
         len(history),
         len(saver.writes),
+        str(interrupt_value["kind"]),
     )
 
 

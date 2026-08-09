@@ -104,12 +104,53 @@ async def _probe_authority_boundaries(base_url: str) -> None:
             {"resume": {"confirmed": {"nested": True}}},
             "Studio command resume decision is not registered",
         ),
+        (
+            {"resume": {"approved": True}},
+            "Studio resume decision does not match the current interrupt",
+        ),
     ):
         await _assert_server_command_rejected(
             client,
             command,
             expected_message=expected_message,
         )
+
+    approval_thread = await _suspended_thread(client)
+    approval = await client.runs.wait(
+        approval_thread,
+        GRAPH_ID,
+        command={"resume": {"confirmed": True}},
+    )
+    assert _interrupt_kind(approval) == "approval"
+    before_replay = await _server_state_fingerprint(
+        client,
+        approval_thread,
+    )
+    replay = await client.runs.wait(
+        approval_thread,
+        GRAPH_ID,
+        command={"resume": {"confirmed": True}},
+        raise_error=False,
+    )
+    assert replay == {
+        "__error__": {
+            "error": "GraphError",
+            "message": (
+                "Studio resume decision does not match the current interrupt"
+            ),
+        }
+    }
+    after_replay = await _server_state_fingerprint(client, approval_thread)
+    assert after_replay == before_replay
+    replay_values, replay_next, _, _, replay_sequence, replay_status, kind = (
+        after_replay
+    )
+    assert replay_next == ("approval_interrupt",)
+    assert replay_values["artifact_count"] == 0
+    assert "failure_code" not in replay_values
+    assert replay_sequence == 1
+    assert replay_status == "RUNNING"
+    assert kind == "approval"
 
     thread_id = await _suspended_thread(client)
     before = await _server_state_fingerprint(client, thread_id)
@@ -141,6 +182,22 @@ async def _probe_authority_boundaries(base_url: str) -> None:
     assert completed["status"] == "COMPLETED"
     assert completed["checkpoint_sequence"] == 4
     assert completed["retry_count"] == 1
+
+    denied_thread = await _suspended_thread(client)
+    denied_approval = await client.runs.wait(
+        denied_thread,
+        GRAPH_ID,
+        command={"resume": {"confirmed": True}},
+    )
+    assert _interrupt_kind(denied_approval) == "approval"
+    denied = await client.runs.wait(
+        denied_thread,
+        GRAPH_ID,
+        command={"resume": {"approved": False}},
+    )
+    assert denied["status"] == "FAILED"
+    assert denied["failure_code"] == "STUDIO_APPROVAL_DENIED"
+    assert denied["artifact_count"] == 0
 
 
 async def _assert_server_command_rejected(
@@ -182,7 +239,7 @@ async def _suspended_thread(client: Any) -> str:
 async def _server_state_fingerprint(
     client: Any,
     thread_id: str,
-) -> tuple[dict[str, Any], tuple[str, ...], int, bool, int, str]:
+) -> tuple[dict[str, Any], tuple[str, ...], int, bool, int, str, str]:
     state = await client.threads.get_state(thread_id)
     history = await client.threads.get_history(thread_id, limit=100)
     values = copy.deepcopy(dict(state["values"]))
@@ -193,7 +250,20 @@ async def _server_state_fingerprint(
         bool(values["approval_granted"]),
         int(values["checkpoint_sequence"]),
         str(values["status"]),
+        _state_interrupt_kind(state),
     )
+
+
+def _state_interrupt_kind(state: Mapping[str, Any]) -> str:
+    tasks = state.get("tasks")
+    assert isinstance(tasks, list)
+    assert len(tasks) == 1
+    interrupts = tasks[0].get("interrupts")
+    assert isinstance(interrupts, list)
+    assert len(interrupts) == 1
+    value = interrupts[0].get("value")
+    assert isinstance(value, Mapping)
+    return str(value.get("kind"))
 
 
 def _interrupt_kind(result: Mapping[str, Any]) -> str:

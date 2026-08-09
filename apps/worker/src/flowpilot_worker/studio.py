@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
+from functools import wraps
 from typing import Annotated, Any, TypedDict
 
 try:
@@ -17,7 +18,9 @@ try:
         assert_studio_profile_allowed,
         build_flowpilot_it_service_graph,
         debug_projection,
+        debug_projection_frame_fingerprint,
         product_debug_projection,
+        topology_snapshot,
     )
 except ModuleNotFoundError:
     # The Studio Agent Server launches this module inside a langgraph_cli
@@ -48,9 +51,11 @@ except ModuleNotFoundError:
         assert_studio_profile_allowed,
         build_flowpilot_it_service_graph,
         debug_projection,
+        debug_projection_frame_fingerprint,
         product_debug_projection,
+        topology_snapshot,
     )
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 
 from flowpilot_worker.knowledge import KNOWLEDGE_GRAPH_VERSION, KNOWLEDGE_INTENT
 
@@ -85,35 +90,99 @@ _PRODUCTION_ENV_KEYS = frozenset(
         "REDIS_URL",
     }
 )
+_STUDIO_NODE_IDS = frozenset(str(node) for node in topology_snapshot()["nodes"])
 
 
 def _append_visits(
-    left: Sequence[str] | None,
-    right: Sequence[str] | None,
+    left: object,
+    right: object,
 ) -> list[str]:
-    return [*(left or ()), *(right or ())]
+    return [*_validated_visits(left), *_validated_visits(right)]
 
 
 def _merge_frames(
-    left: Sequence[dict[str, Any]] | None,
-    right: Sequence[dict[str, Any]] | None,
+    left: object,
+    right: object,
 ) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
-    for frame in [*(left or ()), *(right or ())]:
-        frame_id = frame.get("frame_id")
-        if isinstance(frame_id, str):
-            merged[frame_id] = frame
+    merged: dict[str, tuple[str, dict[str, Any]]] = {}
+    for frame in [*_validated_frames(left), *_validated_frames(right)]:
+        frame_id = str(frame["frame_id"])
+        fingerprint = debug_projection_frame_fingerprint(frame)
+        existing = merged.get(frame_id)
+        if existing is not None and existing[0] != fingerprint:
+            raise GraphError(
+                GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+                "Studio frame identity was reused with different content",
+            )
+        if existing is None:
+            merged[frame_id] = (fingerprint, frame)
     return sorted(
-        merged.values(),
+        (item[1] for item in merged.values()),
         key=lambda frame: (
-            int(frame.get("step") or 0),
-            str(frame.get("frame_id")),
+            int(frame["step"]),
+            str(frame["frame_id"]),
         ),
     )
 
 
-def _maximum(left: int | None, right: int | None) -> int:
-    return max(left or 0, right or 0)
+def _validated_visits(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise GraphError(
+            GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+            "Studio visited-node state is not a sequence",
+        )
+    result: list[str] = []
+    for node in value:
+        if not isinstance(node, str) or node not in _STUDIO_NODE_IDS:
+            raise GraphError(
+                GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+                "Studio visited-node state contains an unregistered node",
+            )
+        result.append(node)
+    return result
+
+
+def _validated_frames(value: object) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise GraphError(
+            GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+            "Studio debug-frame state is not a sequence",
+        )
+    result: list[dict[str, Any]] = []
+    for raw_frame in value:
+        if not isinstance(raw_frame, Mapping):
+            raise GraphError(
+                GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+                "Studio debug-frame state contains a non-mapping frame",
+            )
+        frame = dict(raw_frame)
+        debug_projection_frame_fingerprint(frame)
+        if frame.get("node") not in _STUDIO_NODE_IDS:
+            raise GraphError(
+                GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+                "Studio debug frame contains an unregistered node",
+            )
+        result.append(frame)
+    return result
+
+
+def _maximum(left: object, right: object) -> int:
+    normalized: list[int] = []
+    for value in (left, right):
+        if value is None:
+            normalized.append(0)
+        elif not isinstance(value, bool) and isinstance(value, int) and value >= 0:
+            normalized.append(value)
+        else:
+            raise GraphError(
+                GraphErrorCode.DEBUG_PROJECTION_UNSAFE,
+                "Studio counter state is invalid",
+            )
+    return max(normalized)
 
 
 class StudioSafeState(TypedDict, total=False):
@@ -197,10 +266,12 @@ class _StudioSafeNodes:
         )
 
     async def prepare(self, raw_state: Mapping[str, Any]) -> Mapping[str, Any]:
-        assert_studio_input_safe(
-            raw_state,
-            expected_profile=self._profile,
+        initial_input = (
+            {"scenario": raw_state["scenario"]}
+            if "scenario" in raw_state
+            else {}
         )
+        assert_studio_input_safe(initial_input, expected_profile=self._profile)
         scenario = raw_state.get("scenario", _DEFAULT_SCENARIO)
         if not isinstance(scenario, str) or scenario not in _SCENARIOS:
             raise GraphError(
@@ -705,6 +776,58 @@ def _product_progress(
     return (5, "terminal", "artifact_writer")
 
 
+def _assert_studio_invocation_input(value: object) -> None:
+    if value is None or isinstance(value, Command):
+        return
+    if not isinstance(value, Mapping):
+        raise GraphError(
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+            "Studio input must be a mapping or a resume command",
+        )
+    assert_studio_input_safe(value, expected_profile=StudioProfile.SAFE)
+    scenario = value.get("scenario")
+    if scenario is not None and scenario not in _SCENARIOS:
+        raise GraphError(
+            GraphErrorCode.STATE_INVALID,
+            "Studio scenario is not registered",
+        )
+
+
+def _install_studio_ingress_guard(compiled_graph: Any) -> None:
+    original_astream = compiled_graph.astream
+    original_copy = compiled_graph.copy
+    original_stream = compiled_graph.stream
+
+    @wraps(original_astream)
+    async def guarded_astream(
+        value: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> AsyncIterator[Any]:
+        _assert_studio_invocation_input(value)
+        async for chunk in original_astream(value, *args, **kwargs):
+            yield chunk
+
+    @wraps(original_stream)
+    def guarded_stream(
+        value: Any,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Iterator[Any]:
+        _assert_studio_invocation_input(value)
+        yield from original_stream(value, *args, **kwargs)
+
+    @wraps(original_copy)
+    def guarded_copy(*args: Any, **kwargs: Any) -> Any:
+        copied_graph = original_copy(*args, **kwargs)
+        _install_studio_ingress_guard(copied_graph)
+        return copied_graph
+
+    compiled_graph.astream = guarded_astream
+    compiled_graph.copy = guarded_copy
+    compiled_graph.stream = guarded_stream
+
+
 def create_studio_graph_definition(
     *,
     checkpointer: Any = None,
@@ -715,11 +838,13 @@ def create_studio_graph_definition(
     assert_studio_profile_allowed(profile)
     _assert_no_production_environment(effective_environment)
     nodes = _StudioSafeNodes(profile)
-    return build_flowpilot_it_service_graph(
+    definition = build_flowpilot_it_service_graph(
         StudioSafeState,
         nodes.as_graph_nodes(),
         checkpointer=checkpointer,
     )
+    _install_studio_ingress_guard(definition.graph)
+    return definition
 
 
 def _profile_from_environment(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 
 import pytest
@@ -12,7 +13,12 @@ from flowpilot_graph import (
     debug_projection,
     product_debug_projection,
 )
-from flowpilot_worker.studio import create_studio_graph_definition
+from flowpilot_worker.studio import (
+    _append_visits,
+    _merge_frames,
+    create_studio_graph_definition,
+)
+from langgraph.checkpoint.memory import InMemorySaver
 
 
 @pytest.mark.parametrize(
@@ -52,7 +58,7 @@ def test_production_profile_state_edit_is_rejected_with_stable_code() -> None:
                     "scenario": "happy_path",
                 }
             )
-        assert captured.value.code is GraphErrorCode.STUDIO_PROFILE_FORBIDDEN
+        assert captured.value.code is GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
 
     asyncio.run(scenario())
 
@@ -65,21 +71,23 @@ def test_production_profile_state_edit_is_rejected_with_stable_code() -> None:
         {"lease_token": "lease-secret"},
         {"api_key": "provider-secret"},
         {"tool_payload": {"write": True}},
+        {"profile": "studio-safe"},
+        {"visited_nodes": ["run_agent"]},
+        {"frame_id": "prepare:1:0:0"},
+        {"studio_input_validated": True},
+        {"reasoning": "hidden-chain"},
     ],
 )
-def test_studio_input_drops_authoritative_or_sensitive_state(
+def test_studio_input_rejects_authoritative_or_sensitive_state(
     forbidden: dict[str, object],
 ) -> None:
     async def scenario() -> None:
         graph = create_studio_graph_definition().graph
-        result = await graph.ainvoke({"scenario": "happy_path", **forbidden})
-        serialized = json.dumps(result, sort_keys=True)
-
-        assert result["status"] == "COMPLETED"
-        for key, value in forbidden.items():
-            assert key not in result
-            if isinstance(value, str):
-                assert value not in serialized
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke({"scenario": "happy_path", **forbidden})
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
 
     asyncio.run(scenario())
 
@@ -131,21 +139,162 @@ def test_debug_projection_is_default_deny_and_opaque() -> None:
         assert forbidden not in serialized
 
 
-def test_unknown_studio_state_remains_hidden_from_every_debug_frame() -> None:
+def test_unknown_studio_state_is_rejected_at_the_input_boundary() -> None:
     async def scenario() -> None:
         graph = create_studio_graph_definition().graph
-        result = await graph.ainvoke(
-            {
-                "scenario": "happy_path",
-                "future_unclassified_state": "hidden-value",
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke(
+                {
+                    "scenario": "happy_path",
+                    "future_unclassified_state": "hidden-value",
+                }
+            )
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "nested_input",
+    [
+        {"scenario": {"payload": {"tenant-id": "tenant-forged"}}},
+        {"scenario": {"payload": [{"access-token": "credential"}]}},
+        {"scenario": {"payload": {"chain-of-thought": "hidden"}}},
+        {"scenario": {"payload": {"visited-nodes": ["run_agent"]}}},
+    ],
+)
+def test_studio_input_recursively_rejects_authority_and_sensitive_keys(
+    nested_input: dict[str, object],
+) -> None:
+    async def scenario() -> None:
+        graph = create_studio_graph_definition().graph
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke(nested_input)
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+
+    asyncio.run(scenario())
+
+
+def test_visited_node_reducer_accepts_only_registered_server_nodes() -> None:
+    assert _append_visits(["prepare"], ["run_agent"]) == [
+        "prepare",
+        "run_agent",
+    ]
+    for forged in (["browser_node"], ["run-agent"], ["reasoning"]):
+        with pytest.raises(GraphError) as captured:
+            _append_visits(["prepare"], forged)
+        assert captured.value.code is GraphErrorCode.DEBUG_PROJECTION_UNSAFE
+
+
+def test_frame_reducer_revalidates_both_sides_and_binds_id_to_fingerprint() -> None:
+    async def valid_frame() -> dict[str, object]:
+        result = await create_studio_graph_definition().graph.ainvoke(
+            {"scenario": "happy_path"}
+        )
+        return copy.deepcopy(result["debug_projection"][0])
+
+    frame = asyncio.run(valid_frame())
+    replayed = _merge_frames([frame], [copy.deepcopy(frame)])
+    assert replayed == [frame]
+
+    same_id_different_content = copy.deepcopy(frame)
+    same_id_different_content["status"] = "FAILED"
+    with pytest.raises(GraphError) as collision:
+        _merge_frames([frame], [same_id_different_content])
+    assert collision.value.code is GraphErrorCode.DEBUG_PROJECTION_UNSAFE
+
+    damaged_left = copy.deepcopy(frame)
+    damaged_left["reasoning"] = "persisted-hidden-chain"
+    with pytest.raises(GraphError) as left_failure:
+        _merge_frames([damaged_left], [frame])
+    assert left_failure.value.code is GraphErrorCode.DEBUG_PROJECTION_UNSAFE
+
+    damaged_right = copy.deepcopy(frame)
+    damaged_right["node"] = "browser_node"
+    with pytest.raises(GraphError) as right_failure:
+        _merge_frames([frame], [damaged_right])
+    assert right_failure.value.code is GraphErrorCode.DEBUG_PROJECTION_UNSAFE
+
+    assert frame["status"] == "RUNNING"
+    assert "reasoning" not in frame
+
+
+def test_browser_cannot_seed_a_valid_server_frame() -> None:
+    async def scenario() -> None:
+        source = await create_studio_graph_definition().graph.ainvoke(
+            {"scenario": "happy_path"}
+        )
+        forged_frame = copy.deepcopy(source["debug_projection"][0])
+        graph = create_studio_graph_definition().graph
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke(
+                {
+                    "scenario": "happy_path",
+                    "debug_projection": [forged_frame],
+                }
+            )
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+        assert len(source["debug_projection"]) > 0
+        assert forged_frame == source["debug_projection"][0]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("server_copy", [False, True])
+def test_rejected_browser_authority_has_zero_applied_retention(
+    server_copy: bool,
+) -> None:
+    async def scenario() -> None:
+        saver = InMemorySaver()
+        if server_copy:
+            graph = create_studio_graph_definition().graph.copy(
+                update={"checkpointer": saver}
+            )
+        else:
+            graph = create_studio_graph_definition(checkpointer=saver).graph
+        config = {
+            "configurable": {
+                "thread_id": "studio-rejected-browser-authority",
             }
+        }
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke(
+                {
+                    "scenario": "happy_path",
+                    "profile": "production",
+                    "tenant_id": "tenant-forged",
+                    "credential": "credential-forged",
+                    "reasoning": "hidden-chain-forged",
+                    "visited_nodes": ["run_agent"],
+                    "debug_projection": [
+                        {
+                            "frame_id": "prepare:1:0:0",
+                            "reasoning": "frame-hidden-chain",
+                        }
+                    ],
+                },
+                config=config,
+            )
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
         )
-        serialized = json.dumps(
-            result["debug_projection"],
-            sort_keys=True,
-        )
-        assert "future_unclassified_state" not in serialized
-        assert "hidden-value" not in serialized
+
+        snapshot = await graph.aget_state(config)
+        values = dict(snapshot.values)
+        assert values == {}
+        assert snapshot.next == ()
+        assert sum(
+            len(checkpoints)
+            for namespaces in saver.storage.values()
+            for checkpoints in namespaces.values()
+        ) == 0
+        assert len(saver.writes) == 0
 
     asyncio.run(scenario())
 

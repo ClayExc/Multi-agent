@@ -14,6 +14,14 @@ from .state import GraphState
 _STABLE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,127}$")
 _STABLE_NODE = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 _STABLE_IDENTIFIER = re.compile(r"^[a-z][a-z0-9._-]{1,127}$")
+_FRAME_ID = re.compile(
+    r"^(?P<node>[a-z][a-z0-9_]{1,63}):"
+    r"(?P<step>[1-9][0-9]*):"
+    r"(?P<retry>[0-9]+):"
+    r"(?P<sequence>[0-9]+)$"
+)
+_OPAQUE_TASK_REF = re.compile(r"^task://sha256/[0-9a-f]{16}$")
+_STUDIO_INPUT_FIELDS = frozenset({"scenario"})
 _AUTHORITY_FIELDS = frozenset(
     {
         "action",
@@ -46,10 +54,114 @@ _SENSITIVE_NAME_FRAGMENTS = (
     "private_key",
     "provider_session",
     "raw_context",
+    "reasoning",
     "refresh_token",
     "secret",
     "session_ref",
+    "chain_of_thought",
 )
+_STUDIO_SERVER_DERIVED_FIELDS = frozenset(
+    {
+        "active_actor",
+        "approval_granted",
+        "approval_required",
+        "artifact_count",
+        "budget_remaining",
+        "checkpoint_sequence",
+        "citation_count",
+        "compensation_status",
+        "context_layers",
+        "context_rebuilt",
+        "context_token_budget",
+        "current_node",
+        "debug_projection",
+        "failure_code",
+        "frame_id",
+        "graph_id",
+        "graph_version",
+        "handoff_count",
+        "handoff_reason",
+        "input_complete",
+        "intent",
+        "interrupt_kind",
+        "interrupt_resolved",
+        "knowledge_call_count",
+        "knowledge_read_complete",
+        "lease_status",
+        "maximum_retries",
+        "model_call_count",
+        "profile",
+        "progress_phase",
+        "progress_step",
+        "progress_total",
+        "reads_complete",
+        "recovery_resumed",
+        "retry_count",
+        "route",
+        "run_generation",
+        "runtime_outcome",
+        "service_read_complete",
+        "service_read_skipped",
+        "status",
+        "step",
+        "step_count",
+        "studio_input_validated",
+        "studio_input_error_code",
+        "studio_input_error_message",
+        "task_ref",
+        "terminal_reason",
+        "tool_mode",
+        "tool_scope_rebuilt",
+        "tool_stage",
+        "trim_reason_code",
+        "visited_nodes",
+    }
+)
+_BASE_FRAME_FIELDS = frozenset(
+    {
+        "budget",
+        "context",
+        "failure_code",
+        "frame_id",
+        "handoff",
+        "interrupt",
+        "knowledge",
+        "node",
+        "profile",
+        "recovery",
+        "route",
+        "schema",
+        "status",
+        "step",
+        "terminal_reason",
+        "tools",
+    }
+)
+_PRODUCT_FRAME_FIELDS = frozenset(
+    {"model", "progress", "references", "workflow"}
+)
+_FRAME_MAPPING_FIELDS = {
+    "budget": frozenset(
+        {"maximum_retries", "remaining_steps", "retry_count"}
+    ),
+    "context": frozenset({"layers", "token_budget", "trim_reason_code"}),
+    "handoff": frozenset(
+        {"context_rebuilt", "count", "reason_code", "tool_scope_rebuilt"}
+    ),
+    "interrupt": frozenset({"kind", "resolved"}),
+    "knowledge": frozenset(
+        {"call_count", "citation_count", "service_read_skipped"}
+    ),
+    "model": frozenset({"call_count", "outcome"}),
+    "progress": frozenset({"current_step", "phase", "total_steps"}),
+    "references": frozenset({"artifact_count", "citation_count"}),
+    "tools": frozenset({"mode", "stage"}),
+    "workflow": frozenset({"actor", "graph_id", "graph_version", "intent"}),
+}
+_RECOVERY_BASE_FIELDS = frozenset(
+    {"checkpoint_sequence", "lease_status", "run_generation", "task_ref"}
+)
+_CONTEXT_LAYER_FIELDS = frozenset({"L0", "L1", "L2"})
 
 
 class StudioProfile(StrEnum):
@@ -218,24 +330,119 @@ def assert_studio_input_safe(
     *,
     expected_profile: StudioProfile,
 ) -> None:
-    requested_profile = state.get("profile")
-    if (
-        requested_profile is not None
-        and requested_profile != expected_profile.value
-    ):
+    del expected_profile
+    if "profile" in state:
         raise GraphError(
-            GraphErrorCode.STUDIO_PROFILE_FORBIDDEN,
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
             "Studio input cannot select another execution profile",
         )
-    for key in state:
-        normalized = str(key).lower()
-        if normalized in _AUTHORITY_FIELDS or any(
-            fragment in normalized for fragment in _SENSITIVE_NAME_FRAGMENTS
+    _assert_studio_value_safe(state)
+    if (
+        any(not isinstance(key, str) for key in state)
+        or set(state) - _STUDIO_INPUT_FIELDS
+    ):
+        raise GraphError(
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+            "Studio input contains a field that is not registered",
+        )
+    scenario = state.get("scenario")
+    if scenario is not None and not isinstance(scenario, str):
+        raise GraphError(
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+            "Studio scenario must be a registered string",
+        )
+
+
+def assert_debug_projection_frame_safe(frame: Mapping[str, Any]) -> None:
+    """Validate a persisted Studio frame before any reducer accepts it."""
+
+    _assert_projection_safe(frame)
+    fields = frozenset(frame)
+    is_product = bool(fields & _PRODUCT_FRAME_FIELDS)
+    expected_fields = _BASE_FRAME_FIELDS | (
+        _PRODUCT_FRAME_FIELDS if is_product else frozenset()
+    )
+    if fields != expected_fields or any(
+        not isinstance(key, str) for key in frame
+    ):
+        raise _unsafe_frame("debug frame fields are not registered")
+    if (
+        frame.get("schema") != "flowpilot.debug-projection.v1"
+        or frame.get("profile") != StudioProfile.SAFE.value
+    ):
+        raise _unsafe_frame("debug frame schema or profile is invalid")
+
+    for field, expected_nested_fields in _FRAME_MAPPING_FIELDS.items():
+        if field not in frame:
+            continue
+        nested = frame.get(field)
+        if not isinstance(nested, Mapping) or frozenset(nested) != (
+            expected_nested_fields
         ):
-            raise GraphError(
-                GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
-                "Studio input contains an authoritative or sensitive field",
-            )
+            raise _unsafe_frame("debug frame nested fields are invalid")
+    recovery = frame.get("recovery")
+    expected_recovery = _RECOVERY_BASE_FIELDS | (
+        frozenset({"resumed"}) if is_product else frozenset()
+    )
+    if not isinstance(recovery, Mapping) or frozenset(recovery) != (
+        expected_recovery
+    ):
+        raise _unsafe_frame("debug frame recovery fields are invalid")
+    context = frame.get("context")
+    layers = context.get("layers") if isinstance(context, Mapping) else None
+    if not isinstance(layers, Mapping) or frozenset(layers) != (
+        _CONTEXT_LAYER_FIELDS
+    ) or any(not isinstance(value, bool) for value in layers.values()):
+        raise _unsafe_frame("debug frame context layers are invalid")
+    if not _frame_scalar_shapes_are_valid(frame, is_product=is_product):
+        raise _unsafe_frame("debug frame scalar values are invalid")
+
+    frame_id = frame.get("frame_id")
+    node = frame.get("node")
+    step = frame.get("step")
+    budget = frame.get("budget")
+    retry = budget.get("retry_count") if isinstance(budget, Mapping) else None
+    sequence = (
+        recovery.get("checkpoint_sequence")
+        if isinstance(recovery, Mapping)
+        else None
+    )
+    matched = _FRAME_ID.fullmatch(frame_id) if isinstance(frame_id, str) else None
+    if (
+        matched is None
+        or not isinstance(node, str)
+        or _STABLE_NODE.fullmatch(node) is None
+        or isinstance(step, bool)
+        or not isinstance(step, int)
+        or step < 1
+        or isinstance(retry, bool)
+        or not isinstance(retry, int)
+        or retry < 0
+        or isinstance(sequence, bool)
+        or not isinstance(sequence, int)
+        or sequence < 0
+        or matched.group("node") != node
+        or int(matched.group("step")) != step
+        or int(matched.group("retry")) != retry
+        or int(matched.group("sequence")) != sequence
+    ):
+        raise _unsafe_frame("debug frame identity binding is invalid")
+    try:
+        encoded = json.dumps(
+            frame,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    except (TypeError, ValueError) as exc:
+        raise _unsafe_frame("debug frame is not JSON-safe") from exc
+    if len(encoded) > 16_384:
+        raise _unsafe_frame("debug frame exceeds the safe size limit")
+
+
+def debug_projection_frame_fingerprint(frame: Mapping[str, Any]) -> str:
+    assert_debug_projection_frame_safe(frame)
+    return projection_digest(frame)
 
 
 def assert_studio_profile_allowed(profile: StudioProfile) -> None:
@@ -260,6 +467,140 @@ def projection_digest(value: Mapping[str, Any]) -> str:
         sort_keys=True,
     ).encode()
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _assert_studio_value_safe(value: object) -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            normalized = _normalized_key(key)
+            if (
+                normalized in _AUTHORITY_FIELDS
+                or normalized in _STUDIO_SERVER_DERIVED_FIELDS
+                or any(
+                    fragment in normalized
+                    for fragment in _SENSITIVE_NAME_FRAGMENTS
+                )
+            ):
+                raise GraphError(
+                    GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+                    "Studio input contains authoritative or sensitive state",
+                )
+            _assert_studio_value_safe(child)
+    elif isinstance(value, (tuple, list)):
+        for child in value:
+            _assert_studio_value_safe(child)
+
+
+def _normalized_key(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+
+def _frame_scalar_shapes_are_valid(
+    frame: Mapping[str, Any],
+    *,
+    is_product: bool,
+) -> bool:
+    budget = frame["budget"]
+    recovery = frame["recovery"]
+    interrupt_state = frame["interrupt"]
+    handoff = frame["handoff"]
+    context = frame["context"]
+    tools = frame["tools"]
+    knowledge = frame["knowledge"]
+    if not all(
+        isinstance(item, Mapping)
+        for item in (
+            budget,
+            recovery,
+            interrupt_state,
+            handoff,
+            context,
+            tools,
+            knowledge,
+        )
+    ):
+        return False
+    if not (
+        _matches(frame.get("node"), _STABLE_NODE)
+        and _matches_optional(frame.get("route"), _STABLE_NODE)
+        and _matches(frame.get("status"), _STABLE_CODE)
+        and _matches_optional(frame.get("terminal_reason"), _STABLE_CODE)
+        and _matches_optional(frame.get("failure_code"), _STABLE_CODE)
+        and all(
+            _is_non_negative_int(budget.get(key))
+            for key in ("remaining_steps", "retry_count", "maximum_retries")
+        )
+        and _matches_optional(recovery.get("task_ref"), _OPAQUE_TASK_REF)
+        and _is_non_negative_int(recovery.get("checkpoint_sequence"))
+        and _is_positive_int(recovery.get("run_generation"))
+        and _matches_optional(recovery.get("lease_status"), _STABLE_NODE)
+        and _matches_optional(interrupt_state.get("kind"), _STABLE_NODE)
+        and isinstance(interrupt_state.get("resolved"), bool)
+        and _is_non_negative_int(handoff.get("count"))
+        and _matches_optional(handoff.get("reason_code"), _STABLE_CODE)
+        and isinstance(handoff.get("context_rebuilt"), bool)
+        and isinstance(handoff.get("tool_scope_rebuilt"), bool)
+        and _is_optional_non_negative_int(context.get("token_budget"))
+        and _matches_optional(context.get("trim_reason_code"), _STABLE_CODE)
+        and _matches_optional(tools.get("mode"), _STABLE_NODE)
+        and _matches_optional(tools.get("stage"), _STABLE_NODE)
+        and _is_non_negative_int(knowledge.get("call_count"))
+        and _is_non_negative_int(knowledge.get("citation_count"))
+        and isinstance(knowledge.get("service_read_skipped"), bool)
+    ):
+        return False
+    if not is_product:
+        return True
+    workflow = frame["workflow"]
+    progress = frame["progress"]
+    model = frame["model"]
+    references = frame["references"]
+    return (
+        isinstance(workflow, Mapping)
+        and isinstance(progress, Mapping)
+        and isinstance(model, Mapping)
+        and isinstance(references, Mapping)
+        and _matches(workflow.get("graph_id"), _STABLE_IDENTIFIER)
+        and _matches(workflow.get("graph_version"), _STABLE_IDENTIFIER)
+        and _matches(workflow.get("intent"), _STABLE_NODE)
+        and _matches(workflow.get("actor"), _STABLE_NODE)
+        and _is_positive_int(progress.get("current_step"))
+        and _is_positive_int(progress.get("total_steps"))
+        and _matches(progress.get("phase"), _STABLE_NODE)
+        and _is_non_negative_int(model.get("call_count"))
+        and _matches_optional(model.get("outcome"), _STABLE_NODE)
+        and _is_non_negative_int(references.get("citation_count"))
+        and _is_non_negative_int(references.get("artifact_count"))
+        and isinstance(recovery.get("resumed"), bool)
+    )
+
+
+def _matches(value: object, pattern: re.Pattern[str]) -> bool:
+    return isinstance(value, str) and pattern.fullmatch(value) is not None
+
+
+def _matches_optional(value: object, pattern: re.Pattern[str]) -> bool:
+    return value is None or _matches(value, pattern)
+
+
+def _is_non_negative_int(value: object) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and value >= 0
+
+
+def _is_positive_int(value: object) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, int)
+        and value > 0
+    )
+
+
+def _is_optional_non_negative_int(value: object) -> bool:
+    return value is None or _is_non_negative_int(value)
+
+
+def _unsafe_frame(message: str) -> GraphError:
+    return GraphError(GraphErrorCode.DEBUG_PROJECTION_UNSAFE, message)
 
 
 def _opaque_ref(kind: str, value: object) -> str | None:

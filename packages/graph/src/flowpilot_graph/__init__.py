@@ -1,9 +1,11 @@
 from .debug import (
     DebugProjectionPolicy,
     StudioProfile,
+    assert_debug_projection_frame_safe,
     assert_studio_input_safe,
     assert_studio_profile_allowed,
     debug_projection,
+    debug_projection_frame_fingerprint,
     product_debug_projection,
     projection_digest,
 )
@@ -137,6 +139,7 @@ __all__ = [
     "TICKET_CREATE_SCHEMA_PIN",
     "TICKET_CREATE_TOOL",
     "assert_same_graph_factory",
+    "assert_debug_projection_frame_safe",
     "assert_studio_input_safe",
     "assert_studio_profile_allowed",
     "assert_checkpoint_safe",
@@ -145,6 +148,7 @@ __all__ = [
     "build_onboarding_read_call",
     "build_onboarding_write_call",
     "debug_projection",
+    "debug_projection_frame_fingerprint",
     "product_debug_projection",
     "plan_onboarding_sub_actions",
     "projection_digest",

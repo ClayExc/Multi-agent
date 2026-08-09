@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from .credentials import _safe_root_path, assert_no_secret_material
 from .errors import SecurityError, SecurityErrorCode
 
 _FORBIDDEN_KEYS = frozenset(
@@ -30,14 +30,6 @@ _FORBIDDEN_KEYS = frozenset(
         "tool_output",
     }
 )
-_SECRET_PATTERNS = (
-    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{12,}"),
-    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
-    re.compile(r"(?i)\b(?:api[_-]?key|password|secret)\s*[:=]\s*\S+"),
-    re.compile(r"(?i)\b(?:sk|ghp|xox[baprs])[-_][A-Za-z0-9]{16,}"),
-)
-
-
 def _forbidden_key(key: str) -> bool:
     normalized = key.casefold().replace("-", "_")
     return normalized in _FORBIDDEN_KEYS or normalized.endswith(
@@ -58,7 +50,7 @@ def _forbidden_key(key: str) -> bool:
     )
 
 
-def assert_safe_projection(value: Any, *, field: str = "projection") -> None:
+def _assert_safe_projection_fields(value: Any, *, field: str) -> None:
     if isinstance(value, Mapping):
         for key, child in value.items():
             if not isinstance(key, str):
@@ -71,18 +63,18 @@ def assert_safe_projection(value: Any, *, field: str = "projection") -> None:
                     SecurityErrorCode.UNSAFE_PROJECTION,
                     f"{field} contains a forbidden field",
                 )
-            assert_safe_projection(child, field=field)
+            _assert_safe_projection_fields(child, field=field)
         return
     if isinstance(value, Sequence) and not isinstance(
         value, (str, bytes, bytearray)
     ):
         for child in value:
-            assert_safe_projection(child, field=field)
-        return
-    if isinstance(value, str) and any(
-        pattern.search(value) for pattern in _SECRET_PATTERNS
-    ):
-        raise SecurityError(
-            SecurityErrorCode.UNSAFE_PROJECTION,
-            f"{field} contains secret-like material",
-        )
+            _assert_safe_projection_fields(child, field=field)
+
+
+def assert_safe_projection(value: Any, *, field: str = "projection") -> None:
+    """Compatibility wrapper for projection fields and credential material."""
+
+    safe_field = _safe_root_path(field)
+    _assert_safe_projection_fields(value, field=safe_field)
+    assert_no_secret_material(value, field=safe_field)

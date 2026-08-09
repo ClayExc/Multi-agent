@@ -1,0 +1,137 @@
+{
+  "schema": "flowpilot.wp072a1-web-studio-proof.v1",
+  "chain_id": "CHAIN-M7-LOCAL-PRODUCT-01",
+  "step_id": "M7-09-S4-WEB-STUDIO-RESUME",
+  "attempt_id": "WP-072-a1",
+  "session_role": "S4-QUALITY",
+  "agent_id": "experience-builder",
+  "input_head": "e95eeba72a7c03637f63a99fbc3648819d3d30db",
+  "implementation_head": "b7cedbc63e338dfd225557208ecb2f0737a7e792",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "feature_ids": [
+    "FP-FLOW-002",
+    "FP-FLOW-004",
+    "FP-OBS-001",
+    "FP-OBS-002"
+  ],
+  "upstream_evidence": {
+    "s2_handoff": "tests/runtime/evidence/WP-072-a1-LATEST-CHECKPOINT-HANDOFF.md",
+    "s2_handoff_sha256": "sha256:bf7101930920be21fc31634c70999456aa9c0afdc9e6d7409c8d4b032ad58a06",
+    "s3_handoff": "tests/platform/evidence/WP-074-a2-HANDOFF.md",
+    "s3_handoff_sha256": "sha256:ca8bf8a4cf2bc0ba8e344b0ac19cdd88b8648dda482b20baba9401d56ead3dcc",
+    "s5_handoff": "tests/core/evidence/WP-074-a3-HANDOFF.md",
+    "s5_handoff_sha256": "sha256:a79ff2b8efbac270aed0d68775d9062e43214bcf43dca127fbe142e9e6f5ed6e"
+  },
+  "scope": {
+    "release_gate": false,
+    "contract_change": false,
+    "database_change": false,
+    "shared_file_change": false,
+    "online_provider_smoke_executed": false,
+    "online_provider_calls": 0,
+    "paid_provider_calls": 0
+  },
+  "web_live_blackbox": {
+    "authoritative_task_refreshed_after_each_event": true,
+    "server_owned_tenant_forwarded": true,
+    "browser_tenant_authority_forwarded_count": 0,
+    "browser_raw_task_command_accepted_count": 0,
+    "last_event_id_reconnect_preserved": true,
+    "duplicate_event_id_conflict_rejected": true,
+    "duplicate_task_sequence_conflict_rejected": true,
+    "sequence_gap_detected_and_refreshed": true,
+    "multi_interrupt_statuses": [
+      "WAITING_USER",
+      "WAITING_APPROVAL",
+      "COMPLETED"
+    ],
+    "cross_tenant_event_accepted_count": 0,
+    "cross_tenant_task_accepted_count": 0
+  },
+  "studio_blackbox": {
+    "graph_id": "flowpilot_it_service",
+    "safe_projection_stage_count": 5,
+    "interrupt_count": 2,
+    "debug_projection_frame_count": 18,
+    "checkpoint_history_count": 19,
+    "unknown_or_authority_input_persisted_count": 0,
+    "wrong_kind_resume_state_change_count": 0,
+    "stale_resume_state_change_count": 0,
+    "historical_checkpoint_replay_state_change_count": 0,
+    "historical_checkpoint_replay_history_change_count": 0,
+    "historical_checkpoint_replay_write_count": 0,
+    "terminal_historical_replay_state_change_count": 0,
+    "terminal_historical_replay_history_change_count": 0,
+    "terminal_historical_replay_write_count": 0
+  },
+  "safe_event_security_recomputation": {
+    "unknown_field_or_value_output_count": 0,
+    "invalid_shape_raw_output_count": 0,
+    "unknown_event_type_raw_output_count": 0,
+    "unknown_producer_raw_output_count": 0,
+    "unknown_classification_raw_output_count": 0,
+    "credential_family_construction_success_count": 0,
+    "credential_family_stream_output_count": 0,
+    "credential_family_subscriber_output_count": 0,
+    "credential_family_replay_output_count": 0,
+    "credential_family_log_output_count": 0,
+    "valid_business_ids_xoxo_xoxz_accepted": true,
+    "valid_opaque_reference_delivered": true
+  },
+  "test_results": [
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/experience tests/acceptance/m7 -q",
+      "result": "PASS",
+      "summary": "77 passed"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/studio -q",
+      "result": "PASS",
+      "summary": "4 passed in 30.33s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "265 passed in 46.34s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest -q",
+      "result": "PASS",
+      "summary": "1327 passed, 1 explicit online provider smoke skip in 200.66s"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test-contract",
+      "result": "PASS",
+      "summary": "20 schemas; 35 cases; 43 semantic negative cases; 52 features"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test-security",
+      "result": "PASS",
+      "summary": "163 passed in 5.82s"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 lint",
+      "result": "PASS",
+      "summary": "Ruff PASS; strict Mypy PASS for 129 source files"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/experience/test_secret_scan.py -q",
+      "result": "PASS",
+      "summary": "2 passed in 0.29s"
+    },
+    {
+      "command": "make acceptance",
+      "result": "NOT_RUN",
+      "summary": "M7 fixed-denominator release acceptance remains assigned to WP-073"
+    }
+  ],
+  "encoding_and_safety_gates": {
+    "utf8": true,
+    "lf": true,
+    "bom": false,
+    "json_duplicate_keys": 0,
+    "high_confidence_secret_matches": 0,
+    "langgraph_api_residual": false,
+    "git_diff_check": "PASS"
+  }
+}

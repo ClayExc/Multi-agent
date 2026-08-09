@@ -39,6 +39,10 @@ python scripts/acceptance/generate_bundle.py \
    都会规范化到 `execution/` 下；路径逃逸、重复、冲突或缺失都会被拒绝，合法引用
    则纳入该哈希映射。
 
+M7 当前只为 24 条企业知识问答 Case 注册真实产品执行器。其余 132 条虽然尚未
+实现，仍留在固定分母并以 `EXECUTOR_NOT_REGISTERED` 失败；因此本步骤不会把部分
+产品覆盖误报为 M7 RELEASE。
+
 使用方式：
 
 ```text

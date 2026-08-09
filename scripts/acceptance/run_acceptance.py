@@ -48,6 +48,10 @@ from packages.evaluation.execution import (  # noqa: E402
 from packages.evaluation.incremental_a import load_cases as load_a  # noqa: E402
 from packages.evaluation.incremental_b import load_cases as load_b  # noqa: E402
 from packages.evaluation.incremental_c import load_cases as load_c  # noqa: E402
+from packages.evaluation.m7_product import (  # noqa: E402
+    M7_SUPPORTED_CASE_COUNT,
+    M7EnterpriseKnowledgeExecutor,
+)
 from packages.evaluation.reporting import (  # noqa: E402
     AssertionOutcome,
     CaseResult,
@@ -375,7 +379,12 @@ def main() -> int:
 
     print("== 2/4 候选确定性判定（156 逐候选） ==")
     validator = OfflineRepositoryValidator(ROOT)
-    executors = CaseExecutorRegistry()
+    m7_executor = M7EnterpriseKnowledgeExecutor(ROOT)
+    executors = CaseExecutorRegistry([m7_executor])
+    print(
+        f"  已注册 M7 企业知识产品执行器: {M7_SUPPORTED_CASE_COUNT} 条；"
+        f"其余 {len(cases) - M7_SUPPORTED_CASE_COUNT} 条未实现 Case 保持显式失败"
+    )
     execution_evidence_root = output / "execution"
     execution_evidence_root.mkdir(parents=True, exist_ok=True)
     judge_calibrated = _judge_is_calibrated()
@@ -443,6 +452,10 @@ def main() -> int:
             + b"\n"
             for item in execution_results
         )
+    )
+    executor_registry_path = eval_dir / "executor-registry.json"
+    executor_registry_path.write_bytes(
+        stable_json_bytes(m7_executor.registration())
     )
     print(f"  判定清单: {verdicts_path}")
     if failures:
@@ -518,6 +531,7 @@ def main() -> int:
         for suite_result in test_results
     )
     extra_artifacts: dict[str, Path] = {
+        "eval/executor-registry.json": executor_registry_path,
         "eval/verdicts.json": verdicts_path,
         "eval/execution-results.jsonl": execution_results_path,
     }

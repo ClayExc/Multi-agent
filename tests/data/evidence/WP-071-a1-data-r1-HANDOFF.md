@@ -9,11 +9,12 @@
 - DEDUP Key：
   `CHAIN-M7-LOCAL-PRODUCT-01/M7-06R-S6-TASK-INITIALIZATION/WP-071-a1-data-r1/726f875ab689eca3627a96af2efe8137fb1756de`
 - 责任会话：S6-DATA
-- 接收会话：S7-INTEGRATION
+- 接收会话：S2-RUNTIME
 - 交接策略：ORDERED_LOCAL_REPAIR
 - 功能 ID：FP-FLOW-001、FP-FLOW-005、FP-OBS-001、FP-OPS-001
 - 输入提交：`726f875ab689eca3627a96af2efe8137fb1756de`
 - 实现提交：`ac8220fc34f306c0a92ac780c4d5d87aa803055e`
+- S7 验证器提交：`3e0d2793e2183dfdce2ce4d7adfa873acd12fe2a`
 - 分支：`codex/s6/wp-071-data-composition`
 - 最终提交：本文件所在提交；精确 SHA 由唤醒信封返回
 - ContractSet 摘要：
@@ -21,7 +22,7 @@
 - Context 模式：DELTA；Context Base
   `37186a75965a7b46e0f49ef1eada86fb7518700d`
 - S1 裁决：`ACCEPT_IMPLEMENTATION_PENDING_EXTERNAL_VALIDATOR`
-- 状态：S6 候选完成；`FULL_GATE=BLOCKED_BY_OUTDATED_S7_VALIDATOR`
+- 状态：完成；`FULL_GATE=PASS`
 
 ## 完成内容
 
@@ -47,11 +48,10 @@
 
 ## 未完成与非目标
 
-- 未修改 `scripts/integration/**` 或 `tests/integration/**`。旧 WP-040 验证器仍固定
-  0002 为 Migration Head 并固定 0002 down 文件哈希，必须由 S7 在下一有序步骤
-  更新后复算确定性报告。
-- 在 S7 修复旧验证器并由 S6 复跑全部门禁前，不唤醒 S2，不恢复
-  `WP-071-a1-runtime`，也不宣称 WP-071 联合门禁通过。
+- S6 未修改 `scripts/integration/**` 或 `tests/integration/**`；S7 已在独占 Step
+  `WP-040-migration-r1` 更新旧迁移清单、文件哈希、线性 Head 与后继保护证据。
+- S6 已精确消费 S7 Head 并复跑原 3 个失败、Data 与全仓门禁；本 Handoff 解锁
+  原 S2 `WP-071-a1-runtime`，但仍不表示完整 WP-071 或 M7 发布完成。
 - 本 Step 不实现 Worker Tx-B、LangGraph、Provider/MCP、OIDC、生产 HA/TLS、备份
   或灾难恢复；在线 Provider smoke 保持关闭，真实 Provider/付费调用为 0。
 
@@ -78,6 +78,10 @@
 | `tests/data/integration/verify_postgres_adapter.py` | 真实 Tx-A、重放与双故障回滚 | S6-DATA |
 | `tests/data/evidence/WP-071-a1-data-r1-HANDOFF.md` | 本交接 | S6-DATA |
 
+组合输入：S7 在 `3e0d2793e2183dfdce2ce4d7adfa873acd12fe2a` 中只修改
+`scripts/integration/**`、`tests/integration/**`，其独立交接为
+`tests/integration/evidence/WP-040-migration-r1-HANDOFF.md`。
+
 ## 契约、数据库与配置变化
 
 - 公共契约：无修改；ContractSet 摘要保持不变。
@@ -99,7 +103,10 @@
 | 命令/证据 | 结果 |
 |---|---|
 | `uv run pytest tests/data -q` | PASS：85 passed |
-| 全仓 `uv ... pytest -q` | BLOCKED：836 passed、1 explicit online skip、3 failed；失败仅为旧 WP-040 迁移清单/固定报告哈希 |
+| S7 修复前全仓 `uv ... pytest -q` | EXPECTED BLOCKED：836 passed、1 explicit online skip、3 个旧 WP-040 迁移清单/固定报告哈希失败 |
+| S7 修复后 `pytest tests/integration/test_wp040_composition.py -q` | PASS：35 passed，原 3 个失败全部关闭 |
+| S7 修复后 `pytest tests/data -q` | PASS：85 passed |
+| S7 修复后全仓 `uv ... pytest -q` | PASS：840 passed、1 explicit online skip、0 failed |
 | `scripts/quality.ps1 lint` | PASS：Ruff；strict Mypy 122 source files |
 | `scripts/quality.ps1 test-contract` | PASS：20 schemas、35 cases、52 features |
 | `scripts/quality.ps1 test-security` | PASS：116 passed |
@@ -111,15 +118,17 @@
 | `tests/data/integration/verify_postgres.sql` | PASS：API 最小权限、RLS 跨租户写入 0，既有安全负例保持通过 |
 | `tests/data/integration/verify_postgres_adapter.py` | PASS：`POSTGRES_ADAPTER_OK`；Task v0、重放、双故障回滚、Checkpoint/Fence、Ledger、协调重建通过 |
 
-## 全仓阻断证据
+## 外部验证器阻断关闭证据
 
-- `tests/integration/test_wp040_composition.py` 有 3 个失败：候选 Verdict、固定
-  manifest/report 哈希、S1 final Verdict。
-- 验证器内部实际失败检查只有：
+- 修复前 `tests/integration/test_wp040_composition.py` 有 3 个失败：候选 Verdict、
+  固定 manifest/report 哈希、S1 final Verdict；底层失败检查只有：
   - `migrations.file_hashes`：旧清单固定 0002 down 哈希；
   - `migrations.linear_head`：旧清单固定 0002 为 Head，实际授权 Head 为 0003。
-- S1 已确认 0003 是授权的单线性后继，且 0002 down 的后继保护是必要安全变化；
-  不允许豁免此门禁，应由 S7 更新独占验证器后重新复算。
+- S1 确认 0003 是授权的单线性后继，且 0002 down 的后继保护是必要安全变化。
+- S7 没有豁免门禁：验证器现固定校验 0001→0002→0003、0002 down 与 0003
+  up/down 文件哈希、0002 down 实际后继保护；候选/S1-final 的分支、祖先、产品、
+  Contract、输入 Heads、Lock/Migration 保护继续失败关闭。
+- S6 在精确 S7 Head 上复跑后，原 3 个失败为 35/35 PASS，全仓为 840 PASS。
 
 ## 安全与失败路径
 
@@ -134,8 +143,6 @@
 
 ## 已知风险
 
-- P1：旧 S7 WP-040 迁移验证器尚未识别 0003；在其更新并由 S6 复跑全仓前，
-  当前候选不能继续到 S2。
 - P2：本地 Compose 证据不等于生产 HA、TLS、备份或灾难恢复。
 - P2：Worker Tx-B 尚未在本轮恢复；S2 必须继续保证首 Checkpoint 与
   `task.created.v1` 同事务，且不得重复发布事件。
@@ -144,22 +151,21 @@
 
 `LEARNING_CANDIDATE=none`
 
-## S7 下一步
+## S2 下一步
 
-1. 核验本 S6 最终 Head、Handoff SHA256、ContractSet、线性祖先、授权范围和 clean
-   状态；只用 `--ff-only` 精确到达 S6 Head。
-2. 在 `M7-06V-S7-MIGRATION-VERIFIER` / `WP-040-migration-r1` 中只修改
-   `scripts/integration/**`、`tests/integration/**`，将 WP-040 迁移清单更新为授权的
-   `0001 -> 0002 -> 0003`，复算必要的文件哈希与确定性报告哈希。
-3. 不修改 S6 Migration、RLS、Port 或事务实现；验证器必须继续失败关闭，不能跳过
-   Migration Head、文件哈希或 S1 final 检查。
-4. S7 PASS 后回唤当前 S6；S6 将 `--ff-only` 消费精确 S7 Head，复跑原 3 个失败、
-   Data 门禁和全仓门禁。全部 PASS 后才唤醒原 S2 `WP-071-a1-runtime`。
+1. 核验最终 Head、本 Handoff SHA256、ContractSet、线性祖先、授权范围和 clean
+   状态；只用 `--ff-only` 精确到达 S6 最终 Head。
+2. 恢复原 `WP-071-a1-runtime`，使用 S5 已定义的可信 Task 初始化配置与 server-owned
+   thread factory，并消费现有三类 Application UoW 工厂。
+3. Worker Tx-B 必须把首 Checkpoint 与唯一 `task.created.v1` Outbox 同事务提交；
+   不得在 Tx-A 发布事件，不得生成第二状态机或重复事件。
+4. 保持 PostgreSQL 事实源、强制 RLS、Checkpoint/Lease/Fencing 与 Redis 可重建边界；
+   跨租户成功数、旧 Worker 写入和 Redis 事实源均须为 0。
 
 ## 机器可读交接摘要
 
 ```text
-OUTCOME=PASS_S6_CANDIDATE_PENDING_S7
+OUTCOME=PASS_HANDOFF
 CHAIN_ID=CHAIN-M7-LOCAL-PRODUCT-01
 STEP_ID=M7-06R-S6-CANDIDATE-HANDOFF
 ATTEMPT_ID=WP-071-a1-data-r1
@@ -167,20 +173,21 @@ NEW_HEAD=<this-handoff-commit>
 INPUT_HEAD=726f875ab689eca3627a96af2efe8137fb1756de
 IMPLEMENTATION_HEAD=ac8220fc34f306c0a92ac780c4d5d87aa803055e
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
-FULL_GATE=BLOCKED_BY_OUTDATED_S7_VALIDATOR
+S7_VALIDATOR_HEAD=3e0d2793e2183dfdce2ce4d7adfa873acd12fe2a
+FULL_GATE=PASS
 HANDOFF=tests/data/evidence/WP-071-a1-data-r1-HANDOFF.md
-NEXT_AGENT_ID=migration-verifier
-NEXT_ROLE=S7-INTEGRATION
-NEXT_ATTEMPT_ID=WP-040-migration-r1
+NEXT_AGENT_ID=runtime-builder
+NEXT_ROLE=S2-RUNTIME
+NEXT_ATTEMPT_ID=WP-071-a1-runtime
 ESCALATE_TO_S1=no
 USER_INPUT_REQUIRED=none
 ```
 
 ## 可回滚方式
 
-- 代码候选可按逆序 revert 本 Handoff 提交与实现提交
-  `ac8220fc34f306c0a92ac780c4d5d87aa803055e`；禁止 reset、rebase 或覆盖其他会话
-  提交。
+- 组合候选可按逆序 revert 本 Handoff 提交、S7 验证器提交
+  `3e0d2793e2183dfdce2ce4d7adfa873acd12fe2a` 与 S6 实现提交
+  `ac8220fc34f306c0a92ac780c4d5d87aa803055e`；禁止 reset、rebase 或覆盖其他会话提交。
 - 已应用到开发数据库时，先确认仅撤销本地 API Task 初始化能力，再执行
   `0003_api_task_initialization.down.sql`。这会撤销 INSERT 权限但不删除业务表或数据；
   生产或保留数据环境仍须 S1 明确批准后执行任何降级。

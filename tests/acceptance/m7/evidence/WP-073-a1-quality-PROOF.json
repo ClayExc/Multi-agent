@@ -1,0 +1,157 @@
+{
+  "schema": "flowpilot.wp073a1-quality-proof.v1",
+  "chain_id": "CHAIN-M7-LOCAL-PRODUCT-01",
+  "step_id": "M7-10-S4-EXECUTORS",
+  "attempt_id": "WP-073-a1-quality",
+  "session_role": "S4-QUALITY",
+  "agent_id": "experience-builder",
+  "input_head": "95466cc5efb65b3608bbc3ca82b73bbc2062bde7",
+  "implementation_head": "2bdd346a67b3dc7acc298a345c866408a3fb7928",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "feature_ids": [
+    "FP-EVAL-001",
+    "FP-EVAL-002",
+    "FP-EVAL-003",
+    "FP-OPS-002"
+  ],
+  "upstream_evidence": {
+    "handoff": "tests/acceptance/m7/evidence/WP-072-a1-HANDOFF.md",
+    "handoff_sha256": "sha256:96284e2e1937e13b123b1016eb41cd5d8e50b9c015d7d78b34d05212c77f0350",
+    "proof": "tests/acceptance/m7/evidence/WP-072-a1-PROOF.json",
+    "proof_sha256": "sha256:1ab42a7c2a4c0e4bd18e8ada0df614cec614fb9f0a24686bda0ef6411cc5b351"
+  },
+  "scope": {
+    "release_gate": false,
+    "contract_change": false,
+    "database_change": false,
+    "shared_file_change": false,
+    "real_provider_smoke_executed": false,
+    "online_provider_calls": 0,
+    "paid_provider_calls": 0
+  },
+  "executor_registration": {
+    "executor_id": "flowpilot.m7.enterprise-knowledge",
+    "executor_version": "1.0.0",
+    "match_policy": "exact_case_digest",
+    "product_boundary": "API->Worker->LangGraph",
+    "transport_profile": "offline-synthetic",
+    "registered_case_count": 24,
+    "ambiguous_match_count": 0,
+    "unimplemented_case_count": 132,
+    "unimplemented_failure_code": "EXECUTOR_NOT_REGISTERED"
+  },
+  "fixed_denominator": {
+    "denominator_policy": "all_declared_cases",
+    "declared_case_count": 156,
+    "result_count": 156,
+    "functional_case_count": 120,
+    "safety_fault_case_count": 36,
+    "category_count": 13,
+    "passed": 24,
+    "failed": 132,
+    "skipped": 0,
+    "quarantined": 0,
+    "manifest_gate": "fail",
+    "manifest_gate_is_expected": true,
+    "release_claimed": false
+  },
+  "security_and_recovery": {
+    "deterministic_assertions_precede_judge": true,
+    "safety_judge_score_count": 0,
+    "cross_tenant_success_count": 0,
+    "provider_session_exposure_count": 0,
+    "request_content_durable_exposure_count": 0,
+    "restart_replay_model_delta": 0,
+    "restart_replay_tool_delta": 0,
+    "browser_or_case_expected_used_as_observation": false
+  },
+  "failure_closure": {
+    "case_identity_change_rejected": true,
+    "case_version_change_rejected": true,
+    "duplicate_executor_identity_rejected": true,
+    "result_executor_version_mismatch_rejected": true,
+    "missing_evidence_rejected": true,
+    "forged_output_digest_rejected": true,
+    "unsupported_categories_explicitly_failed": true,
+    "unsupported_categories_skipped": false
+  },
+  "clean_acceptance_bundle": {
+    "path": "artifacts/acceptance/wp073-a1-quality-clean",
+    "committed": false,
+    "git_commit": "2bdd346a67b3dc7acc298a345c866408a3fb7928",
+    "dirty_worktree": false,
+    "artifact_hash_count": 39,
+    "artifact_hash_closure": "PASS",
+    "manifest_sha256": "sha256:8c02185f97ad9c40b809667e54c399d4a3d123ad176569f24c35df47be8dc8bc",
+    "aggregate_sha256": "sha256:f2412649ebfe063bc1fb8b540f69edf3af4c9fea6e04bdd1152d83d8ec4d939d",
+    "executor_registry_sha256": "sha256:f72d14eefa7c1ed2c78b152b6d19953de4966c4d6dc0370baea3c9cb2f0d157b",
+    "execution_results_sha256": "sha256:47d8ced756d6133f569819644b0a27d6c64e94f612ac4289d11f3a4b02678dba",
+    "verdicts_sha256": "sha256:bbf40432f4ef2b849fa43bf9369cd880074d9e5fe4ef0372c8c3608bc4686046",
+    "failures_sha256": "sha256:9425baa3fc40a1859d45e2615886fc86a3b337f95acd458daa50d6ddc07cf079",
+    "test_results_summary_sha256": "sha256:7fafe363aed0a6723c00397adc6185e4e82ba498f3fbadadb5424b3c3e0070d0",
+    "environment_sha256": "sha256:5c062475fb7b92864a18e68d302329c0b090300651376b0253cfd36ce77b2dae"
+  },
+  "test_results": [
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/evaluation/test_m7_product_executor.py -q",
+      "result": "PASS",
+      "summary": "11 passed in 3.44s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance/evaluation -q",
+      "result": "PASS",
+      "summary": "150 passed in 9.54s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B -m pytest tests/acceptance -q",
+      "result": "PASS",
+      "summary": "276 passed in 43.82s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B scripts/acceptance/validate_offline.py",
+      "result": "PASS",
+      "summary": "2 cases; 0 findings; repository gate pass"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test-contract",
+      "result": "PASS",
+      "summary": "20 schemas; 35 cases; 43 semantic negative cases; 52 features"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test-security",
+      "result": "PASS",
+      "summary": "163 passed in 4.53s"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 lint",
+      "result": "PASS",
+      "summary": "Ruff PASS; strict Mypy PASS for 129 source files"
+    },
+    {
+      "command": "powershell -NoProfile -File scripts/quality.ps1 test",
+      "result": "PASS",
+      "summary": "1338 passed; 1 explicit online provider smoke skip in 193.96s"
+    },
+    {
+      "command": "uv run --all-packages --all-groups --locked python -B scripts/acceptance/run_acceptance.py --output artifacts/acceptance/wp073-a1-quality-clean --run-id wp073-a1-quality-clean",
+      "result": "EXPECTED_FAIL",
+      "summary": "24 passed; 132 failed; 0 skipped; 0 quarantined; six test suites pass; manifest gate fail"
+    }
+  ],
+  "runner_suite_results": {
+    "unit": "362 passed",
+    "contract": "53 passed",
+    "integration": "121 passed; 1 explicit online skip",
+    "e2e": "280 passed",
+    "recovery": "40 passed",
+    "security": "19 passed"
+  },
+  "encoding_and_safety_gates": {
+    "utf8": true,
+    "lf": true,
+    "bom": false,
+    "json_duplicate_keys": 0,
+    "high_confidence_secret_matches": 0,
+    "git_diff_check": "PASS"
+  }
+}

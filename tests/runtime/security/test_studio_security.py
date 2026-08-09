@@ -511,11 +511,148 @@ def test_registered_clarification_and_approval_resumes_remain_supported() -> Non
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("server_copy", [False, True])
+def test_resume_binds_to_latest_checkpoint_and_rejects_historical_branches(
+    server_copy: bool,
+) -> None:
+    async def scenario() -> None:
+        saver = InMemorySaver()
+        graph = create_studio_graph_definition(checkpointer=saver).graph
+        if server_copy:
+            graph = graph.copy(update={"checkpointer": saver})
+        config = {
+            "configurable": {
+                "thread_id": f"studio-latest-checkpoint-{server_copy}",
+            }
+        }
+
+        clarification = await graph.ainvoke(
+            {"scenario": "full_demo"},
+            config=config,
+        )
+        assert clarification["__interrupt__"][0].value["kind"] == (
+            "clarification"
+        )
+        clarification_config = copy.deepcopy(
+            (await graph.aget_state(config)).config
+        )
+
+        approval = await graph.ainvoke(
+            Command(resume={"confirmed": True}),
+            config=config,
+        )
+        assert approval["__interrupt__"][0].value["kind"] == "approval"
+        approval_config = copy.deepcopy(
+            (await graph.aget_state(config)).config
+        )
+
+        before_clarification_replay = await _studio_checkpoint_fingerprint(
+            graph,
+            config,
+            saver,
+        )
+        with pytest.raises(GraphError) as clarification_replay:
+            await graph.ainvoke(
+                Command(resume={"confirmed": True}),
+                config=clarification_config,
+            )
+        assert clarification_replay.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+        assert clarification_replay.value.safe_message == (
+            "Studio resume must target the latest checkpoint"
+        )
+        assert await _studio_checkpoint_fingerprint(
+            graph,
+            config,
+            saver,
+        ) == before_clarification_replay
+
+        completed = await graph.ainvoke(
+            Command(resume={"approved": True}),
+            config=approval_config,
+        )
+        assert completed["status"] == "COMPLETED"
+        assert completed["checkpoint_sequence"] == 4
+        terminal_before = await _studio_checkpoint_fingerprint(
+            graph,
+            config,
+            saver,
+        )
+
+        with pytest.raises(GraphError) as approval_replay:
+            await graph.ainvoke(
+                Command(resume={"approved": True}),
+                config=approval_config,
+            )
+        assert approval_replay.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+        assert approval_replay.value.safe_message == (
+            "Studio resume must target the latest checkpoint"
+        )
+        terminal_after = await _studio_checkpoint_fingerprint(
+            graph,
+            config,
+            saver,
+        )
+        assert terminal_after == terminal_before
+        values, next_nodes, _, _, interrupt_kind = terminal_after
+        assert next_nodes == ()
+        assert interrupt_kind is None
+        assert values["status"] == "COMPLETED"
+        assert values["artifact_count"] == 1
+
+    asyncio.run(scenario())
+
+
+def test_sync_stream_rejects_historical_terminal_resume_without_writes() -> None:
+    saver = InMemorySaver()
+    graph = create_studio_graph_definition(checkpointer=saver).graph
+    config = {
+        "configurable": {
+            "thread_id": "studio-latest-checkpoint-sync-stream",
+        }
+    }
+
+    async def prepare_terminal_state() -> dict[str, Any]:
+        await graph.ainvoke({"scenario": "full_demo"}, config=config)
+        await graph.ainvoke(
+            Command(resume={"confirmed": True}),
+            config=config,
+        )
+        approval_config = copy.deepcopy(
+            (await graph.aget_state(config)).config
+        )
+        completed = await graph.ainvoke(
+            Command(resume={"approved": True}),
+            config=config,
+        )
+        assert completed["status"] == "COMPLETED"
+        return approval_config
+
+    approval_config = asyncio.run(prepare_terminal_state())
+    before = _studio_checkpoint_fingerprint_sync(graph, config, saver)
+
+    with pytest.raises(GraphError) as replay:
+        list(
+            graph.stream(
+                Command(resume={"approved": True}),
+                config=approval_config,
+            )
+        )
+    assert replay.value.code is GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+    assert replay.value.safe_message == (
+        "Studio resume must target the latest checkpoint"
+    )
+    assert _studio_checkpoint_fingerprint_sync(graph, config, saver) == before
+
+
 async def _studio_checkpoint_fingerprint(
     graph: Any,
     config: dict[str, dict[str, str]],
     saver: InMemorySaver,
-) -> tuple[dict[str, object], tuple[str, ...], int, int, str]:
+) -> tuple[dict[str, object], tuple[str, ...], int, int, str | None]:
     state = await graph.aget_state(config)
     history = [
         item
@@ -526,15 +663,45 @@ async def _studio_checkpoint_fingerprint(
         for task in state.tasks
         for item in task.interrupts
     ]
-    assert len(interrupts) == 1
-    interrupt_value = interrupts[0].value
-    assert isinstance(interrupt_value, dict)
+    assert len(interrupts) <= 1
+    interrupt_kind: str | None = None
+    if interrupts:
+        interrupt_value = interrupts[0].value
+        assert isinstance(interrupt_value, dict)
+        interrupt_kind = str(interrupt_value["kind"])
     return (
         copy.deepcopy(dict(state.values)),
         tuple(state.next),
         len(history),
         len(saver.writes),
-        str(interrupt_value["kind"]),
+        interrupt_kind,
+    )
+
+
+def _studio_checkpoint_fingerprint_sync(
+    graph: Any,
+    config: dict[str, dict[str, str]],
+    saver: InMemorySaver,
+) -> tuple[dict[str, object], tuple[str, ...], int, int, str | None]:
+    state = graph.get_state(config)
+    history = list(graph.get_state_history(config))
+    interrupts = [
+        item
+        for task in state.tasks
+        for item in task.interrupts
+    ]
+    assert len(interrupts) <= 1
+    interrupt_kind: str | None = None
+    if interrupts:
+        interrupt_value = interrupts[0].value
+        assert isinstance(interrupt_value, dict)
+        interrupt_kind = str(interrupt_value["kind"])
+    return (
+        copy.deepcopy(dict(state.values)),
+        tuple(state.next),
+        len(history),
+        len(saver.writes),
+        interrupt_kind,
     )
 
 

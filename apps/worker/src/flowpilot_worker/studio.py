@@ -885,6 +885,56 @@ def _assert_studio_command_matches_snapshot(
     )
 
 
+def _latest_checkpoint_query_config(
+    invocation_config: Mapping[str, Any],
+) -> dict[str, Any]:
+    configurable = invocation_config.get("configurable")
+    if not isinstance(configurable, Mapping):
+        _raise_studio_checkpoint_binding_forbidden()
+    latest_configurable = dict(configurable)
+    latest_configurable.pop("checkpoint_id", None)
+    latest_config = dict(invocation_config)
+    latest_config["configurable"] = latest_configurable
+    return latest_config
+
+
+def _assert_latest_checkpoint_binding(
+    invocation_config: Mapping[str, Any],
+    latest_snapshot: Any,
+) -> None:
+    requested = invocation_config.get("configurable")
+    snapshot_config = latest_snapshot.config
+    if not isinstance(snapshot_config, Mapping):
+        _raise_studio_checkpoint_binding_forbidden()
+    authoritative = snapshot_config.get("configurable")
+    if not isinstance(requested, Mapping) or not isinstance(
+        authoritative, Mapping
+    ):
+        _raise_studio_checkpoint_binding_forbidden()
+    if requested.get("thread_id") != authoritative.get("thread_id"):
+        _raise_studio_checkpoint_binding_forbidden()
+    if requested.get("checkpoint_ns", "") != authoritative.get(
+        "checkpoint_ns", ""
+    ):
+        _raise_studio_checkpoint_binding_forbidden()
+    requested_checkpoint = requested.get("checkpoint_id")
+    latest_checkpoint = authoritative.get("checkpoint_id")
+    if not isinstance(latest_checkpoint, str) or not latest_checkpoint:
+        _raise_studio_checkpoint_binding_forbidden()
+    if requested_checkpoint is not None and (
+        not isinstance(requested_checkpoint, str)
+        or requested_checkpoint != latest_checkpoint
+    ):
+        _raise_studio_checkpoint_binding_forbidden()
+
+
+def _raise_studio_checkpoint_binding_forbidden() -> NoReturn:
+    raise GraphError(
+        GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+        "Studio resume must target the latest checkpoint",
+    )
+
+
 def _raise_studio_interrupt_binding_forbidden() -> NoReturn:
     raise GraphError(
         GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
@@ -900,6 +950,18 @@ def _invocation_config(
     if not isinstance(config, dict):
         _raise_studio_interrupt_binding_forbidden()
     return config
+
+
+def _replace_invocation_config(
+    args: tuple[Any, ...],
+    kwargs: Mapping[str, Any],
+    config: dict[str, Any],
+) -> tuple[tuple[Any, ...], dict[str, Any]]:
+    updated_kwargs = dict(kwargs)
+    if args:
+        return (config, *args[1:]), updated_kwargs
+    updated_kwargs["config"] = config
+    return args, updated_kwargs
 
 
 def _raise_studio_state_update_forbidden() -> NoReturn:
@@ -925,12 +987,24 @@ def _install_studio_ingress_guard(compiled_graph: Any) -> None:
         **kwargs: Any,
     ) -> AsyncIterator[Any]:
         _assert_studio_invocation_input(value)
+        execution_args = args
+        execution_kwargs = kwargs
         if isinstance(value, Command):
-            snapshot = await compiled_graph.aget_state(
-                _invocation_config(args, kwargs)
-            )
+            invocation_config = _invocation_config(args, kwargs)
+            latest_config = _latest_checkpoint_query_config(invocation_config)
+            snapshot = await compiled_graph.aget_state(latest_config)
+            _assert_latest_checkpoint_binding(invocation_config, snapshot)
             _assert_studio_command_matches_snapshot(value, snapshot)
-        async for chunk in original_astream(value, *args, **kwargs):
+            execution_args, execution_kwargs = _replace_invocation_config(
+                args,
+                kwargs,
+                latest_config,
+            )
+        async for chunk in original_astream(
+            value,
+            *execution_args,
+            **execution_kwargs,
+        ):
             yield chunk
 
     @wraps(original_stream)
@@ -940,12 +1014,20 @@ def _install_studio_ingress_guard(compiled_graph: Any) -> None:
         **kwargs: Any,
     ) -> Iterator[Any]:
         _assert_studio_invocation_input(value)
+        execution_args = args
+        execution_kwargs = kwargs
         if isinstance(value, Command):
-            snapshot = compiled_graph.get_state(
-                _invocation_config(args, kwargs)
-            )
+            invocation_config = _invocation_config(args, kwargs)
+            latest_config = _latest_checkpoint_query_config(invocation_config)
+            snapshot = compiled_graph.get_state(latest_config)
+            _assert_latest_checkpoint_binding(invocation_config, snapshot)
             _assert_studio_command_matches_snapshot(value, snapshot)
-        yield from original_stream(value, *args, **kwargs)
+            execution_args, execution_kwargs = _replace_invocation_config(
+                args,
+                kwargs,
+                latest_config,
+            )
+        yield from original_stream(value, *execution_args, **execution_kwargs)
 
     @wraps(original_copy)
     def guarded_copy(*args: Any, **kwargs: Any) -> Any:

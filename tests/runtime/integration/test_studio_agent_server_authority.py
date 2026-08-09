@@ -152,6 +152,68 @@ async def _probe_authority_boundaries(base_url: str) -> None:
     assert replay_status == "RUNNING"
     assert kind == "approval"
 
+    checkpoint_thread = await _suspended_thread(client)
+    clarification_state = await client.threads.get_state(checkpoint_thread)
+    clarification_checkpoint = _state_checkpoint_id(clarification_state)
+    checkpoint_approval = await client.runs.wait(
+        checkpoint_thread,
+        GRAPH_ID,
+        command={"resume": {"confirmed": True}},
+    )
+    assert _interrupt_kind(checkpoint_approval) == "approval"
+    approval_state = await client.threads.get_state(checkpoint_thread)
+    approval_checkpoint = _state_checkpoint_id(approval_state)
+    before_historical_clarification = await _server_state_fingerprint(
+        client,
+        checkpoint_thread,
+    )
+    historical_clarification = await client.runs.wait(
+        checkpoint_thread,
+        GRAPH_ID,
+        command={"resume": {"confirmed": True}},
+        checkpoint_id=clarification_checkpoint,
+        raise_error=False,
+    )
+    assert historical_clarification == {
+        "__error__": {
+            "error": "GraphError",
+            "message": "Studio resume must target the latest checkpoint",
+        }
+    }
+    assert await _server_state_fingerprint(
+        client,
+        checkpoint_thread,
+    ) == before_historical_clarification
+
+    checkpoint_completed = await client.runs.wait(
+        checkpoint_thread,
+        GRAPH_ID,
+        command={"resume": {"approved": True}},
+        checkpoint_id=approval_checkpoint,
+    )
+    assert checkpoint_completed["status"] == "COMPLETED"
+    terminal_before_replay = await _server_state_fingerprint(
+        client,
+        checkpoint_thread,
+    )
+    historical_approval = await client.runs.wait(
+        checkpoint_thread,
+        GRAPH_ID,
+        command={"resume": {"approved": True}},
+        checkpoint_id=approval_checkpoint,
+        raise_error=False,
+    )
+    assert historical_approval == {
+        "__error__": {
+            "error": "GraphError",
+            "message": "Studio resume must target the latest checkpoint",
+        }
+    }
+    assert await _server_state_fingerprint(
+        client,
+        checkpoint_thread,
+    ) == terminal_before_replay
+
     thread_id = await _suspended_thread(client)
     before = await _server_state_fingerprint(client, thread_id)
     with pytest.raises(InternalServerError) as update_failure:
@@ -239,7 +301,7 @@ async def _suspended_thread(client: Any) -> str:
 async def _server_state_fingerprint(
     client: Any,
     thread_id: str,
-) -> tuple[dict[str, Any], tuple[str, ...], int, bool, int, str, str]:
+) -> tuple[dict[str, Any], tuple[str, ...], int, bool, int, str, str | None]:
     state = await client.threads.get_state(thread_id)
     history = await client.threads.get_history(thread_id, limit=100)
     values = copy.deepcopy(dict(state["values"]))
@@ -254,9 +316,11 @@ async def _server_state_fingerprint(
     )
 
 
-def _state_interrupt_kind(state: Mapping[str, Any]) -> str:
+def _state_interrupt_kind(state: Mapping[str, Any]) -> str | None:
     tasks = state.get("tasks")
     assert isinstance(tasks, list)
+    if not tasks:
+        return None
     assert len(tasks) == 1
     interrupts = tasks[0].get("interrupts")
     assert isinstance(interrupts, list)
@@ -264,6 +328,15 @@ def _state_interrupt_kind(state: Mapping[str, Any]) -> str:
     value = interrupts[0].get("value")
     assert isinstance(value, Mapping)
     return str(value.get("kind"))
+
+
+def _state_checkpoint_id(state: Mapping[str, Any]) -> str:
+    checkpoint = state.get("checkpoint")
+    assert isinstance(checkpoint, Mapping)
+    checkpoint_id = checkpoint.get("checkpoint_id")
+    assert isinstance(checkpoint_id, str)
+    assert checkpoint_id
+    return checkpoint_id
 
 
 def _interrupt_kind(result: Mapping[str, Any]) -> str:

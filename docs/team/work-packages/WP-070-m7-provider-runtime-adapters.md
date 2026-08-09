@@ -2,8 +2,8 @@
 
 ## 元数据
 
-- 状态：ACTIVE
-- Attempt ID：WP-070-a1
+- 状态：MERGED_M7_CANDIDATE
+- Attempt ID：WP-070-a1 / WP-070-a2 / WP-070-q1
 - 风险等级：R2
 - 责任角色：S2-RUNTIME
 - 评审角色：S1-ARCH、S4-QUALITY

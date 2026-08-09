@@ -17,16 +17,16 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 ## 当前状态
 
-`master` 已包含 M0～M6 的代码和测试，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
+`master` 已包含 M0～M7 的工程候选，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
 - 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
-- 启动 Fixture Web，查看任务列表、时间线、补全表单、审批卡和 SSE 重连。
+- 启动 Web Fixture，查看任务列表、时间线、补全表单、审批卡和 SSE 重连；Web 同时具备真实 API/SSE 适配模式。
 - 启动 FastAPI 外壳，查看健康检查和 OpenAPI。
 - 用 Docker Compose 启动 PostgreSQL、Redis 等本地依赖，并运行恢复与隔离测试。
 
-尚未接通的部分也很明确：Web 仍使用 Fixture，真实模型尚未接入，企业工单和资产系统只有中立接口与 Sandbox，120+36 评测也缺少产品执行器。M7 已从 WP-070 热启动，先实现 Provider 与 Agents SDK Adapter，再按顺序接通 Web、API、Worker、LangGraph、数据库和只读 MCP；首个模型入口采用 **LiteLLM + DeepSeek V4 Flash**。
+M7 已加入 LiteLLM、OpenAI/Claude Agents SDK Adapter、本地产品组合根、可恢复知识问答 Graph、真实 API/SSE Web 适配和集中凭据扫描。首批 24 条知识问答 Case 可以沿 API → Worker → LangGraph 产品边界执行。仓库仍缺少一条可直接启动完整产品的 `make dev` 入口；DeepSeek V4 Flash 在线调用没有执行，企业工单和资产系统也仍是中立接口与 Sandbox。固定 120+36 评测中还有 132 条 Case 没有产品执行器，因此 M7 只能作为开发候选合入，不能标记为发布版本。
 
-## M0～M6 做了什么
+## M0～M7 做了什么
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
 |---|---|---|
@@ -37,6 +37,7 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 | M4 Agent 与上下文 | Sandbox Provider、分层 Context、硬预算、受限 Handoff、多 Agent 节点 | 没有真实 Token 和效果对比数据 |
 | M5 产品外壳与第二场景 | Fixture Web、新员工设备与权限复合申请、部分失败处理 | Web 尚未接通真实 API 和运行时 |
 | M6 评测工具链 | 120 条功能 Case、36 条安全/故障 Case、Hash 冻结、Judge 工具和 `make acceptance` | 产品执行器与人工 Judge 校准尚未完成 |
+| M7 本地产品候选 | LiteLLM 与 Agents SDK Adapter、API/Worker/Graph/Data 组合、Web API/SSE 模式、Studio 安全恢复、集中凭据扫描、24 条知识问答执行器 | 在线 Provider Smoke 未运行；132 条 Case 未注册；没有一键产品启动入口 |
 
 当前仓库状态为 `RELEASED=false`、整体 `FROZEN=false`。原方案中的 Token 降低 24%、任务成功率 82.5%→90.0%、Macro-F1 0.86→0.91 都是参考目标，不是已有结果。项目在产生可复现报告前不会使用这些数字。
 
@@ -109,7 +110,7 @@ flowchart LR
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
-| [工作包索引](./docs/team/work-packages/README.md) | WP-000/010/011/012/020/021/030/040 的责任、当前 Attempt、依赖与集成顺序 |
+| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7 的 WP-070～WP-073、当前状态、依赖与集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |
@@ -117,7 +118,7 @@ flowchart LR
 | [M6 Hash 冻结记录](./evals/runners/m6-hash-freeze.v1.json) | 三个数据集 120+36 Case 的内容哈希；不代表产品执行通过 |
 | [评测 Fixture 清单](./contracts/registries/evaluation-fixture-manifest.v1.json) | 合成租户/主体 Fixture 的版本与哈希 |
 | [需求追踪矩阵](./docs/acceptance/TRACEABILITY.md) | 机器追踪清单的人类可读投影视图 |
-| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；下一阶段从 M7 开始 |
+| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；下一候选里程碑为 M8 |
 | [架构评审报告](./docs/review/ARCHITECTURE_REVIEW.md) | 对原始总稿的保留项、问题与改造决策 |
 | [WP-000 rc1 裁决](./docs/review/WP-000-RC1-DISPOSITION.md) | 三方 REJECT、逐项处理和 rc2 冻结门禁 |
 | [ADR-0001](./docs/decisions/ADR-0001-orchestration-boundary.md) | LangGraph、Agents SDK 与 LiteLLM 的边界 |
@@ -164,11 +165,11 @@ FlowPilot 不用“模型看起来回答得不错”作为完成标准。下面�
 | 评测 | Pytest、规则评测、LLM-as-Judge、版本化 JSONL 数据集 |
 | 本地交付 | Docker Compose |
 
-当前 Python Workspace 依赖由 `uv.lock` 固定。OpenAI/Claude Agents SDK 保留为
-正式 Runtime Adapter 技术栈，只在单个 LangGraph 节点内承载受限 Agent；
-LangGraph 仍是唯一跨业务流程状态机。M7 将在 Model Gateway 后接入 LiteLLM，
-并以 DeepSeek V4 Flash 作为首个真实模型；README 不提前填写未经供应端、
-LiteLLM 与 SDK 兼容性测试确认的模型字符串、版本或价格。
+当前 Python Workspace 依赖由 `uv.lock` 固定。OpenAI/Claude Agents SDK 已作为
+正式 Runtime Adapter 技术栈进入 M7 候选，只在单个 LangGraph 节点内承载受限
+Agent；LangGraph 仍是唯一跨业务流程状态机。Model Gateway 已有 LiteLLM Provider，
+DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用，因此 README 不填写
+未经兼容性测试确认的模型字符串、版本、价格或效果数据。
 
 ## M7～M20 开发路线
 
@@ -177,7 +178,7 @@ LiteLLM 与 SDK 兼容性测试确认的模型字符串、版本或价格。
 
 | 阶段 | 主要结果 |
 |---|---|
-| M7 | LiteLLM + DeepSeek V4 Flash、OpenAI/Claude Agents SDK Adapter；接通 Web、API、Worker、LangGraph、数据与只读 MCP |
+| M7（候选已合入） | LiteLLM 与 OpenAI/Claude Agents SDK Adapter；API、Worker、LangGraph、数据、只读 MCP 与 Web/SSE 组合；24 条知识问答执行器 |
 | M8 | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS |
 | M9 | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
 | M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
@@ -242,9 +243,10 @@ docker compose --env-file .env -f infra/compose/compose.yaml ps
 docker compose --env-file .env -f infra/compose/compose.yaml down
 ```
 
-当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。Web 外壳、
-第二业务场景和 120+36 Case 已有代码或语料，但真实 Provider、完整 API 组合、企业
-Connector、156 条产品执行报告和经人工双轮校准的 Judge 仍不可体验。
+当前可体验与不可体验边界以本节为准；测试证据不等于用户可操作产品。M7 已完成
+真实 API/SSE Web 适配和完整产品组合端口，但仓库还没有把这些依赖封装成一条可直接
+运行的本地产品进程。在线 Provider、企业 Connector、全部 156 条产品执行和经人工
+双轮校准的 Judge 仍不可体验。
 
 仓库还提供一个与真实后端隔离的 Fixture Web 演示外壳：
 
@@ -253,8 +255,9 @@ uv run --frozen python web/server.py --port 8765
 ```
 
 打开 `http://127.0.0.1:8765/`，可体验任务列表、时间线、信息补全、审批卡、
-错误与恢复界面以及 SSE 重连。它使用内存和合成 Fixture，适合查看交互外壳，
-不代表 Web 已经接通上述 FastAPI、数据库或真实 Agent 流程。
+错误与恢复界面以及 SSE 重连。默认模式使用内存和合成 Fixture。`web/README.md`
+记录了真实 API/SSE 模式的环境变量；该模式需要调用方先装配受信身份、持久化、
+Worker、Gateway 和 Agent Runtime，当前没有独立的一键启动命令。
 
 ## 目标开发命令
 

@@ -3,17 +3,17 @@
 ## 1. 路线状态
 
 ~~~text
-CURRENT_BASELINE=M0-M6_MERGED
-NEXT_MILESTONE=M7
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M7-LOCAL-PRODUCT-01
-PLAN_STATUS=M7-WP070-ACTIVE
+CURRENT_BASELINE=M0-M7_CANDIDATE_MERGED
+NEXT_MILESTONE=M8
+ACTIVE_DEVELOPMENT_CHAIN=none
+PLAN_STATUS=M7-CANDIDATE-MERGED-RELEASE-BLOCKED
 RELEASED=false
 FROZEN=false
 ~~~
 
-M0～M6 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web Fixture
-和评测工具链合入主分支。它们组成了工程底座，还没有成为一套可连续使用的
-本地产品。
+M0～M7 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
+Adapter 和评测工具链合入主分支。M7 已形成首条知识问答产品候选，但缺少一键启动
+入口、在线 Provider 验证和其余 132 条产品执行器，尚未达到发布状态。
 
 M7～M20 的目标是完成一个可在本机完整演示、能够说明企业级边界的智能工单
 平台。产品使用本地身份、策略、知识、工具和数据，不连接真实企业网络，不接入
@@ -77,6 +77,10 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 
 ## 5. M7：真实 Provider 与本地运行链
 
+状态：`MERGED_CANDIDATE / RELEASE_BLOCKED`。WP-070～WP-073 已完成并通过 S7/S1
+组合复算。固定分母为 156 条，其中 24 条知识问答 Case 通过真实产品组合边界，132 条
+因没有执行器明确失败，0 条跳过或隔离。下一里程碑为 M8；当前不自动启动新链。
+
 目标：让用户从 Web 发起中文请求，经过真实模型和可恢复运行时得到可观察结果。
 
 交付：
@@ -98,7 +102,7 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 - 模型超时、限流、无效响应和缺少密钥均失败关闭，且能从 UI/Trace 定位。
 - 在线模型不可用不会使确定性测试失效。
 
-M7 固定拆为四个工作包。WP-070 已热启动，后三个工作包按依赖等待：
+M7 固定拆为四个工作包，当前均已完成并进入主分支：
 
 1. [`WP-070`](../team/work-packages/WP-070-m7-provider-runtime-adapters.md)：
    LiteLLM、DeepSeek 与 OpenAI/Claude Agents SDK Adapter。
@@ -109,8 +113,8 @@ M7 固定拆为四个工作包。WP-070 已热启动，后三个工作包按依�
 4. [`WP-073`](../team/work-packages/WP-073-m7-product-executors-final-gate.md)：
    首批产品执行器、固定分母与 M7 最终组合门禁。
 
-四包按 `WP-070 → WP-071 → WP-072 → WP-073` 解锁。普通进度不广播给未注册
-角色；WP-073 完成后停在用户门禁，不自动启动 M8。
+四包已按 `WP-070 → WP-071 → WP-072 → WP-073` 完成。M7 发布 Gate 保持失败，
+因为 132 条后续业务与安全 Case 尚无产品执行器；这不会被 skip 或缩分母掩盖。
 
 ## 6. M8：本地身份与租户
 

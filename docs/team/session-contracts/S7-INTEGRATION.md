@@ -11,8 +11,8 @@ EXECUTION_MODE=<READ_ONLY_PARALLEL|ORDERED|PARALLEL>
 ```
 
 - 契约状态：IDLE
-- 当前工作：无；下一候选为 [WP-073](../work-packages/WP-073-m7-product-executors-final-gate.md)
-- 初始模式：`READ_ONLY_PARALLEL`；只有 M7 垂直候选汇合且取得独立 Worktree、
+- 当前工作：无；M7 组合复现已完成，发布 Gate 因 132 条未注册 Case 保持失败。
+- 初始模式：`READ_ONLY_PARALLEL`；只有后续垂直候选汇合且取得独立 Worktree、
   Attempt 和 S1 授权后才进入写模式。
 
 ## 使命

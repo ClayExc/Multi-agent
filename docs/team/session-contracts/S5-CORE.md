@@ -10,8 +10,8 @@ WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,domain-packs/
 ```
 
 - 契约状态：IDLE
-- 当前工作：无；下一候选为 [WP-071](../work-packages/WP-071-m7-local-product-composition.md)
-- 激活条件：WP-070 通过，Agent Registry 分配 Base、Attempt、范围与退出条件。
+- 当前工作：无；M7 Core/API 组合与 TaskEvent 安全边界已进入主分支。
+- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
 
 ## 使命
 

@@ -45,7 +45,7 @@ Agent Registry、直接 Handoff，以及两提交之间发生变化的强制文�
 
 ## 3. 事实与状态
 
-- M0～M6 工程候选与 P2 持久化恢复已进入主分支；M7～M20 已规划但尚未启动。具体功能状态以 `docs/roadmap/PROJECT_HANDOFF.md`、`docs/acceptance/TRACEABILITY.md` 和已接受证据为准。
+- M0～M7 工程候选与 P2 持久化恢复已进入主分支。M7 已形成首条知识问答产品闭环，但固定 156 条 Case 仅有 24 条具备产品执行器，因此仍为未发布候选；M8～M20 已规划但尚未启动。具体功能状态以 `docs/roadmap/PROJECT_HANDOFF.md`、`docs/acceptance/TRACEABILITY.md` 和已接受证据为准。
 - `DESIGNED`、`IMPLEMENTED`、`VERIFIED`、`RELEASED` 的定义以 `docs/acceptance/ACCEPTANCE.md` 为准。
 - 没有代码、测试和证据包时，不得使用“已实现”“已提升”“已达到”。
 - 24%、82.5%→90%、0.86→0.91 只是参考目标，不得预填为结果。

@@ -6,13 +6,13 @@
 
 | 会话 | 契约 | 当前工作包 | 当前激活状态 |
 |---|---|---|---|
-| S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | 无；WP-036 已完成 | IDLE |
-| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | 下一候选 [WP-070](../work-packages/WP-070-m7-provider-runtime-adapters.md) | IDLE |
+| S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | 无；M7 候选已合入 | IDLE |
+| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | 无；WP-070/071/072 已完成 | IDLE |
 | S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | 无 | IDLE |
-| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | 下一候选 [WP-072/073](../work-packages/WP-072-m7-web-studio-observability.md) | IDLE |
-| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | 下一候选 [WP-071](../work-packages/WP-071-m7-local-product-composition.md) | IDLE |
-| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | 下一候选 [WP-071](../work-packages/WP-071-m7-local-product-composition.md) | IDLE |
-| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | 下一候选 [WP-073](../work-packages/WP-073-m7-product-executors-final-gate.md) | IDLE |
+| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | 无；WP-072/073 已完成 | IDLE |
+| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | 无；WP-070/071 与安全返修已完成 | IDLE |
+| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | 无；WP-071 已完成 | IDLE |
+| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | 无；WP-073 组合复现已完成 | IDLE |
 
 ## 约束优先级
 
@@ -33,7 +33,7 @@
 
 当前只保留主 Worktree，没有活动开发 Agent。ContractSet 候选摘要为
 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`；
-M0～M6 与 P2 已进入主分支，M7 工作包尚未激活。任何角色必须按 Agent Registry
+M0～M7 与 P2 已进入主分支，M8 尚未激活。任何角色必须按 Agent Registry
 从新的主基线取得 Attempt 和写入范围，历史分支或会话状态不能自动视为写授权。
 
 本摘要的五角色只读复审已经完成；[rc2 五会话复审指令](../RC2_REVIEW_INSTRUCTIONS.md) 现作为历史复现入口。若被摘要覆盖的内容发生变化，全部 Review 自动失效并重新进入 `REVIEW_ONLY`。

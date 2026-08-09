@@ -10,8 +10,8 @@ WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/eval
 ```
 
 - 契约状态：IDLE
-- 当前工作：无；下一候选为 [WP-072](../work-packages/WP-072-m7-web-studio-observability.md) 与 [WP-073](../work-packages/WP-073-m7-product-executors-final-gate.md)
-- 激活条件：前置 M7 工作包通过，Agent Registry 分配 Base、Attempt、范围与退出条件。
+- 当前工作：无；M7 Web/Studio、产品执行器与固定分母证据已进入主分支。
+- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
 
 ## 使命
 

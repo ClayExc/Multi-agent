@@ -1,9 +1,19 @@
 # CHAIN-M7-LOCAL-PRODUCT-01 Agent 注册表
 
+```text
+REGISTRY_STATUS=COMPLETED
+FINAL_HEAD=e222411824b45c9fed5fd96c6c4fc39c7dfdc09b
+FINAL_RESULT=M7_CANDIDATE_MERGED_RELEASE_GATE_FAIL
+```
+
+原计划登记五个能力 Agent。执行中出现集中凭据扫描缺口后，S1 按同一注册协议临时
+加入 S3 `credential-guard-builder`，修复完成后退出；该变化没有恢复七会话广播。
+
 ## 调度结论
 
-M7 使用五个能力 Agent 和一个 S1 最终门禁，严格有序，同一时刻最多一个写入者。
-S3 不参与本链；现有 MCP/Policy/Security 边界作为只读依赖，不向其发送普通进度。
+M7 以五个基础能力 Agent 和一个 S1 最终门禁启动，严格有序，同一时刻最多一个
+写入者。P0 凭据边界暴露后，S3 作为 `credential-guard-builder` 动态加入两个修复
+Attempt；它只接收阻断证据和精确输入 Head，没有接收普通进度广播。
 
 ```text
 CHAIN_ID=CHAIN-M7-LOCAL-PRODUCT-01
@@ -11,8 +21,9 @@ REGISTRY_MODE=minimum-capability-set
 EXECUTION_MODE=ORDERED
 MAX_ACTIVE_WRITERS=1
 COMMUNICATION=event-driven
-SELECTED=runtime-builder,core-composer,data-composer,experience-builder,m7-verifier
-NOT_SELECTED=S3-PLATFORM
+BASE_SELECTED=runtime-builder,core-composer,data-composer,experience-builder,m7-verifier
+DYNAMICALLY_SELECTED=credential-guard-builder
+NOT_SELECTED=none
 ```
 
 ## 注册记录
@@ -107,10 +118,20 @@ CONTEXT_MODE=DELTA
 CONTEXT_BASE_COMMIT=0b1d6ba3aa31536d9170027f0981c0e626b71f35
 ```
 
-## 未选择原因
+### credential-guard-builder（动态注册）
 
-- `S3-PLATFORM`：M7 只消费已合入的 Gateway、Policy、Security 与只读 MCP 边界，
-  不改变工具 Schema、授权、审批或策略语义。出现对应缺口时暂停并重新注册，不能
-  由其他 Agent 越权补写。
+```text
+AGENT_ID=credential-guard-builder
+SESSION_ROLE=S3-PLATFORM
+CAPABILITIES=credential-family-registry,recursive-secret-scan,safe-finding
+WRITE_SCOPE=packages/security/**,tests/platform/**
+RISK_CEILING=R3
+OUTPUT_CONTRACTS=WP-074-a1,WP-074-a2
+AVAILABILITY=completed
+EXIT_CONDITION=集中扫描器通过 S4 TaskEvent/SSE 黑盒并退出当前链
+```
+
+S3 原本不在基础集合内。S4 发现同类凭据可穿过事件与 SSE 后，链路按停止条件暂停，
+再由 S1 动态注册 S3；S5 只负责消费安全端口和清理错误回显，没有越权修改安全内核。
 
 S1 只处理激活、P0/P1、范围变化和最终门禁；普通完成事件直接交给唯一下一 Agent。

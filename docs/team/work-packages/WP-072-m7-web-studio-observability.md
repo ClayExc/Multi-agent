@@ -2,8 +2,8 @@
 
 ## 元数据
 
-- 状态：BLOCKED_BY_WP-071
-- Attempt ID：待激活
+- 状态：MERGED_M7_CANDIDATE
+- Attempt ID：WP-072-a1
 - 风险等级：R2
 - 责任角色：S4-QUALITY
 - 参与角色：S2-RUNTIME

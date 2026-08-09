@@ -3,27 +3,27 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M0_M6_P2_ENGINEERING_BASELINE
-STATUS=MERGED_ENGINEERING_BASELINE
-S7_HEAD=0b1d6ba3aa31536d9170027f0981c0e626b71f35
+SNAPSHOT=M0_M7_LOCAL_PRODUCT_CANDIDATE
+STATUS=MERGED_M7_CANDIDATE_RELEASE_BLOCKED
+S7_HEAD=e222411824b45c9fed5fd96c6c4fc39c7dfdc09b
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
-NEXT_MILESTONE=M7
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M7-LOCAL-PRODUCT-01
+NEXT_MILESTONE=M8
+ACTIVE_DEVELOPMENT_CHAIN=none
 RELEASED=false
 FROZEN=false
 ```
 
-FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与当前 15 成员 Python Workspace、
+FlowPilot 已将 M0～M7 工程候选合入主分支：公共契约与当前 15 成员 Python Workspace、
 安全 MCP 平台、PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio、
 历史知识检索样例与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
-功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。
+功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。M7 进一步加入 Provider/SDK
+Adapter、知识问答产品组合、真实 API/SSE Web 模式、集中凭据扫描和首批产品执行器。
 
-整体仍不是发布版本。真实 Provider、Web/API/Worker/数据平面的完整产品装配和
-156 条任务的产品执行器尚未完成；Judge 校准仍是 `placeholder_proxy`。
-`make acceptance` 已实现，但缺少产品执行器时会保留全部失败并返回非零状态。
-这里的 M6 完成只表示语料与工具链候选已收口，不表示
+整体仍不是发布版本。M7 固定分母中只有 24 条知识问答 Case 具备产品执行器，另外
+132 条明确返回 `EXECUTOR_NOT_REGISTERED`；在线 Provider Smoke 和 Judge 人工校准也
+没有完成。`make acceptance` 会保留全部 156 条结果并返回失败，不能把候选合入解释为
 `RELEASED` 或整体 `FROZEN`。真实企业 Connector 已明确排除在 M7～M20 外，
-不再把“尚未接企业系统”列为本地产品的发布阻断。
+不把“尚未接企业系统”列为本地演示产品的发布阻断。
 
 本文件是“现在做到哪里、如何运行、还缺什么、下一步怎么走”的主入口。详细
 设计仍由 ADR/架构文档负责，历史过程仍由 Chain/Handoff/Proof 负责。
@@ -40,6 +40,7 @@ FlowPilot 已将 M0～M6 工程候选合入主分支：公共契约与当前 15 
 | M4 | Sandbox Provider、Context 硬预算、受限 Handoff 与多 Agent 节点 | 零凭据、零网络候选；真实模型尚未接入 |
 | M5 | Fixture Web 与新员工设备/权限复合申请 | 产品交互和第二场景代码已合入，尚未接成真实本地产品 |
 | M6 | 120+36 语料、Hash 冻结、Judge 校准工具、`make acceptance` 与 Ruff 收口 | 产品执行器缺失，Judge 仍为占位校准，不能报告成功率 |
+| M7 | LiteLLM/Agents SDK Adapter、API/Worker/Graph/Data 组合、Web API/SSE、Studio 权威恢复、集中凭据扫描与 24 条知识问答执行器 | 开发候选已合入；132 条 Case 未注册、在线 Provider 未验证、没有一键产品启动入口 |
 
 ## 3. P2 已合并能力
 
@@ -77,6 +78,26 @@ S7 RELEASE 证据：
 - [`CHAIN-P2-DURABLE-RUNTIME-01`](../team/chain-authorizations/CHAIN-P2-DURABLE-RUNTIME-01.md)
 - [`WP-040-A7-S1-FINAL-REVIEW.md`](../review/WP-040-A7-S1-FINAL-REVIEW.md)
 
+### M7 本地产品候选
+
+M7 使用 `S2/S5/S6/S4/S7` 主链，并在发现凭据扫描缺口时按注册制临时加入 S3。
+候选已经用户批准并以 fast-forward 进入 `master`。
+
+- LiteLLM、OpenAI Agents SDK 与 Claude Agent SDK 均通过统一端口和离线边界测试；
+  在线供应端调用保持关闭。
+- API、Worker、LangGraph、PostgreSQL/Redis 与只读知识 Gateway 已有显式组合根。
+- Task 初始化、Checkpoint、Lease/Fencing、历史 Resume 拒绝和终态零重放已验证。
+- Web 支持 Fixture 与真实 API/SSE 两种模式；Studio 只接受权威恢复输入，并展示安全投影。
+- 集中凭据注册表覆盖结构化前缀嵌入、事件构造、队列、重放、SSE 和错误输出。
+- 固定分母结果为 156 条：24 通过、132 明确失败、0 跳过、0 隔离；39 项证据 Hash 闭合。
+
+权威证据：
+
+- [`WP-072-a1-HANDOFF.md`](../../tests/acceptance/m7/evidence/WP-072-a1-HANDOFF.md)
+- [`WP-073-a1-quality-PROOF.json`](../../tests/acceptance/m7/evidence/WP-073-a1-quality-PROOF.json)
+- [`WP-073-a1-release-HANDOFF.md`](../../tests/integration/evidence/WP-073-a1-release-HANDOFF.md)
+- [`WP-073-a1-release-VERIFICATION.json`](../../tests/integration/evidence/WP-073-a1-release-VERIFICATION.json)
+
 ## 4. 关键架构边界
 
 1. LangGraph 是唯一跨业务节点状态机；Task 是外部投影。
@@ -106,8 +127,8 @@ make studio
 make studio-smoke
 ```
 
-当前 `make acceptance` 已实现。它会在缺少产品执行器时按设计生成失败证据并返回
-非零状态。Windows 没有 `make.exe` 时，应运行
+当前 `make acceptance` 已实现。M7 已注册 24 条知识问答执行器；其余 132 条仍按设计
+生成显式失败证据，因此命令返回非零状态。Windows 没有 `make.exe` 时，应运行
 `uv run --frozen python -B scripts/acceptance/run_acceptance.py`，不能把编排器可运行
 写成产品验收通过。
 
@@ -129,14 +150,14 @@ make studio-smoke
 
 | 能力 | 当前状态 | 计划验收 |
 |---|---|---|
-| Provider 与产品运行链 | Sandbox Adapter 和分离模块已合入 | M7 接入 LiteLLM + DeepSeek V4 Flash、OpenAI/Claude Agents SDK Adapter，并贯通 Web/API/Worker/Graph/Data |
+| Provider 与产品运行链 | M7 Adapter、产品组合、Web API/SSE 与 24 条知识执行器已合入；在线供应端未验证 | 后续里程碑补一键产品入口，并在明确授权后运行 DeepSeek V4 Flash Smoke |
 | 身份、租户与 RLS | 契约和隔离机制已有测试 | M8 接入本地 Keycloak 和可信 SecurityContext |
 | 策略、DLP 与审计 | MCP/Policy/Security 骨架已合入 | M9 完成本地 Rego、Capability、DLP 和可查询审计 |
 | 知识检索 | 合成知识、ACL 和引用候选已合入 | M10 完成本地导入、混合检索、生命周期与稳定引用 |
 | Context | 硬预算、摘要和 Handoff 过滤已有机制 | M11～M13 分别完成短期记忆、长期记忆和用户画像 |
 | 业务场景 | 历史知识样例与新员工候选已有代码 | M14～M18 完成五条 Web 可操作业务链 |
-| 120+36 | 156 条 Case 与 Hash 冻结已合入 | M19 注册产品执行器、校准 Judge 并运行固定分母 |
-| `make acceptance` | 编排器可运行，缺产品执行器时按设计失败 | M19 产出可复现产品报告 |
+| 120+36 | 156 条固定分母已运行；24 通过、132 因无执行器明确失败 | M8～M18 随能力增量注册执行器，M19 完成五链报告与 Judge 校准 |
+| `make acceptance` | 可生成完整 Bundle 和 39 项 Hash 闭包；当前 Gate 为 fail | M19 产出可复现且满足发布门槛的产品报告 |
 | 安全多模态 | 隔离与 Observation 契约已有设计项 | M20 完成隔离、扫描、脱敏、注入检测和只读 Agent |
 | 全仓 Ruff | M6 收口时为零 Finding | 后续增量保持零新增 Finding |
 
@@ -145,7 +166,7 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M7～M20 已批准为规划，但尚未启动开发链：
+M7 候选已经合入，M8～M20 已批准为规划但尚未启动开发链：
 
 ```text
 M7 真实 Provider 与本地运行链
@@ -165,9 +186,9 @@ M7 真实 Provider 与本地运行链
                                           M20 安全多模态
 ```
 
-M7 已拆为四个工作包：WP-070 Provider/SDK Adapter 已热启动，WP-071 本地运行链、
-WP-072 Web/Studio 可观测体验、WP-073 产品执行器与最终组合门禁按顺序等待，
-不允许把 Adapter、产品装配、页面和最终评测再次堆入同一个长链任务。
+M7 的 WP-070～WP-073 已完成并进入主分支。固定分母 Gate 继续保持失败，直到后续
+里程碑为其余业务与安全 Case 提供产品执行器。下一条开发链从 M8 开始，激活前仍需
+用户批准；当前没有运行中的开发链。
 
 M7～M13 是平台主链。M13 后两条业务轨道可以使用互斥路径并行，之后统一进入
 审批辅助、产品评测和多模态。真实 Jira/ServiceNow/CMDB/HR/IAM、企业

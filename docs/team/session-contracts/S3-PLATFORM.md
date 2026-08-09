@@ -10,7 +10,7 @@ WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,pa
 ```
 
 - 契约状态：IDLE
-- 当前工作：无；M7 默认不激活 S3，出现 Gateway/Policy RFC 时按最小注册集合加入。
+- 当前工作：无；M7 曾因凭据边界缺口动态注册 S3，集中扫描器现已进入主分支。
 - 激活条件：Agent Registry 分配明确工作包、Base、Attempt、写入范围与退出条件。
 
 ## 使命

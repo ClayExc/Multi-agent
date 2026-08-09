@@ -2,8 +2,8 @@
 
 ## 元数据
 
-- 状态：BLOCKED_BY_WP-070
-- Attempt ID：待激活
+- 状态：MERGED_M7_CANDIDATE
+- Attempt ID：WP-071-a1（含 Core/Data/Runtime 修复）
 - 风险等级：R2
 - 责任角色：S5-CORE（组合入口）
 - 参与角色：S6-DATA、S2-RUNTIME

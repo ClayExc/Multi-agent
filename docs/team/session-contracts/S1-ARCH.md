@@ -10,7 +10,7 @@ WRITE_SCOPE=README.md,STRUCTURE.md,WORKFLOW.md,AGENTS.md,contracts/**,docs/archi
 ```
 
 - 契约状态：ACTIVE
-- 当前工作：无；WP-036 已完成，M7 等待用户再次批准启动
+- 当前工作：无；M7 候选已合入，M8 等待用户批准启动
 
 ## 使命
 
@@ -68,14 +68,14 @@ S1 不可以：
 
 ## 当前交付
 
-- 维护已进入主分支的 M0～M6/P2 架构事实与当前 `1cad07bd…` 契约候选。
-- 完成 WP-036 的事实源、全仓质量命令、CI 和 M7 四包拆分。
+- 维护已进入主分支的 M0～M7/P2 架构事实与当前 `1cad07bd…` 契约候选。
+- M7 四个工作包、动态安全返修、S7 组合复现和主分支快速终门禁已经收口。
 - 保留 OpenAI/Claude Agents SDK 为正式 Runtime Adapter 技术栈。
-- M7～M20 已批准规划但没有活动开发链；真实 Provider 和产品装配不在 WP-036。
+- M8～M20 已批准规划但没有活动开发链；M7 在线 Provider Smoke 仍未执行。
 
 ## 完成定义
 
 - 当前契约候选继续通过 Conformance，且本包不改变 ContractSet Artifact。
 - 全仓测试、静态检查、覆盖率、安全和依赖审计入口可重复运行。
 - 当前控制文档不再误报旧摘要、旧 Workspace 数量或历史活动链。
-- M7 工作包保持未激活，不把未实现能力标记为 `IMPLEMENTED` 或 `VERIFIED`。
+- M8 工作包保持未激活；M7 候选不标记为 `RELEASED` 或整体 `FROZEN`。

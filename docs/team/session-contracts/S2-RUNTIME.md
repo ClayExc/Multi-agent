@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=WP-070
-FEATURE_IDS=FP-AGT-002,FP-AGT-003,FP-OPS-003,FP-SEC-006
+WORK_PACKAGE=NONE
+FEATURE_IDS=NONE
 WRITE_SCOPE=packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：ACTIVE / WP-070-a1
-- 当前工作：[WP-070](../work-packages/WP-070-m7-provider-runtime-adapters.md) Provider 与 SDK Adapter。
-- 激活依据：`CHAIN-M7-LOCAL-PRODUCT-01`，默认 `DELTA` 热启动。
+- 契约状态：IDLE
+- 当前工作：无；M7 Provider、Runtime 组合与 Studio 恢复边界已进入主分支。
+- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
 
 ## 使命
 

@@ -13,7 +13,10 @@ import pytest
 from flowpilot_api.app import _sse_frame
 from flowpilot_api.stream import InMemoryEventStream
 from flowpilot_application import TaskEventEnvelope
-from flowpilot_application.task_events import TASK_EVENT_PAYLOAD_RULES
+from flowpilot_application.task_events import (
+    TASK_EVENT_PAYLOAD_RULES,
+    TASK_EVENT_TOKEN_FAMILY_PATTERNS,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TASK_EVENT_SCHEMA = json.loads(
@@ -26,6 +29,59 @@ TASK_EVENT_SCHEMA = json.loads(
 )
 NOW = datetime(2026, 8, 9, 8, 0, tzinfo=UTC)
 DIGEST = "sha256:" + "a" * 64
+TOKEN_FAMILY_CASES: tuple[tuple[str, str], ...] = (
+    ("openai_legacy", "sk-" + "Ab9" * 12),
+    ("openai_project", "sk-" + "proj-" + "Ab9" * 12),
+    ("openai_service_account", "sk-" + "svcacct-" + "Ab9" * 12),
+    (
+        "slack_multisegment",
+        "xoxb-" + "2-" + "1" * 12 + "-" + "Ab9" * 8,
+    ),
+    ("github_classic", "ghp_" + "Ab9" * 12),
+    ("github_fine_grained", "github_" + "pat_" + "Ab9_" * 8),
+    ("authorization_bearer", "Bearer " + "Ab9" * 8),
+    ("authorization_basic", "Basic " + "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="),
+    ("aws_access_key", "AKIA" + "A1" * 8),
+    ("private_key_header", "-----BEGIN " + "PRIVATE KEY-----"),
+    (
+        "jwt",
+        "eyJhbGciOiJIUzI1NiJ9."
+        "eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+        "Ab9_Ab9_Ab9_Ab9_",
+    ),
+    ("sensitive_assignment", "token=" + "Ab9" * 8),
+    (
+        "credential_uri",
+        "postgresql://user:" + "credential-value@example.internal/database",
+    ),
+)
+OPAQUE_TOKEN_FAMILY_CASES = tuple(
+    case
+    for case in TOKEN_FAMILY_CASES
+    if case[0]
+    in {
+        "openai_legacy",
+        "openai_project",
+        "openai_service_account",
+        "slack_multisegment",
+        "github_classic",
+        "github_fine_grained",
+        "aws_access_key",
+        "jwt",
+    }
+)
+SENSITIVE_ASSIGNMENT_CASES: tuple[tuple[str, str], ...] = (
+    ("authorization-assignment", "authorization=Basic-placeholder"),
+    ("cookie-assignment", "cookie=sessionid-placeholder"),
+    ("credential-assignment", "credential=placeholder"),
+    ("password-assignment", "password=placeholder"),
+    ("api-key-assignment", "api_key:placeholder"),
+    ("secret-assignment", "secret=placeholder"),
+    ("session-ref-assignment", "session_ref=provider-session"),
+    ("provider-session-assignment", "provider_session=provider-session"),
+    ("reasoning-assignment", "reasoning=hidden-content"),
+    ("chain-of-thought-assignment", "chain_of_thought=hidden-content"),
+)
 
 EVENT_CASES: tuple[tuple[str, str, dict[str, Any]], ...] = (
     (
@@ -517,56 +573,115 @@ def test_producer_principal_ref_must_be_an_opaque_uri() -> None:
 
 
 @pytest.mark.parametrize(
-    "sensitive_value",
-    (
-        "Bearer " + "a" * 22,
-        "Basic " + "QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
-        "authorization=Basic-QWxhZGRpbjpvcGVuIHNlc2FtZQ",
-        "cookie=sessionid-abcdefghijklmnop",
-        "credential=abcdefghijklmnop",
-        "password=customer-secret",
-        "api_key:abcdefghijklmnop",
-        "secret=abcdefghijklmnop",
-        "token=abcdefghijklmnop",
-        "session_ref=provider-session-123456",
-        "provider_session=provider-session-123456",
-        "reasoning=hidden-chain-content",
-        "chain_of_thought=hidden-chain-content",
-        "sk-" + "a" * 22,
-        "AKIA" + "A" * 16,
-        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop",
-        "postgresql://user:password@example.internal/database",
-        "-----BEGIN " + "PRIVATE KEY-----",
-    ),
-    ids=(
-        "bearer",
-        "basic",
-        "authorization",
-        "cookie",
-        "credential",
-        "assignment",
-        "api-key",
-        "secret",
-        "token",
-        "session-ref",
-        "provider-session",
-        "reasoning",
-        "chain-of-thought",
-        "provider-token",
-        "aws-key",
-        "jwt",
-        "credential-uri",
-        "private-key",
-    ),
+    ("case_id", "sensitive_value"),
+    TOKEN_FAMILY_CASES + SENSITIVE_ASSIGNMENT_CASES,
+    ids=[case_id for case_id, _value in TOKEN_FAMILY_CASES]
+    + [case_id for case_id, _value in SENSITIVE_ASSIGNMENT_CASES],
 )
 def test_envelope_top_level_strings_reject_sensitive_values(
+    case_id: str,
     sensitive_value: str,
 ) -> None:
+    assert case_id
     with pytest.raises(ValueError, match="sensitive value"):
         _envelope(correlation_id=sensitive_value)
 
 
-def test_payload_nested_sequence_rejects_sensitive_string_value() -> None:
+def test_declared_token_families_have_complete_examples() -> None:
+    examples = dict(TOKEN_FAMILY_CASES)
+
+    assert set(examples) == set(TASK_EVENT_TOKEN_FAMILY_PATTERNS)
+    for family, pattern in TASK_EVENT_TOKEN_FAMILY_PATTERNS.items():
+        assert pattern.search(examples[family]) is not None
+
+
+@pytest.mark.parametrize("prefix", ("xoxb", "xoxa", "xoxp", "xoxr", "xoxs"))
+def test_slack_token_family_covers_registered_prefixes(prefix: str) -> None:
+    token = prefix + "-2-" + "1" * 12 + "-" + "Ab9" * 8
+
+    assert TASK_EVENT_TOKEN_FAMILY_PATTERNS["slack_multisegment"].search(token)
+
+
+@pytest.mark.parametrize("prefix", ("ghp_", "gho_", "ghu_", "ghs_", "ghr_"))
+def test_github_classic_family_covers_registered_prefixes(prefix: str) -> None:
+    token = prefix + "Ab9" * 12
+
+    assert TASK_EVENT_TOKEN_FAMILY_PATTERNS["github_classic"].search(token)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("event_id", "evt_" + "sk-" + "proj-" + "Ab9" * 10),
+        ("tenant_id", "sk-" + "proj-" + "Ab9" * 10),
+        ("task_id", "task_" + "sk-" + "proj-" + "Ab9" * 10),
+        ("thread_id", "thread_" + "sk-" + "proj-" + "Ab9" * 10),
+        ("trace_id", "sk-" + "proj-" + "Ab9" * 10),
+        ("run_id", "run_" + "sk-" + "proj-" + "Ab9" * 10),
+        (
+            "producer_principal_ref",
+            "workload://worker/" + "sk-" + "proj-" + "Ab9" * 10,
+        ),
+        ("correlation_id", "sk-" + "proj-" + "Ab9" * 10),
+        ("causation_id", "sk-" + "proj-" + "Ab9" * 10),
+    ),
+    ids=(
+        "event-id",
+        "tenant-id",
+        "task-id",
+        "thread-id",
+        "trace-id",
+        "run-id",
+        "producer-principal-ref",
+        "correlation-id",
+        "causation-id",
+    ),
+)
+def test_every_variable_envelope_string_scans_token_families(
+    field: str,
+    value: str,
+) -> None:
+    envelope = _envelope()
+    object.__setattr__(envelope, field, value)
+
+    with pytest.raises(ValueError, match="sensitive value"):
+        envelope.assert_valid()
+
+
+def test_hyphenated_business_identifiers_remain_valid() -> None:
+    envelope = _envelope(
+        tenant_id="tenant-west-business-12345678",
+        producer_principal_ref="workload://worker/business-release-2026",
+        correlation_id="correlation-business-release-2026",
+    )
+    object.__setattr__(envelope, "event_id", "evt_business-release-12345678")
+    object.__setattr__(envelope, "task_id", "task_business-release-12345678")
+    object.__setattr__(
+        envelope,
+        "thread_id",
+        "thread_business-release-12345678",
+    )
+    object.__setattr__(envelope, "trace_id", "trace-business-release-2026")
+    object.__setattr__(envelope, "run_id", "run_business-release-12345678")
+    object.__setattr__(
+        envelope,
+        "causation_id",
+        "cause-business-release-2026",
+    )
+
+    envelope.assert_valid()
+
+
+@pytest.mark.parametrize(
+    ("family", "sensitive_value"),
+    TOKEN_FAMILY_CASES,
+    ids=[family for family, _value in TOKEN_FAMILY_CASES],
+)
+def test_payload_nested_sequence_rejects_sensitive_string_value(
+    family: str,
+    sensitive_value: str,
+) -> None:
+    assert family
     with pytest.raises(ValueError, match="sensitive value"):
         _envelope(
             "task.input.required.v1",
@@ -574,8 +689,24 @@ def test_payload_nested_sequence_rejects_sensitive_string_value() -> None:
             {
                 "request_id": "request-123",
                 "prompt_ref": "prompt://request-123",
-                "missing_fields": ["Bearer " + "a" * 22],
+                "missing_fields": [sensitive_value],
             },
+        )
+
+
+@pytest.mark.parametrize(
+    ("family", "sensitive_value"),
+    OPAQUE_TOKEN_FAMILY_CASES,
+    ids=[family for family, _value in OPAQUE_TOKEN_FAMILY_CASES],
+)
+def test_opaque_reference_values_reject_token_families(
+    family: str,
+    sensitive_value: str,
+) -> None:
+    assert family
+    with pytest.raises(ValueError, match="sensitive value"):
+        _envelope(
+            payload={"result_ref": "result://artifact/" + sensitive_value}
         )
 
 
@@ -653,12 +784,21 @@ def test_tampered_reference_writes_no_stream_or_sse_output() -> None:
     assert frames == []
 
 
-def test_tampered_sensitive_value_writes_no_stream_or_sse_output() -> None:
+@pytest.mark.parametrize(
+    ("family", "sensitive_value"),
+    TOKEN_FAMILY_CASES,
+    ids=[family for family, _value in TOKEN_FAMILY_CASES],
+)
+def test_tampered_sensitive_value_writes_no_stream_or_sse_output(
+    family: str,
+    sensitive_value: str,
+) -> None:
+    assert family
     envelope = _envelope()
     object.__setattr__(
         envelope,
         "correlation_id",
-        "password=customer-secret",
+        sensitive_value,
     )
 
     async def scenario() -> None:

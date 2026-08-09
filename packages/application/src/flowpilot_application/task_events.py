@@ -59,22 +59,60 @@ _SENSITIVE_KEY_FRAGMENTS = frozenset(
 _OPAQUE_REF_PATTERN = re.compile(
     r"^[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9][A-Za-z0-9._~:/+-]*$"
 )
-_SENSITIVE_VALUE_PATTERNS = (
-    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{12,}"),
-    re.compile(r"(?i)\bbasic\s+[A-Za-z0-9+/=]{12,}"),
-    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
-    re.compile(
-        r"(?i)\b(?:api[_-]?key|authorization|chain[_-]?of[_-]?thought|"
-        r"cookie|credential|password|private[_-]?key|provider[_-]?session|"
-        r"reasoning|secret|session[_-]?ref|token)\s*[:=]\s*\S+"
-    ),
-    re.compile(r"(?i)\b(?:sk|gh[pousr]|xox[baprs])[-_][A-Za-z0-9]{16,}\b"),
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-    re.compile(
-        r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\."
-        r"[A-Za-z0-9_-]{8,}\b"
-    ),
-    re.compile(r"(?i)\b[A-Za-z][A-Za-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@"),
+TASK_EVENT_TOKEN_FAMILY_PATTERNS: Mapping[str, re.Pattern[str]] = (
+    MappingProxyType(
+        {
+            "openai_legacy": re.compile(
+                r"(?<![A-Za-z0-9])sk-[A-Za-z0-9]{20,}(?![A-Za-z0-9])"
+            ),
+            "openai_project": re.compile(
+                r"(?<![A-Za-z0-9])sk-proj-[A-Za-z0-9_-]{20,}"
+                r"(?![A-Za-z0-9_-])"
+            ),
+            "openai_service_account": re.compile(
+                r"(?<![A-Za-z0-9])sk-svcacct-[A-Za-z0-9_-]{20,}"
+                r"(?![A-Za-z0-9_-])"
+            ),
+            "slack_multisegment": re.compile(
+                r"(?<![A-Za-z0-9])xox[baprs]-"
+                r"(?=[A-Za-z0-9-]{20,}(?![A-Za-z0-9-]))"
+                r"(?:[A-Za-z0-9]+-){1,}[A-Za-z0-9]+"
+                r"(?![A-Za-z0-9-])"
+            ),
+            "github_classic": re.compile(
+                r"(?<![A-Za-z0-9])gh[pousr]_[A-Za-z0-9]{20,}"
+                r"(?![A-Za-z0-9])"
+            ),
+            "github_fine_grained": re.compile(
+                r"(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{20,}"
+                r"(?![A-Za-z0-9_])"
+            ),
+            "authorization_bearer": re.compile(
+                r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{12,}"
+            ),
+            "authorization_basic": re.compile(
+                r"(?i)\bbasic\s+[A-Za-z0-9+/=]{12,}"
+            ),
+            "aws_access_key": re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+            "private_key_header": re.compile(
+                r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
+            ),
+            "jwt": re.compile(
+                r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\."
+                r"[A-Za-z0-9_-]{8,}\b"
+            ),
+            "sensitive_assignment": re.compile(
+                r"(?i)\b(?:api[_-]?key|authorization|"
+                r"chain[_-]?of[_-]?thought|cookie|credential|password|"
+                r"private[_-]?key|provider[_-]?session|reasoning|secret|"
+                r"session[_-]?ref|token)\s*[:=]\s*\S+"
+            ),
+            "credential_uri": re.compile(
+                r"(?i)\b[A-Za-z][A-Za-z0-9+.-]*://"
+                r"[^\s/@:]+:[^\s/@]+@"
+            ),
+        }
+    )
 )
 
 
@@ -350,6 +388,7 @@ def assert_task_event_content_safe(value: object, path: str) -> None:
             assert_task_event_content_safe(item, f"{path}[{index}]")
         return
     if isinstance(value, str) and any(
-        pattern.search(value) for pattern in _SENSITIVE_VALUE_PATTERNS
+        pattern.search(value)
+        for pattern in TASK_EVENT_TOKEN_FAMILY_PATTERNS.values()
     ):
         raise ValueError(f"{path} contains sensitive value material")

@@ -75,6 +75,17 @@ class ApiClient:
         self._transport = transport or _urllib_transport(base_url, timeout=timeout)
 
     def get_task(self, task_id: str) -> TaskView:
+        payload = self.get_task_mapping(task_id)
+        try:
+            return TaskView.from_mapping(payload)
+        except ShellContractError as exc:
+            raise ShellContractError(
+                f"task projection {task_id} violates the v1 contract: {exc}"
+            ) from exc
+
+    def get_task_mapping(self, task_id: str) -> dict[str, Any]:
+        """Return the validated JSON object for server-side command building."""
+
         headers = {
             "Accept": "application/json",
             "X-FlowPilot-Tenant-Id": self._tenant_id,
@@ -84,14 +95,9 @@ class ApiClient:
         )
         payload = _parse_json_body(status, body)
         if status == 200:
-            try:
-                return TaskView.from_mapping(
-                    _require_json_object(payload, "task projection")
-                )
-            except ShellContractError as exc:
-                raise ShellContractError(
-                    f"task projection {task_id} violates the v1 contract: {exc}"
-                ) from exc
+            mapping = _require_json_object(payload, "task projection")
+            TaskView.from_mapping(mapping)
+            return mapping
         raise _map_error(status, payload)
 
     def submit_command(self, command: dict[str, Any]) -> dict[str, Any]:

@@ -8,6 +8,20 @@
 const view = document.getElementById("view");
 const sseStatus = document.getElementById("sse-status");
 const ticker = document.getElementById("event-ticker");
+const modeBadge = document.getElementById("shell-mode");
+const demoControls = document.getElementById("demo-controls");
+
+async function applyMode() {
+  try {
+    const response = await fetch("/health");
+    const health = await response.json();
+    const live = health.mode === "live";
+    modeBadge.textContent = live ? "真实 API/SSE" : "合成 Fixture 演示";
+    demoControls.hidden = live;
+  } catch (_err) {
+    modeBadge.textContent = "后端未配置";
+  }
+}
 
 function currentRoute() {
   const hash = location.hash || "#/tasks";
@@ -94,4 +108,5 @@ window.addEventListener("hashchange", function () {
 });
 
 loadRoute(currentRoute());
+applyMode();
 connectSse();

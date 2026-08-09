@@ -169,7 +169,7 @@ def test_adapter_has_no_approval_write_capability() -> None:
     from flowpilot_shell.api_client import ApiClient
 
     methods = {name for name in dir(ApiClient) if not name.startswith("_")}
-    assert methods == {"get_task", "submit_command"}
+    assert methods == {"get_task", "get_task_mapping", "submit_command"}
     assert not any("approv" in name.lower() for name in methods)
 
 

@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FlowPilot 工作台 · 轨道 C Web 外壳（合成 Fixture 演示）</title>
+  <title>FlowPilot 工作台</title>
   <link rel="stylesheet" href="/static/shell.css" />
 </head>
 <body>
   <header class="app-header">
-    <h1>FlowPilot 工作台 <span class="badge-demo">轨道 C Web 外壳 · 合成 Fixture 演示</span></h1>
+    <h1>FlowPilot 工作台 <span id="shell-mode" class="badge-demo">安全模式检测中…</span></h1>
     <nav class="app-nav">
       <a href="#/tasks" data-route="tasks">任务列表</a>
       <span id="sse-status" class="sse-status sse-connecting">SSE 连接中…</span>
@@ -22,9 +22,9 @@
   <footer class="app-footer">
     <p class="shell-note">
       本外壳不保存业务事实、不发起审批写调用、不直接访问 PostgreSQL/MCP；
-      页面数据来自本地合成 Fixture（<code>web/fixtures/</code>）与模拟 API/SSE。
+      页面只消费受信任服务端配置的 API/SSE；刷新后以权威 Task 投影重建。
     </p>
-    <div class="demo-controls">
+    <div id="demo-controls" class="demo-controls">
       <span>演示控制：</span>
       <a class="btn btn-secondary" href="#/tasks" data-action="reset">恢复正常</a>
       <a class="btn btn-secondary" href="#/tasks/task_inventory_005?demo=unavailable" data-action="demo-503">模拟 API 不可用（503 错误面板）</a>

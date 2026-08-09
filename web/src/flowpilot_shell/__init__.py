@@ -10,6 +10,7 @@ Boundaries (enforced by tests/experience/):
 
 from __future__ import annotations
 
+from .live import LiveSession, LiveUpdate
 from .models import (
     ApprovalView,
     CitationView,
@@ -25,11 +26,14 @@ from .models import (
     TaskView,
     WaitingOnView,
 )
+from .projection import StudioProgressView, validate_progression
 
 __all__ = [
     "ApprovalView",
     "CitationView",
     "EventView",
+    "LiveSession",
+    "LiveUpdate",
     "PlannedActionView",
     "ResultArtifactView",
     "ShellContractError",
@@ -37,7 +41,9 @@ __all__ = [
     "ShellNotFoundError",
     "ShellServerError",
     "ShellUnavailableError",
+    "StudioProgressView",
     "TaskErrorView",
     "TaskView",
     "WaitingOnView",
+    "validate_progression",
 ]

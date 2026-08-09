@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 
 import pytest
 
@@ -97,6 +98,32 @@ def test_timeline_dedupes_redelivery(fixture_files) -> None:
             timeline.ingest(EventView.from_mapping(event))
     assert timeline.counts()["task_repair_003"] == len(task_events)
     assert timeline.gaps_for("task_repair_003") == ()
+
+
+def test_timeline_rejects_event_id_content_collision(fixture_files) -> None:
+    """安全: 同 event_id 异内容不是重投，必须失败关闭。"""
+    from flowpilot_shell.models import EventView, ShellContractError
+    from flowpilot_shell.sse_client import TimelineReconstructor
+
+    raw = deepcopy(fixture_files["events.v1.json"]["events"][0])
+    timeline = TimelineReconstructor()
+    timeline.ingest(EventView.from_mapping(raw))
+    raw["payload"] = {"status": "RECEIVED", "task_ref": "task://forged"}
+    with pytest.raises(ShellContractError, match="reused with different content"):
+        timeline.ingest(EventView.from_mapping(raw))
+
+
+def test_timeline_rejects_sequence_collision(fixture_files) -> None:
+    """安全: 同 Task sequence 不能由另一个事件覆盖。"""
+    from flowpilot_shell.models import EventView, ShellContractError
+    from flowpilot_shell.sse_client import TimelineReconstructor
+
+    raw = deepcopy(fixture_files["events.v1.json"]["events"][0])
+    timeline = TimelineReconstructor()
+    timeline.ingest(EventView.from_mapping(raw))
+    raw["event_id"] = "evt_sequence_collision_0001"
+    with pytest.raises(ShellContractError, match="sequence was reused"):
+        timeline.ingest(EventView.from_mapping(raw))
 
 
 def test_timeline_detects_sequence_gap(fixture_files) -> None:

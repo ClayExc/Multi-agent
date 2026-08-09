@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from artifacts.acceptance.generators.studio_agent_server import (
-    run_studio_agent_server_smoke,
+from tests.acceptance.studio.oracle_v2 import (
+    run_studio_agent_server_smoke_v2,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -38,7 +38,7 @@ def studio_evidence(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> tuple[dict[str, Any], Path]:
     output = tmp_path_factory.mktemp("studio-agent-server") / "evidence.json"
-    evidence = run_studio_agent_server_smoke(
+    evidence = run_studio_agent_server_smoke_v2(
         repository_root=ROOT,
         output_path=output,
     )
@@ -95,14 +95,23 @@ def test_agent_server_projection_and_failure_paths_fail_closed(
     assert security == {
         "approval_denial_failed_closed": True,
         "authoritative_input_hidden": True,
+        "authoritative_input_rejected": True,
         "business_fact_sources_unchanged": True,
         "external_network": "disabled",
         "final_tool_stage": "no_authoritative_write",
+        "historical_checkpoint_replay_rejected": True,
         "production_environment_loaded": False,
         "production_profile_edit_rejected": True,
         "projection_default_deny": True,
+        "rejected_thread_history_empty": True,
+        "rejected_thread_next_empty": True,
+        "rejected_thread_pending_writes_empty": True,
+        "rejected_thread_values_empty": True,
+        "resume_authority_rejected": True,
         "sensitive_input_hidden": True,
+        "sensitive_input_rejected": True,
         "tool_mode": "fake_readonly",
+        "unknown_field_rejected": True,
         "unknown_scenario_rejected": True,
     }
 

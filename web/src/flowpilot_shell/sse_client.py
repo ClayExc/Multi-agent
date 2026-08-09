@@ -10,6 +10,7 @@ the adapter layer).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
@@ -101,14 +102,27 @@ class TimelineReconstructor:
 
     def __init__(self) -> None:
         self._events: dict[str, list[EventView]] = {}
-        self._seen: dict[str, set[str]] = {}
+        self._fingerprints: dict[str, str] = {}
+        self._sequence_ids: dict[tuple[str, int], str] = {}
         self._gaps: dict[str, tuple[int, ...]] = {}
 
     def ingest(self, event: EventView) -> None:
-        seen = self._seen.setdefault(event.task_id, set())
-        if event.event_id in seen:
-            return  # at-least-once redelivery
-        seen.add(event.event_id)
+        fingerprint = _event_fingerprint(event)
+        prior_fingerprint = self._fingerprints.get(event.event_id)
+        if prior_fingerprint is not None:
+            if prior_fingerprint != fingerprint:
+                raise ShellContractError(
+                    "SSE event_id was reused with different content"
+                )
+            return  # byte-equivalent at-least-once redelivery
+        sequence_key = (event.task_id, event.sequence)
+        prior_event_id = self._sequence_ids.get(sequence_key)
+        if prior_event_id is not None and prior_event_id != event.event_id:
+            raise ShellContractError(
+                "SSE task sequence was reused by a different event"
+            )
+        self._fingerprints[event.event_id] = fingerprint
+        self._sequence_ids[sequence_key] = event.event_id
         events = self._events.setdefault(event.task_id, [])
         events.append(event)
         events.sort(key=lambda item: (item.sequence, item.occurred_at))
@@ -138,3 +152,31 @@ def _compute_gaps(events: list[EventView]) -> tuple[int, ...]:
         return ()
     expected = set(range(1, max(sequences) + 1))
     return tuple(sorted(expected - set(sequences)))
+
+
+def _event_fingerprint(event: EventView) -> str:
+    value = {
+        "event_id": event.event_id,
+        "event_type": event.event_type,
+        "tenant_id": event.tenant_id,
+        "task_id": event.task_id,
+        "thread_id": event.thread_id,
+        "task_version": event.task_version,
+        "sequence": event.sequence,
+        "trace_id": event.trace_id,
+        "run_id": event.run_id,
+        "producer": event.producer,
+        "correlation_id": event.correlation_id,
+        "data_classification": event.data_classification,
+        "payload": event.payload,
+        "occurred_at": event.occurred_at.isoformat(),
+    }
+    try:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ShellContractError("SSE event is not JSON-safe") from exc

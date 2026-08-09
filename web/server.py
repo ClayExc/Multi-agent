@@ -26,7 +26,10 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -58,6 +61,7 @@ from flowpilot_shell.render import (  # noqa: E402
     render_task_list,
 )
 from flowpilot_shell.render.task_detail import render_task_not_found  # noqa: E402
+from flowpilot_shell.sse_client import parse_sse  # noqa: E402
 from flowpilot_shell.store import ShellStore  # noqa: E402
 
 ERROR_NOT_FOUND = {
@@ -79,7 +83,10 @@ ERROR_UNAVAILABLE = {
 
 
 def _load_fixture(path: Path, name: str) -> dict[str, Any]:
-    return json.loads((path / name).read_text(encoding="utf-8"))
+    value: object = json.loads((path / name).read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise ShellContractError(f"fixture {name} must be a JSON object")
+    return {str(key): item for key, item in value.items()}
 
 
 class DemoBackend:
@@ -128,9 +135,12 @@ class DemoBackend:
         )
 
     def all_events(self) -> list[dict[str, Any]]:
-        fixture = json.loads(
-            (WEB / "fixtures" / "events.v1.json").read_text(encoding="utf-8")
-        )["events"]
+        raw_events = _load_fixture(WEB / "fixtures", "events.v1.json")["events"]
+        if not isinstance(raw_events, list) or any(
+            not isinstance(item, dict) for item in raw_events
+        ):
+            raise ShellContractError("events fixture must contain an object array")
+        fixture = [dict(item) for item in raw_events]
         return fixture + self._live_events
 
     def emit(self, event: dict[str, Any]) -> None:
@@ -266,6 +276,130 @@ class DemoBackend:
         return view
 
 
+class LiveBackend:
+    """Server-side adapter for a real API/SSE deployment.
+
+    Browser headers never select tenant identity.  The local shell proxy owns
+    the configured tenant and validates every upstream Task/Event projection
+    before exposing it to the browser.
+    """
+
+    def __init__(self, api_base: str, *, tenant_id: str) -> None:
+        if not api_base or not tenant_id:
+            raise ShellContractError(
+                "live backend requires WEB_SHELL_API_BASE and WEB_SHELL_TENANT_ID"
+            )
+        from flowpilot_shell.api_client import ApiClient
+
+        self._api_base = api_base.rstrip("/")
+        self._tenant_id = tenant_id
+        self._api = ApiClient(self._api_base, tenant_id=tenant_id)
+        self.store = ShellStore()
+        self._tasks: dict[str, dict[str, Any]] = {}
+
+    def task_projection(self, task_id: str) -> dict[str, Any] | None:
+        try:
+            mapping = self._api.get_task_mapping(task_id)
+        except ShellUnavailableError:
+            raise
+        except Exception as exc:
+            from flowpilot_shell import ShellNotFoundError
+
+            if isinstance(exc, ShellNotFoundError):
+                return None
+            raise
+        view = TaskView.from_mapping(mapping)
+        self._assert_tenant(view.tenant_id)
+        self._tasks[task_id] = mapping
+        self.store.rebuild_from_projection(view)
+        return mapping
+
+    def all_tasks(self) -> tuple[TaskView, ...]:
+        return tuple(
+            sorted(
+                (TaskView.from_mapping(item) for item in self._tasks.values()),
+                key=lambda task: task.created_at,
+            )
+        )
+
+    def accept_command(self, command: dict[str, Any]) -> dict[str, Any]:
+        if command.get("tenant_id") != self._tenant_id:
+            raise ShellContractError("command tenant differs from live configuration")
+        if command.get("command_type") not in {
+            "task.message.submit.v1",
+            "task.retry.request.v1",
+        }:
+            raise ShellContractError("live shell command type is not registered")
+        return self._api.submit_command(command)
+
+    def rebuild(self, task_id: str) -> TaskView:
+        mapping = self.task_projection(task_id)
+        if mapping is None:
+            raise ShellContractError(f"unknown task {task_id}")
+        return TaskView.from_mapping(mapping)
+
+    def iter_event_frames(
+        self,
+        *,
+        last_event_id: str | None,
+        task_id: str | None,
+    ) -> Iterator[bytes]:
+        query = ""
+        if task_id:
+            query = "?" + urllib.parse.urlencode({"task_id": task_id})
+        request = urllib.request.Request(
+            self._api_base + "/v1/tasks/events" + query,
+            headers={
+                "Accept": "text/event-stream",
+                "X-FlowPilot-Tenant-Id": self._tenant_id,
+                **(
+                    {"Last-Event-ID": last_event_id}
+                    if last_event_id is not None
+                    else {}
+                ),
+            },
+        )
+        try:
+            response = urllib.request.urlopen(request, timeout=30)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise ShellUnavailableError("live SSE source is unavailable") from exc
+        with response:
+            chunks = iter(lambda: response.read(4096), b"")
+            for frame in parse_sse(chunks):
+                if frame.event != "task.event" or not frame.id:
+                    continue
+                try:
+                    decoded: object = json.loads(frame.data)
+                except json.JSONDecodeError as exc:
+                    raise ShellContractError("live SSE data is not JSON") from exc
+                if not isinstance(decoded, Mapping):
+                    raise ShellContractError("live SSE event must be an object")
+                event = EventView.from_mapping(decoded)
+                if event.event_id != frame.id:
+                    raise ShellContractError("live SSE id differs from event_id")
+                self._assert_tenant(event.tenant_id)
+                if task_id is not None and event.task_id != task_id:
+                    raise ShellContractError("live SSE task filter was violated")
+                self.store.apply_event(event)
+                self.task_projection(event.task_id)
+                payload = json.dumps(
+                    dict(decoded),
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                yield (
+                    f"id: {event.event_id}\nevent: task.event\n"
+                    f"data: {payload}\n\n"
+                ).encode()
+
+    def _assert_tenant(self, tenant_id: str) -> None:
+        if tenant_id != self._tenant_id:
+            raise ShellContractError(
+                "upstream tenant differs from live configuration"
+            )
+
+
 def _status_event(
     task_id: str,
     *,
@@ -305,7 +439,7 @@ def _now() -> str:
 
 class ShellHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server: DemoServer  # type: ignore[assignment]
+    server: DemoServer
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         return  # keep the demo console quiet
@@ -334,7 +468,14 @@ class ShellHandler(BaseHTTPRequestHandler):
                 )
             elif path == "/health":
                 self._send_json(
-                    200, {"status": "ok", "service": "flowpilot-shell-demo"}
+                    200,
+                    {
+                        "status": "ok",
+                        "service": "flowpilot-shell",
+                        "mode": (
+                            "live" if isinstance(backend, LiveBackend) else "demo"
+                        ),
+                    },
                 )
             elif path == "/views/tasks":
                 fragment = render_task_list(backend.all_tasks())
@@ -367,6 +508,22 @@ class ShellHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlsplit(self.path)
         try:
             if parsed.path == "/api/v1/task-commands":
+                if isinstance(backend, LiveBackend):
+                    self._send_json(
+                        403,
+                        {
+                            "error": {
+                                "code": "BROWSER_AUTHORITY_FORBIDDEN",
+                                "message": (
+                                    "raw TaskCommand submission is not available "
+                                    "to the browser"
+                                ),
+                                "retryable": False,
+                                "detail_ref": None,
+                            }
+                        },
+                    )
+                    return
                 body = self._read_body()
                 command = json.loads(body.decode("utf-8"))
                 receipt = backend.accept_command(command)
@@ -458,8 +615,23 @@ class ShellHandler(BaseHTTPRequestHandler):
 
     def _handle_sse(self, query: dict[str, list[str]]) -> None:
         backend = self.server.backend
-        events = backend.all_events()
         task_filter = query.get("task_id", [None])[0]
+        if isinstance(backend, LiveBackend):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            for frame in backend.iter_event_frames(
+                last_event_id=self.headers.get("Last-Event-ID"),
+                task_id=task_filter,
+            ):
+                self._write_chunk(frame)
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
+            return
+        events = backend.all_events()
         if task_filter:
             events = [event for event in events if event["task_id"] == task_filter]
         last_event_id = self.headers.get("Last-Event-ID")
@@ -532,7 +704,7 @@ class ShellHandler(BaseHTTPRequestHandler):
         return dict(urllib.parse.parse_qsl(body, keep_blank_values=True))
 
     def _submit_completion(
-        self, backend: DemoBackend, form: dict[str, str]
+        self, backend: DemoBackend | LiveBackend, form: dict[str, str]
     ) -> dict[str, Any]:
         task_id = form["task_id"]
         projection = backend.task_projection(task_id)
@@ -554,7 +726,9 @@ class ShellHandler(BaseHTTPRequestHandler):
         )
         return backend.accept_command(command)
 
-    def _retry_task(self, backend: DemoBackend, form: dict[str, str]) -> dict[str, Any]:
+    def _retry_task(
+        self, backend: DemoBackend | LiveBackend, form: dict[str, str]
+    ) -> dict[str, Any]:
         task_id = form["task_id"]
         projection = backend.task_projection(task_id)
         if projection is None:
@@ -588,7 +762,7 @@ def _guess_content_type(path: str) -> str:
 class DemoServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, backend: DemoBackend, port: int) -> None:
+    def __init__(self, backend: DemoBackend | LiveBackend, port: int) -> None:
         super().__init__(("127.0.0.1", port), ShellHandler)
         self.backend = backend
 
@@ -598,8 +772,19 @@ class DemoServer(ThreadingHTTPServer):
         return
 
 
-def build_backend() -> DemoBackend:
-    return DemoBackend(WEB / "fixtures")
+def build_backend(
+    environment: Mapping[str, str] | None = None,
+) -> DemoBackend | LiveBackend:
+    effective = os.environ if environment is None else environment
+    mode = effective.get("WEB_SHELL_MODE", "demo")
+    if mode == "demo":
+        return DemoBackend(WEB / "fixtures")
+    if mode == "live":
+        return LiveBackend(
+            effective.get("WEB_SHELL_API_BASE", ""),
+            tenant_id=effective.get("WEB_SHELL_TENANT_ID", ""),
+        )
+    raise ShellContractError("WEB_SHELL_MODE must be demo or live")
 
 
 def main(argv: list[str] | None = None) -> int:

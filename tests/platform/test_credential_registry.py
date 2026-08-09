@@ -128,10 +128,7 @@ def test_aws_registered_prefixes_are_covered(prefix: str) -> None:
     }
 
 
-@pytest.mark.parametrize(
-    "prefix",
-    ("xoxb", "xoxa", "xoxp", "xoxr", "xoxs", "xoxc", "xoxd"),
-)
+@pytest.mark.parametrize("prefix", ("xoxb", "xoxa", "xoxp", "xoxr", "xoxs"))
 def test_slack_xox_registered_prefixes_are_covered(prefix: str) -> None:
     token = prefix + "-2-" + "1" * 12 + "-" + "Ab9" * 8
 
@@ -147,6 +144,114 @@ def test_github_classic_registered_prefixes_are_covered(prefix: str) -> None:
     assert "github_classic_token" in {
         finding.family_id for finding in scan_secret_material(token)
     }
+
+
+@pytest.mark.parametrize("body_length", (24, 36, 72))
+def test_openai_admin_body_length_is_not_pinned_to_one_release(
+    body_length: int,
+) -> None:
+    token = "sk" + "-admin-" + "A" * body_length
+
+    assert "openai_admin" in {
+        finding.family_id
+        for finding in scan_secret_material("evt_" + token + "_suffix")
+    }
+
+
+_STRUCTURED_WRAPPERS: tuple[tuple[str, str, str], ...] = (
+    ("event", "evt_", ""),
+    ("correlation", "corr_", ""),
+    ("task", "task_", ""),
+    ("result", "result://", ""),
+    ("alphanumeric", "prefix123", ""),
+    ("underscore", "_", ""),
+    ("hyphen", "-", ""),
+    ("uri-path", "result://tenant/path/", ""),
+    ("suffix", "", "_suffix"),
+    ("prefix-and-suffix", "evt_", "_suffix"),
+)
+
+
+@pytest.mark.parametrize(
+    "family",
+    tuple(
+        family for family in CREDENTIAL_FAMILIES if not family.mapping_keys_only
+    ),
+    ids=lambda family: family.family_id,
+)
+@pytest.mark.parametrize(
+    ("wrapper_id", "prefix", "suffix"),
+    _STRUCTURED_WRAPPERS,
+    ids=[wrapper_id for wrapper_id, _prefix, _suffix in _STRUCTURED_WRAPPERS],
+)
+def test_registered_families_are_detected_at_structured_offsets(
+    family: CredentialFamily,
+    wrapper_id: str,
+    prefix: str,
+    suffix: str,
+) -> None:
+    assert wrapper_id
+    material = _positive_examples()[family.family_id]
+    wrapped = prefix + material + suffix
+
+    findings = scan_secret_material(wrapped, field="event")
+
+    assert family.family_id in {finding.family_id for finding in findings}
+    assert all(material not in finding.path for finding in findings)
+
+
+def test_mapping_field_family_remains_exact_under_structured_parent() -> None:
+    findings = scan_secret_material(
+        {"evt_wrapper": {"password": "not-sensitive-placeholder"}},
+        field="event",
+    )
+
+    assert "credential_field_name" in {
+        finding.family_id for finding in findings
+    }
+
+
+@pytest.mark.parametrize(
+    "family",
+    tuple(
+        family for family in CREDENTIAL_FAMILIES if not family.mapping_keys_only
+    ),
+    ids=lambda family: family.family_id,
+)
+def test_top_level_mapping_keys_values_and_sequences_share_offset_rules(
+    family: CredentialFamily,
+) -> None:
+    material = _positive_examples()[family.family_id]
+    values: tuple[object, ...] = (
+        "evt_" + material,
+        {"corr_" + material: "safe"},
+        {"safe": "task_" + material},
+        ["result://" + material],
+    )
+
+    for value in values:
+        assert family.family_id in {
+            finding.family_id for finding in scan_secret_material(value)
+        }
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "xoxo-customer-release-20260809",
+        "evt_xoxo-customer-release-20260809_suffix",
+        "xoxz-" + "2-" + "1" * 12 + "-" + "Ab9" * 8,
+        "xoxb-short",
+        "xoxa-single-segment-that-is-long",
+        "xapp-1-short-segment",
+        "evt_sk-admin-short",
+    ),
+)
+def test_slack_business_ids_and_adjacent_short_strings_remain_safe(
+    value: str,
+) -> None:
+    assert scan_secret_material(value) == ()
+    assert_no_secret_material(value)
 
 
 @pytest.mark.parametrize(

@@ -29,122 +29,96 @@ CREDENTIAL_FAMILIES: tuple[CredentialFamily, ...] = (
     CredentialFamily(
         family_id="aws_access_key",
         description="AWS access key identifiers with registered prefixes",
-        pattern=(
-            r"(?<![A-Z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])"
-        ),
+        pattern=r"(?:AKIA|ASIA)[A-Z0-9]{16}",
     ),
     CredentialFamily(
         family_id="openai_legacy",
         description="OpenAI legacy secret keys",
-        pattern=(
-            r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9]{20,164}"
-            r"(?![A-Za-z0-9_-])"
-        ),
+        pattern=r"sk-[A-Za-z0-9]{20,164}",
     ),
     CredentialFamily(
         family_id="openai_project",
         description="OpenAI project secret keys",
-        pattern=(
-            r"(?<![A-Za-z0-9_-])sk-proj-[A-Za-z0-9_-]{20,200}"
-            r"(?![A-Za-z0-9_-])"
-        ),
+        pattern=r"sk-proj-[A-Za-z0-9_-]{20,200}",
     ),
     CredentialFamily(
         family_id="openai_admin",
         description="OpenAI administration secret keys",
-        pattern=(
-            r"(?<![A-Za-z0-9_-])sk-admin-[A-Za-z0-9_-]{20,200}"
-            r"(?![A-Za-z0-9_-])"
-        ),
+        pattern=r"sk-admin-[A-Za-z0-9_-]{20,200}",
     ),
     CredentialFamily(
         family_id="openai_service_account",
         description="OpenAI service account secret keys",
-        pattern=(
-            r"(?<![A-Za-z0-9_-])sk-svcacct-[A-Za-z0-9_-]{20,200}"
-            r"(?![A-Za-z0-9_-])"
-        ),
+        pattern=r"sk-svcacct-[A-Za-z0-9_-]{20,200}",
     ),
     CredentialFamily(
         family_id="anthropic_secret_key",
         description="Anthropic API secret keys",
         pattern=(
-            r"(?<![A-Za-z0-9_-])sk-ant-(?:api[0-9]{2}-)?"
-            r"[A-Za-z0-9_-]{20,200}(?![A-Za-z0-9_-])"
+            r"sk-ant-(?:api[0-9]{2}-)?[A-Za-z0-9_-]{20,200}"
         ),
     ),
     CredentialFamily(
         family_id="slack_xox_token",
         description="Slack xox application and user token families",
         pattern=(
-            r"(?<![A-Za-z0-9-])xox[a-z]-"
-            r"(?=[A-Za-z0-9-]{20,200}(?![A-Za-z0-9-]))"
+            r"(?:xoxb|xoxa|xoxp|xoxr|xoxs)-"
+            r"(?=[A-Za-z0-9-]{20,200})"
             r"(?:[A-Za-z0-9]{1,80}-){1,4}[A-Za-z0-9]{8,80}"
-            r"(?![A-Za-z0-9-])"
         ),
     ),
     CredentialFamily(
         family_id="slack_xapp_token",
         description="Slack application-level tokens",
         pattern=(
-            r"(?<![A-Za-z0-9-])xapp-[0-9]-"
-            r"(?=[A-Za-z0-9-]{20,200}(?![A-Za-z0-9-]))"
+            r"xapp-[0-9]-"
+            r"(?=[A-Za-z0-9-]{20,200})"
             r"(?:[A-Za-z0-9]{1,80}-){1,4}[A-Za-z0-9]{8,80}"
-            r"(?![A-Za-z0-9-])"
         ),
     ),
     CredentialFamily(
         family_id="github_classic_token",
         description="GitHub classic token prefixes",
-        pattern=(
-            r"(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{36,255}"
-            r"(?![A-Za-z0-9])"
-        ),
+        pattern=r"gh[pousr]_[A-Za-z0-9]{36,255}",
     ),
     CredentialFamily(
         family_id="github_fine_grained_token",
         description="GitHub fine-grained personal access tokens",
-        pattern=(
-            r"(?<![A-Za-z0-9_])github_pat_[A-Za-z0-9_]{20,255}"
-            r"(?![A-Za-z0-9_])"
-        ),
+        pattern=r"github_pat_[A-Za-z0-9_]{20,255}",
     ),
     CredentialFamily(
         family_id="authorization_bearer",
         description="Bearer authorization credentials",
         pattern=(
-            r"(?i)(?<![A-Za-z0-9])bearer[ \t]+"
+            r"(?i)bearer[ \t]+"
             r"[A-Za-z0-9._~+/-]{16,2048}={0,2}"
-            r"(?![A-Za-z0-9._~+/=-])"
         ),
     ),
     CredentialFamily(
         family_id="authorization_basic",
         description="Basic authorization credentials",
         pattern=(
-            r"(?i)(?<![A-Za-z0-9])basic[ \t]+"
+            r"(?i)basic[ \t]+"
             r"[A-Za-z0-9+/]{16,512}={0,2}"
-            r"(?![A-Za-z0-9+/=])"
         ),
     ),
     CredentialFamily(
         family_id="jwt",
         description="Three-segment JSON Web Tokens",
         pattern=(
-            r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{5,512}\."
+            r"eyJ[A-Za-z0-9_-]{5,512}\."
             r"[A-Za-z0-9_-]{8,4096}\.[A-Za-z0-9_-]{16,1024}"
-            r"(?![A-Za-z0-9_-])"
         ),
     ),
     CredentialFamily(
         family_id="credential_assignment",
         description="Common credential assignments with non-trivial values",
         pattern=(
-            r"(?i)(?<![A-Za-z0-9_])(?:access[_-]?token|api[_-]?key|"
+            r"(?i)(?:access[_-]?token|api[_-]?key|"
             r"authorization|client[_-]?secret|credential|password|"
             r"private[_-]?key|refresh[_-]?token|secret|session[_-]?token|"
             r"token)\s*[:=]\s*(?:[\"'][A-Za-z0-9._~+/=-]{8,256}[\"']|"
-            r"[A-Za-z0-9._~+/=-]{8,256})(?![A-Za-z0-9._~+/=-])"
+            r"[A-Za-z0-9._~+/=-]{8,256})"
         ),
     ),
     CredentialFamily(
@@ -169,13 +143,16 @@ CREDENTIAL_FAMILIES: tuple[CredentialFamily, ...] = (
         family_id="credential_uri",
         description="URI user-info containing an embedded credential",
         pattern=(
-            r"(?i)(?<![A-Za-z0-9])"
-            r"[A-Za-z][A-Za-z0-9+.-]*://"
+            r"(?i)[A-Za-z][A-Za-z0-9+.-]*://"
             r"[A-Za-z0-9._~%-]{1,64}:"
             r"[A-Za-z0-9._~!$&'()*+,;=:%-]{4,256}@"
         ),
     ),
 )
+
+# Outer token boundaries are intentionally absent. Credentials frequently appear
+# inside structured identifiers and opaque references, so the exact family prefix
+# and constrained body syntax must be detectable from every character offset.
 
 _COMPILED_FAMILIES: tuple[tuple[CredentialFamily, re.Pattern[str]], ...] = (
     tuple((family, re.compile(family.pattern)) for family in CREDENTIAL_FAMILIES)

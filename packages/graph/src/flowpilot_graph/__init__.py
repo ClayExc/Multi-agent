@@ -4,6 +4,7 @@ from .debug import (
     assert_studio_input_safe,
     assert_studio_profile_allowed,
     debug_projection,
+    product_debug_projection,
     projection_digest,
 )
 from .engine import (
@@ -144,6 +145,7 @@ __all__ = [
     "build_onboarding_read_call",
     "build_onboarding_write_call",
     "debug_projection",
+    "product_debug_projection",
     "plan_onboarding_sub_actions",
     "projection_digest",
     "reduce_parallel",

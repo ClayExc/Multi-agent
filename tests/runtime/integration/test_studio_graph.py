@@ -18,6 +18,7 @@ from flowpilot_graph import (
     topology_snapshot,
 )
 from flowpilot_graph.langgraph_runtime import LangGraphRuntime
+from flowpilot_worker.knowledge import KNOWLEDGE_GRAPH_VERSION, KNOWLEDGE_INTENT
 from flowpilot_worker.studio import create_studio_graph_definition
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
@@ -178,6 +179,122 @@ def test_full_demo_interrupts_resumes_handoffs_and_retries() -> None:
         )
         assert all(frame["profile"] == "studio-safe" for frame in frames)
         assert all(frame["recovery"]["run_generation"] == 1 for frame in frames)
+
+    asyncio.run(scenario())
+
+
+def test_default_product_demo_exposes_five_stage_recovery_progress() -> None:
+    async def scenario() -> None:
+        definition = create_studio_graph_definition(checkpointer=InMemorySaver())
+        graph = definition.graph
+        config = {
+            "configurable": {
+                "thread_id": "studio-product-progress-not-a-task",
+            }
+        }
+
+        waiting = await graph.ainvoke({}, config=config)
+        waiting_interrupts = waiting.get("__interrupt__", ())
+        assert len(waiting_interrupts) == 1
+        assert waiting_interrupts[0].value == {
+            "schema": "flowpilot.studio-interrupt.v1",
+            "kind": "clarification",
+            "request_ref": "clarification://sha256/2a87392f28f68d4a",
+            "required_fields": ["question"],
+        }
+        assert waiting["knowledge_call_count"] == 0
+        assert waiting["model_call_count"] == 0
+        assert waiting["debug_projection"][-1]["progress"] == {
+            "current_step": 2,
+            "total_steps": 5,
+            "phase": "interrupt",
+        }
+
+        completed = await graph.ainvoke(
+            Command(resume={"confirmed": True}),
+            config=config,
+        )
+
+        assert completed["status"] == "COMPLETED"
+        assert completed["terminal_reason"] == (
+            "ENTERPRISE_KNOWLEDGE_COMPLETED"
+        )
+        assert completed["knowledge_call_count"] == 1
+        assert completed["model_call_count"] == 2
+        assert completed["citation_count"] == 1
+        assert completed["artifact_count"] == 1
+        assert completed["recovery_resumed"] is True
+        assert completed["service_read_skipped"] is True
+
+        frames = completed["debug_projection"]
+        product_steps = [frame["progress"]["current_step"] for frame in frames]
+        assert product_steps == sorted(product_steps)
+        assert set(product_steps) == {1, 2, 3, 4, 5}
+        assert all(frame["progress"]["total_steps"] == 5 for frame in frames)
+        assert all(
+            frame["workflow"]["graph_id"] == FLOWPILOT_GRAPH_ID
+            and frame["workflow"]["graph_version"]
+            == KNOWLEDGE_GRAPH_VERSION
+            and frame["workflow"]["intent"] == KNOWLEDGE_INTENT
+            for frame in frames
+        )
+        assert frames[-1]["workflow"]["actor"] == "artifact_writer"
+        assert frames[-1]["model"] == {
+            "call_count": 2,
+            "outcome": "completed",
+        }
+        assert frames[-1]["references"] == {
+            "citation_count": 1,
+            "artifact_count": 1,
+        }
+        assert frames[-1]["recovery"]["resumed"] is True
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    (
+        "scenario_name",
+        "terminal_reason",
+        "failure_code",
+        "model_call_count",
+    ),
+    [
+        ("provider_timeout", "PROVIDER_TIMEOUT", "PROVIDER_TIMEOUT", 2),
+        (
+            "recovery_failed",
+            "RECOVERY_FAILED",
+            "GRAPH_CHECKPOINT_UNAVAILABLE",
+            0,
+        ),
+    ],
+)
+def test_product_failures_have_stable_actionable_projection(
+    scenario_name: str,
+    terminal_reason: str,
+    failure_code: str,
+    model_call_count: int,
+) -> None:
+    async def scenario() -> None:
+        result = await create_studio_graph_definition().graph.ainvoke(
+            {"scenario": scenario_name}
+        )
+
+        assert result["status"] == "FAILED"
+        assert result["terminal_reason"] == terminal_reason
+        assert result["failure_code"] == failure_code
+        assert result["model_call_count"] == model_call_count
+        assert result["artifact_count"] == 0
+        assert result["tool_stage"] == "no_authoritative_write"
+        final_frame = result["debug_projection"][-1]
+        assert final_frame["progress"] == {
+            "current_step": 5,
+            "total_steps": 5,
+            "phase": "terminal",
+        }
+        assert final_frame["terminal_reason"] == terminal_reason
+        assert final_frame["failure_code"] == failure_code
+        assert final_frame["references"]["artifact_count"] == 0
 
     asyncio.run(scenario())
 

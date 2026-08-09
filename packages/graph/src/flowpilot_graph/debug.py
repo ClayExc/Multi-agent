@@ -13,6 +13,7 @@ from .state import GraphState
 
 _STABLE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,127}$")
 _STABLE_NODE = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
+_STABLE_IDENTIFIER = re.compile(r"^[a-z][a-z0-9._-]{1,127}$")
 _AUTHORITY_FIELDS = frozenset(
     {
         "action",
@@ -159,6 +160,55 @@ def debug_projection(
         ),
         "failure_code": failure_code,
     }
+    _assert_projection_safe(projection)
+    return projection
+
+
+def product_debug_projection(
+    state: GraphState | Mapping[str, Any],
+    *,
+    policy: DebugProjectionPolicy | None = None,
+) -> dict[str, Any]:
+    """Add product progress to the safe projection without exposing content.
+
+    Product-facing Studio runs need enough structure to show where a resumed
+    graph is executing.  The extension deliberately exposes only registered
+    identifiers, stable phase names, counters, and recovery booleans.  Prompt,
+    answer, citation content, provider sessions, and authority-bearing state
+    remain outside the projection.
+    """
+
+    source = (
+        state.to_checkpoint()
+        if isinstance(state, GraphState)
+        else dict(state)
+    )
+    projection = debug_projection(source, policy=policy)
+    projection["workflow"] = {
+        "graph_id": _stable_value(source.get("graph_id"), _STABLE_IDENTIFIER),
+        "graph_version": _stable_value(
+            source.get("graph_version"),
+            _STABLE_IDENTIFIER,
+        ),
+        "intent": _stable_value(source.get("intent"), _STABLE_NODE),
+        "actor": _stable_value(source.get("active_actor"), _STABLE_NODE),
+    }
+    projection["progress"] = {
+        "current_step": _positive_int(source.get("progress_step")),
+        "total_steps": _positive_int(source.get("progress_total")),
+        "phase": _stable_value(source.get("progress_phase"), _STABLE_NODE),
+    }
+    projection["model"] = {
+        "call_count": _non_negative_int(source.get("model_call_count")),
+        "outcome": _stable_value(source.get("runtime_outcome"), _STABLE_NODE),
+    }
+    projection["references"] = {
+        "citation_count": _non_negative_int(source.get("citation_count")),
+        "artifact_count": _non_negative_int(source.get("artifact_count")),
+    }
+    recovery = projection["recovery"]
+    if isinstance(recovery, dict):
+        recovery["resumed"] = _boolean(source.get("recovery_resumed"))
     _assert_projection_safe(projection)
     return projection
 

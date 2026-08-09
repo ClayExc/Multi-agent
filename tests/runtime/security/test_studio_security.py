@@ -10,6 +10,7 @@ from flowpilot_graph import (
     GraphErrorCode,
     StudioProfile,
     debug_projection,
+    product_debug_projection,
 )
 from flowpilot_worker.studio import create_studio_graph_definition
 
@@ -147,3 +148,90 @@ def test_unknown_studio_state_remains_hidden_from_every_debug_frame() -> None:
         assert "hidden-value" not in serialized
 
     asyncio.run(scenario())
+
+
+def test_product_projection_exposes_progress_without_business_content() -> None:
+    raw_state = {
+        "graph_id": "flowpilot_it_service",
+        "graph_version": "flowpilot.enterprise-knowledge.m7.v1",
+        "intent": "knowledge_question",
+        "active_actor": "answer_agent",
+        "progress_step": 4,
+        "progress_total": 5,
+        "progress_phase": "model",
+        "current_node": "run_agent",
+        "status": "RUNNING",
+        "runtime_outcome": "failed_retryable",
+        "model_call_count": 1,
+        "knowledge_call_count": 1,
+        "citation_count": 2,
+        "artifact_count": 0,
+        "checkpoint_sequence": 8,
+        "run_generation": 2,
+        "recovery_resumed": True,
+        "question": "person@example.invalid needs a private answer",
+        "answer_markdown": "confidential answer must remain hidden",
+        "knowledge_sources": [{"redacted_summary": "hidden summary"}],
+        "session_ref": "provider-session-must-remain-hidden",
+        "security_context": {"tenant_id": "tenant-must-remain-hidden"},
+    }
+
+    projection = product_debug_projection(raw_state)
+    serialized = json.dumps(projection, sort_keys=True)
+
+    assert projection["progress"] == {
+        "current_step": 4,
+        "total_steps": 5,
+        "phase": "model",
+    }
+    assert projection["workflow"] == {
+        "graph_id": "flowpilot_it_service",
+        "graph_version": "flowpilot.enterprise-knowledge.m7.v1",
+        "intent": "knowledge_question",
+        "actor": "answer_agent",
+    }
+    assert projection["model"] == {
+        "call_count": 1,
+        "outcome": "failed_retryable",
+    }
+    assert projection["references"] == {
+        "citation_count": 2,
+        "artifact_count": 0,
+    }
+    assert projection["recovery"]["resumed"] is True
+    for forbidden_value in (
+        "person@example.invalid",
+        "confidential answer",
+        "hidden summary",
+        "provider-session-must-remain-hidden",
+        "tenant-must-remain-hidden",
+    ):
+        assert forbidden_value not in serialized
+
+    def collect_keys(value: object) -> set[str]:
+        if isinstance(value, dict):
+            return {
+                *(str(key) for key in value),
+                *(
+                    nested
+                    for child in value.values()
+                    for nested in collect_keys(child)
+                ),
+            }
+        if isinstance(value, list):
+            return {
+                nested
+                for child in value
+                for nested in collect_keys(child)
+            }
+        return set()
+
+    assert collect_keys(projection).isdisjoint(
+        {
+            "question",
+            "answer_markdown",
+            "knowledge_sources",
+            "session_ref",
+            "security_context",
+        }
+    )

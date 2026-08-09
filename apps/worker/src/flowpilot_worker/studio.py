@@ -17,6 +17,7 @@ try:
         assert_studio_profile_allowed,
         build_flowpilot_it_service_graph,
         debug_projection,
+        product_debug_projection,
     )
 except ModuleNotFoundError:
     # The Studio Agent Server launches this module inside a langgraph_cli
@@ -47,10 +48,20 @@ except ModuleNotFoundError:
         assert_studio_profile_allowed,
         build_flowpilot_it_service_graph,
         debug_projection,
+        product_debug_projection,
     )
 from langgraph.types import interrupt
 
-_DEFAULT_SCENARIO = "full_demo"
+from flowpilot_worker.knowledge import KNOWLEDGE_GRAPH_VERSION, KNOWLEDGE_INTENT
+
+_DEFAULT_SCENARIO = "knowledge_demo"
+_PRODUCT_SCENARIOS = frozenset(
+    {
+        "knowledge_demo",
+        "provider_timeout",
+        "recovery_failed",
+    }
+)
 _SCENARIOS = frozenset(
     {
         "approval",
@@ -59,6 +70,7 @@ _SCENARIOS = frozenset(
         "compensate",
         "full_demo",
         "happy_path",
+        *_PRODUCT_SCENARIOS,
         "retry_once",
     }
 )
@@ -107,6 +119,9 @@ def _maximum(left: int | None, right: int | None) -> int:
 class StudioSafeState(TypedDict, total=False):
     profile: str
     scenario: str
+    graph_id: str
+    graph_version: str
+    intent: str
     task_ref: str
     status: str
     current_node: str
@@ -117,6 +132,10 @@ class StudioSafeState(TypedDict, total=False):
         _merge_frames,
     ]
     step_count: Annotated[int, _maximum]
+    progress_step: int
+    progress_total: int
+    progress_phase: str
+    active_actor: str
     budget_remaining: int
     maximum_retries: int
     retry_count: int
@@ -129,11 +148,14 @@ class StudioSafeState(TypedDict, total=False):
     service_read_skipped: bool
     reads_complete: bool
     knowledge_call_count: int
+    model_call_count: int
     citation_count: int
+    artifact_count: int
     approval_required: bool
     approval_granted: bool
     interrupt_kind: str
     interrupt_resolved: bool
+    recovery_resumed: bool
     handoff_count: int
     handoff_reason: str
     context_rebuilt: bool
@@ -185,11 +207,18 @@ class _StudioSafeNodes:
                 GraphErrorCode.STATE_INVALID,
                 "Studio scenario is not registered",
             )
-        needs_clarification = scenario in {"clarification", "full_demo"}
+        needs_clarification = scenario in {
+            "clarification",
+            "full_demo",
+            "knowledge_demo",
+        }
         needs_approval = scenario in {"approval", "full_demo"}
         update: dict[str, Any] = {
             "profile": self._profile.value,
             "scenario": scenario,
+            "graph_id": FLOWPILOT_GRAPH_ID,
+            "graph_version": KNOWLEDGE_GRAPH_VERSION,
+            "intent": KNOWLEDGE_INTENT,
             "task_ref": f"studio-safe://{FLOWPILOT_GRAPH_ID}/{scenario}",
             "status": "RUNNING",
             "step_count": 0,
@@ -205,10 +234,13 @@ class _StudioSafeNodes:
             "service_read_skipped": False,
             "reads_complete": False,
             "knowledge_call_count": 0,
+            "model_call_count": 0,
             "citation_count": 0,
+            "artifact_count": 0,
             "approval_required": needs_approval,
             "approval_granted": False,
             "interrupt_resolved": False,
+            "recovery_resumed": False,
             "handoff_count": 0,
             "context_rebuilt": False,
             "tool_scope_rebuilt": False,
@@ -276,12 +308,17 @@ class _StudioSafeNodes:
         state: Mapping[str, Any],
     ) -> Mapping[str, Any]:
         self._assert_profile(state)
+        required_field = (
+            "question"
+            if state.get("scenario") in _PRODUCT_SCENARIOS
+            else "network_location"
+        )
         resume = interrupt(
             {
                 "schema": "flowpilot.studio-interrupt.v1",
                 "kind": "clarification",
                 "request_ref": "clarification://sha256/2a87392f28f68d4a",
-                "required_fields": ["network_location"],
+                "required_fields": [required_field],
             }
         )
         if not isinstance(resume, Mapping) or resume.get("confirmed") is not True:
@@ -296,6 +333,7 @@ class _StudioSafeNodes:
                 "input_complete": True,
                 "interrupt_kind": "clarification",
                 "interrupt_resolved": True,
+                "recovery_resumed": True,
                 "checkpoint_sequence": self._sequence(state) + 1,
             },
         )
@@ -399,6 +437,9 @@ class _StudioSafeNodes:
     ) -> Mapping[str, Any]:
         self._assert_profile(state)
         remaining = int(state.get("budget_remaining", 0))
+        scenario = state.get("scenario")
+        model_call_count = int(state.get("model_call_count", 0))
+        failure_code: str | None = None
         if remaining < 1:
             outcome = "budget_exhausted"
         elif (
@@ -407,24 +448,39 @@ class _StudioSafeNodes:
         ):
             outcome = "failed_final"
         elif (
-            state.get("scenario") in {"full_demo", "retry_once"}
+            scenario in {"full_demo", "knowledge_demo", "retry_once"}
             and int(state.get("retry_count", 0)) == 0
         ):
             outcome = "failed_retryable"
-        elif state.get("scenario") == "budget_exhausted":
+        elif scenario == "provider_timeout":
+            failure_code = "PROVIDER_TIMEOUT"
+            if int(state.get("retry_count", 0)) == 0:
+                outcome = "failed_retryable"
+            else:
+                outcome = "failed_final"
+        elif scenario == "recovery_failed":
+            failure_code = "GRAPH_CHECKPOINT_UNAVAILABLE"
+            outcome = "failed_final"
+        elif scenario == "budget_exhausted":
             outcome = "budget_exhausted"
-        elif state.get("scenario") == "compensate":
+        elif scenario == "compensate":
             outcome = "failed_final"
         else:
             outcome = "completed"
+        if scenario != "recovery_failed":
+            model_call_count += 1
+        update: dict[str, Any] = {
+            "budget_remaining": max(remaining - 1, 0),
+            "model_call_count": model_call_count,
+            "runtime_outcome": outcome,
+            "tool_stage": "proposal_only",
+        }
+        if failure_code is not None:
+            update["failure_code"] = failure_code
         return self._advance(
             state,
             "run_agent",
-            {
-                "budget_remaining": max(remaining - 1, 0),
-                "runtime_outcome": outcome,
-                "tool_stage": "proposal_only",
-            },
+            update,
         )
 
     async def route_result(
@@ -474,6 +530,7 @@ class _StudioSafeNodes:
                 "status": "RETRY_PENDING",
                 "retry_count": int(state.get("retry_count", 0)) + 1,
                 "checkpoint_sequence": self._sequence(state) + 1,
+                "recovery_resumed": True,
             },
         )
 
@@ -499,9 +556,14 @@ class _StudioSafeNodes:
     ) -> Mapping[str, Any]:
         self._assert_profile(state)
         outcome = state.get("runtime_outcome")
+        scenario = state.get("scenario")
         if outcome == "completed":
             status = "COMPLETED"
-            terminal_reason = "SYNTHETIC_SUCCESS"
+            terminal_reason = (
+                "ENTERPRISE_KNOWLEDGE_COMPLETED"
+                if scenario in _PRODUCT_SCENARIOS
+                else "SYNTHETIC_SUCCESS"
+            )
             failure_code: str | None = None
         elif outcome == "budget_exhausted":
             status = "FAILED"
@@ -509,13 +571,19 @@ class _StudioSafeNodes:
             failure_code = "STUDIO_BUDGET_EXHAUSTED"
         else:
             status = "FAILED"
-            terminal_reason = "SYNTHETIC_FAILURE"
             failure_code = str(
                 state.get("failure_code") or "STUDIO_RUNTIME_FAILED"
             )
+            if scenario == "provider_timeout":
+                terminal_reason = "PROVIDER_TIMEOUT"
+            elif scenario == "recovery_failed":
+                terminal_reason = "RECOVERY_FAILED"
+            else:
+                terminal_reason = "SYNTHETIC_FAILURE"
         update: dict[str, Any] = {
             "status": status,
             "terminal_reason": terminal_reason,
+            "artifact_count": 1 if status == "COMPLETED" else 0,
             "checkpoint_sequence": self._sequence(state) + 1,
             "tool_stage": "no_authoritative_write",
         }
@@ -542,10 +610,29 @@ class _StudioSafeNodes:
         combined["profile"] = self._profile.value
         combined["current_node"] = node
         combined["step_count"] = step_count
-        frame = debug_projection(
-            combined,
-            policy=self._projection_policy,
+        progress_step, progress_phase, active_actor = _product_progress(
+            node,
+            route=combined.get("route"),
+            resumed=combined.get("recovery_resumed") is True,
         )
+        combined.update(
+            {
+                "progress_step": progress_step,
+                "progress_total": 5,
+                "progress_phase": progress_phase,
+                "active_actor": active_actor,
+            }
+        )
+        if combined.get("scenario") in _PRODUCT_SCENARIOS:
+            frame = product_debug_projection(
+                combined,
+                policy=self._projection_policy,
+            )
+        else:
+            frame = debug_projection(
+                combined,
+                policy=self._projection_policy,
+            )
         frame["step"] = step_count
         frame["frame_id"] = (
             f"{node}:{step_count}:"
@@ -561,7 +648,15 @@ class _StudioSafeNodes:
             }
         )
         if record_current:
-            result["current_node"] = node
+            result.update(
+                {
+                    "current_node": node,
+                    "progress_step": progress_step,
+                    "progress_total": 5,
+                    "progress_phase": progress_phase,
+                    "active_actor": active_actor,
+                }
+            )
         return result
 
     def _assert_profile(self, state: Mapping[str, Any]) -> None:
@@ -580,6 +675,34 @@ class _StudioSafeNodes:
                 "Studio checkpoint sequence is invalid",
             )
         return int(value)
+
+
+def _product_progress(
+    node: str,
+    *,
+    route: object = None,
+    resumed: bool = False,
+) -> tuple[int, str, str]:
+    if node == "route_request":
+        if route in {"clarification", "approval"}:
+            return (2, "interrupt", "human_gate")
+        if route == "parallel_reads":
+            return (3, "knowledge", "parallel_reads")
+        if route == "run_agent":
+            return (4, "model", "answer_agent")
+        if route == "terminate":
+            return (5, "terminal", "artifact_writer")
+    if node == "build_context" and resumed:
+        return (2, "interrupt", "orchestrator")
+    if node in {"prepare", "build_context", "route_request"}:
+        return (1, "intake", "orchestrator")
+    if node in {"clarification_interrupt", "approval_interrupt"}:
+        return (2, "interrupt", "human_gate")
+    if node in {"knowledge_read", "service_read", "join_reads", "handoff"}:
+        return (3, "knowledge", "parallel_reads")
+    if node in {"run_agent", "route_result", "retry"}:
+        return (4, "model", "answer_agent")
+    return (5, "terminal", "artifact_writer")
 
 
 def create_studio_graph_definition(

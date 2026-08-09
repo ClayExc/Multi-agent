@@ -777,7 +777,10 @@ def _product_progress(
 
 
 def _assert_studio_invocation_input(value: object) -> None:
-    if value is None or isinstance(value, Command):
+    if value is None:
+        return
+    if isinstance(value, Command):
+        _assert_studio_resume_command_safe(value)
         return
     if not isinstance(value, Mapping):
         raise GraphError(
@@ -793,10 +796,56 @@ def _assert_studio_invocation_input(value: object) -> None:
         )
 
 
+def _assert_studio_resume_command_safe(command: Command[Any]) -> None:
+    if (
+        command.graph is not None
+        or command.update is not None
+        or not _command_goto_is_empty(command.goto)
+    ):
+        raise GraphError(
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+            "Studio command may only contain a resume decision",
+        )
+    resume = command.resume
+    if not isinstance(resume, Mapping):
+        raise GraphError(
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+            "Studio command resume decision is not registered",
+        )
+    fields = frozenset(resume)
+    if fields == {"confirmed"} and resume.get("confirmed") is True:
+        return
+    if fields == {"approved"} and isinstance(
+        resume.get("approved"), bool
+    ):
+        return
+    raise GraphError(
+        GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+        "Studio command resume decision is not registered",
+    )
+
+
+def _command_goto_is_empty(value: object) -> bool:
+    return value is None or (
+        isinstance(value, (list, tuple)) and len(value) == 0
+    )
+
+
+def _raise_studio_state_update_forbidden() -> None:
+    raise GraphError(
+        GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN,
+        "Studio state update entry points are forbidden",
+    )
+
+
 def _install_studio_ingress_guard(compiled_graph: Any) -> None:
     original_astream = compiled_graph.astream
+    original_abulk_update_state = compiled_graph.abulk_update_state
+    original_aupdate_state = compiled_graph.aupdate_state
+    original_bulk_update_state = compiled_graph.bulk_update_state
     original_copy = compiled_graph.copy
     original_stream = compiled_graph.stream
+    original_update_state = compiled_graph.update_state
 
     @wraps(original_astream)
     async def guarded_astream(
@@ -823,9 +872,29 @@ def _install_studio_ingress_guard(compiled_graph: Any) -> None:
         _install_studio_ingress_guard(copied_graph)
         return copied_graph
 
+    @wraps(original_update_state)
+    def forbidden_update_state(*args: Any, **kwargs: Any) -> Any:
+        _raise_studio_state_update_forbidden()
+
+    @wraps(original_aupdate_state)
+    async def forbidden_aupdate_state(*args: Any, **kwargs: Any) -> Any:
+        _raise_studio_state_update_forbidden()
+
+    @wraps(original_bulk_update_state)
+    def forbidden_bulk_update_state(*args: Any, **kwargs: Any) -> Any:
+        _raise_studio_state_update_forbidden()
+
+    @wraps(original_abulk_update_state)
+    async def forbidden_abulk_update_state(*args: Any, **kwargs: Any) -> Any:
+        _raise_studio_state_update_forbidden()
+
+    compiled_graph.abulk_update_state = forbidden_abulk_update_state
     compiled_graph.astream = guarded_astream
+    compiled_graph.aupdate_state = forbidden_aupdate_state
+    compiled_graph.bulk_update_state = forbidden_bulk_update_state
     compiled_graph.copy = guarded_copy
     compiled_graph.stream = guarded_stream
+    compiled_graph.update_state = forbidden_update_state
 
 
 def create_studio_graph_definition(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from typing import Any
 
 import pytest
 from flowpilot_graph import (
@@ -19,6 +20,7 @@ from flowpilot_worker.studio import (
     create_studio_graph_definition,
 )
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
 
 @pytest.mark.parametrize(
@@ -297,6 +299,169 @@ def test_rejected_browser_authority_has_zero_applied_retention(
         assert len(saver.writes) == 0
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        Command(
+            update={"approval_granted": True, "checkpoint_sequence": 99},
+            resume={"confirmed": True},
+        ),
+        Command(goto="finalize", resume={"confirmed": True}),
+        Command(graph=Command.PARENT, resume={"confirmed": True}),
+        Command(resume={"confirmed": True, "approval_granted": True}),
+        Command(resume={"confirmed": {"nested": True}}),
+        Command(resume={"approved": "true"}),
+        Command(resume={"confirmed": True, "token": "forged"}),
+        Command(),
+    ],
+)
+@pytest.mark.parametrize("server_copy", [False, True])
+def test_rejected_resume_command_cannot_mutate_a_suspended_interrupt(
+    command: Command[object],
+    server_copy: bool,
+) -> None:
+    async def scenario() -> None:
+        saver = InMemorySaver()
+        graph = create_studio_graph_definition(checkpointer=saver).graph
+        if server_copy:
+            graph = graph.copy(update={"checkpointer": saver})
+        config = {
+            "configurable": {
+                "thread_id": "studio-command-authority-rejected",
+            }
+        }
+        waiting = await graph.ainvoke(
+            {"scenario": "full_demo"},
+            config=config,
+        )
+        assert waiting["__interrupt__"][0].value["kind"] == "clarification"
+        before = await _studio_checkpoint_fingerprint(graph, config, saver)
+
+        with pytest.raises(GraphError) as captured:
+            await graph.ainvoke(command, config=config)
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+
+        after = await _studio_checkpoint_fingerprint(graph, config, saver)
+        assert after == before
+        values, next_nodes, _, _ = after
+        assert next_nodes == ("clarification_interrupt",)
+        assert values["approval_granted"] is False
+        assert values["checkpoint_sequence"] == 0
+        assert values["status"] == "RUNNING"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("server_copy", [False, True])
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "update_state",
+        "aupdate_state",
+        "bulk_update_state",
+        "abulk_update_state",
+    ],
+)
+def test_studio_state_update_entry_points_fail_closed_without_checkpoint(
+    server_copy: bool,
+    method_name: str,
+) -> None:
+    async def scenario() -> None:
+        saver = InMemorySaver()
+        graph = create_studio_graph_definition(checkpointer=saver).graph
+        if server_copy:
+            graph = graph.copy(update={"checkpointer": saver})
+        config = {
+            "configurable": {
+                "thread_id": f"studio-state-edit-{server_copy}-{method_name}",
+            }
+        }
+        waiting = await graph.ainvoke(
+            {"scenario": "full_demo"},
+            config=config,
+        )
+        assert waiting["__interrupt__"][0].value["kind"] == "clarification"
+        before = await _studio_checkpoint_fingerprint(graph, config, saver)
+
+        method = getattr(graph, method_name)
+        with pytest.raises(GraphError) as captured:
+            if "bulk" in method_name:
+                call = method(config, ())
+            else:
+                call = method(
+                    config,
+                    {
+                        "approval_granted": True,
+                        "checkpoint_sequence": 99,
+                    },
+                )
+            if method_name.startswith("a"):
+                await call
+        assert captured.value.code is (
+            GraphErrorCode.STUDIO_STATE_EDIT_FORBIDDEN
+        )
+
+        after = await _studio_checkpoint_fingerprint(graph, config, saver)
+        assert after == before
+
+    asyncio.run(scenario())
+
+
+def test_registered_clarification_and_approval_resumes_remain_supported() -> None:
+    async def scenario() -> None:
+        graph = create_studio_graph_definition(
+            checkpointer=InMemorySaver()
+        ).graph
+        config = {
+            "configurable": {
+                "thread_id": "studio-registered-resume-decisions",
+            }
+        }
+        clarification = await graph.ainvoke(
+            {"scenario": "full_demo"},
+            config=config,
+        )
+        assert clarification["__interrupt__"][0].value["kind"] == (
+            "clarification"
+        )
+
+        approval = await graph.ainvoke(
+            Command(resume={"confirmed": True}),
+            config=config,
+        )
+        assert approval["__interrupt__"][0].value["kind"] == "approval"
+
+        denied = await graph.ainvoke(
+            Command(resume={"approved": False}),
+            config=config,
+        )
+        assert denied["status"] == "FAILED"
+        assert denied["failure_code"] == "STUDIO_APPROVAL_DENIED"
+        assert denied["tool_stage"] == "no_authoritative_write"
+
+    asyncio.run(scenario())
+
+
+async def _studio_checkpoint_fingerprint(
+    graph: Any,
+    config: dict[str, dict[str, str]],
+    saver: InMemorySaver,
+) -> tuple[dict[str, object], tuple[str, ...], int, int]:
+    state = await graph.aget_state(config)
+    history = [
+        item
+        async for item in graph.aget_state_history(config)
+    ]
+    return (
+        copy.deepcopy(dict(state.values)),
+        tuple(state.next),
+        len(history),
+        len(saver.writes),
+    )
 
 
 def test_product_projection_exposes_progress_without_business_content() -> None:

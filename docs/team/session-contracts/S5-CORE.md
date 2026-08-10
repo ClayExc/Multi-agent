@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
+WORK_PACKAGE=WP-083
+FEATURE_IDS=FP-SEC-001,FP-SEC-007
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,domain-packs/it-service/**,tests/core/**,WP-011授权共享文件
 ```
 
-- 契约状态：IDLE
-- 当前工作：无；M7 Core/API 组合与 TaskEvent 安全边界已进入主分支。
-- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
+- 契约状态：DEPENDENCY_WAIT
+- 当前工作：等待 WP-081/082 Join 后实现 API/BFF OIDC 与依赖锁。
+- 激活条件：M8 Join-1 精确 Head、Attempt、范围与退出条件。
 
 ## 使命
 

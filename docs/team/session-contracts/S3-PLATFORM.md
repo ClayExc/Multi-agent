@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S3-PLATFORM
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
+WORK_PACKAGE=WP-082
+FEATURE_IDS=FP-SEC-001,FP-SEC-007
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：IDLE
-- 当前工作：无；M7 曾因凭据边界缺口动态注册 S3，集中扫描器现已进入主分支。
-- 激活条件：Agent Registry 分配明确工作包、Base、Attempt、写入范围与退出条件。
+- 契约状态：ACTIVE
+- 当前工作：M8 JWT/JWKS、ContextSource、工作负载与 Gateway 身份边界。
+- 激活条件：已满足；以 M8 Activation Head 开始 WP-082-a1。
 
 ## 使命
 

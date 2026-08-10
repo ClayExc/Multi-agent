@@ -26,6 +26,10 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 M7 已加入 LiteLLM、OpenAI/Claude Agents SDK Adapter、本地产品组合根、可恢复知识问答 Graph、真实 API/SSE Web 适配和集中凭据扫描。首批 24 条知识问答 Case 可以沿 API → Worker → LangGraph 产品边界执行。仓库仍缺少一条可直接启动完整产品的 `make dev` 入口；DeepSeek V4 Flash 在线调用没有执行，企业工单和资产系统也仍是中立接口与 Sandbox。固定 120+36 评测中还有 132 条 Case 没有产品执行器，因此 M7 只能作为开发候选合入，不能标记为发布版本。
 
+M8 本地身份与租户链已经启动。当前并行建设可重复导入的 Keycloak 双租户基座和
+可信 OIDC/JWKS、SecurityContext、工作负载身份边界；API 登录、RLS 绑定、Runtime
+传播、Web 体验和组合验收将在前置 Head 汇合后依次启动。M8 进行中不代表已经可用。
+
 ## M0～M7 做了什么
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
@@ -111,7 +115,7 @@ flowchart LR
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
-| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7 的 WP-070～WP-073、当前状态、依赖与集成顺序 |
+| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7 交付与 M8 的 WP-080～WP-088 状态、依赖和集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |
@@ -119,7 +123,7 @@ flowchart LR
 | [M6 Hash 冻结记录](./evals/runners/m6-hash-freeze.v1.json) | 三个数据集 120+36 Case 的内容哈希；不代表产品执行通过 |
 | [评测 Fixture 清单](./contracts/registries/evaluation-fixture-manifest.v1.json) | 合成租户/主体 Fixture 的版本与哈希 |
 | [需求追踪矩阵](./docs/acceptance/TRACEABILITY.md) | 机器追踪清单的人类可读投影视图 |
-| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；下一候选里程碑为 M8 |
+| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；当前里程碑为 M8 |
 | [架构评审报告](./docs/review/ARCHITECTURE_REVIEW.md) | 对原始总稿的保留项、问题与改造决策 |
 | [WP-000 rc1 裁决](./docs/review/WP-000-RC1-DISPOSITION.md) | 三方 REJECT、逐项处理和 rc2 冻结门禁 |
 | [ADR-0001](./docs/decisions/ADR-0001-orchestration-boundary.md) | LangGraph、Agents SDK 与 LiteLLM 的边界 |
@@ -180,7 +184,7 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 | 阶段 | 主要结果 |
 |---|---|
 | M7（候选已合入） | LiteLLM 与 OpenAI/Claude Agents SDK Adapter；API、Worker、LangGraph、数据、只读 MCP 与 Web/SSE 组合；24 条知识问答执行器 |
-| M8 | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS |
+| M8（开发中） | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS |
 | M9 | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
 | M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
 | M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |

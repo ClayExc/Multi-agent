@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
-WRITE_SCOPE=packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
+WORK_PACKAGE=WP-085
+FEATURE_IDS=FP-SEC-001,FP-SEC-007,FP-OPS-001
+WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：IDLE
-- 当前工作：无；M7 Provider、Runtime 组合与 Studio 恢复边界已进入主分支。
-- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
+- 契约状态：DEPENDENCY_WAIT
+- 当前工作：等待 WP-083/084 Join 后启动身份传播与恢复重验。
+- 激活条件：M8 Join-2 精确 Head、Attempt、范围与退出条件。
 
 ## 使命
 

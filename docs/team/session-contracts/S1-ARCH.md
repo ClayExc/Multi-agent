@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S1-ARCH
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
+WORK_PACKAGE=WP-080 / M8-JOIN
+FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-OPS-001,FP-EVAL-002
 WRITE_SCOPE=README.md,STRUCTURE.md,WORKFLOW.md,AGENTS.md,contracts/**,docs/architecture/**,docs/acceptance/**,docs/decisions/**,docs/roadmap/**,docs/review/**,docs/team/**
 ```
 
 - 契约状态：ACTIVE
-- 当前工作：无；M7 候选已合入，M8 等待用户批准启动
+- 当前工作：M8 身份租户契约、并行 Join 与最终裁决
 
 ## 使命
 
@@ -71,11 +71,12 @@ S1 不可以：
 - 维护已进入主分支的 M0～M7/P2 架构事实与当前 `1cad07bd…` 契约候选。
 - M7 四个工作包、动态安全返修、S7 组合复现和主分支快速终门禁已经收口。
 - 保留 OpenAI/Claude Agents SDK 为正式 Runtime Adapter 技术栈。
-- M8～M20 已批准规划但没有活动开发链；M7 在线 Provider Smoke 仍未执行。
+- M8 身份租户链已激活；M9～M20 未激活，M7 在线 Provider Smoke 仍未执行。
 
 ## 完成定义
 
 - 当前契约候选继续通过 Conformance，且本包不改变 ContractSet Artifact。
 - 全仓测试、静态检查、覆盖率、安全和依赖审计入口可重复运行。
 - 当前控制文档不再误报旧摘要、旧 Workspace 数量或历史活动链。
-- M8 工作包保持未激活；M7 候选不标记为 `RELEASED` 或整体 `FROZEN`。
+- M8 按 WP-080～WP-088 和 Join 门禁推进；M7/M8 均不提前标记为整体 `RELEASED`
+  或 `FROZEN`。

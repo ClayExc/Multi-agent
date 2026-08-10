@@ -4,11 +4,11 @@
 
 ```text
 SNAPSHOT=M0_M7_LOCAL_PRODUCT_CANDIDATE
-STATUS=MERGED_M7_CANDIDATE_RELEASE_BLOCKED
+STATUS=M8_IDENTITY_TENANCY_ACTIVE
 S7_HEAD=e222411824b45c9fed5fd96c6c4fc39c7dfdc09b
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
 NEXT_MILESTONE=M8
-ACTIVE_DEVELOPMENT_CHAIN=none
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M8-IDENTITY-TENANCY-01
 RELEASED=false
 FROZEN=false
 ```
@@ -166,7 +166,7 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M7 候选已经合入，M8～M20 已批准为规划但尚未启动开发链：
+M7 候选已经合入，M8 已启动；M9～M20 仍为批准规划：
 
 ```text
 M7 真实 Provider 与本地运行链
@@ -187,8 +187,9 @@ M7 真实 Provider 与本地运行链
 ```
 
 M7 的 WP-070～WP-073 已完成并进入主分支。固定分母 Gate 继续保持失败，直到后续
-里程碑为其余业务与安全 Case 提供产品执行器。下一条开发链从 M8 开始，激活前仍需
-用户批准；当前没有运行中的开发链。
+里程碑为其余业务与安全 Case 提供产品执行器。M8 当前按
+`CHAIN-M8-IDENTITY-TENANCY-01` 运行，首批并行实现 Keycloak 基座和可信身份边界；
+不得自动启动 M9。
 
 M8 启动前的 WP-037 工程契约已完成：S1～S7 作为领域主 Agent，默认使用 `DELTA`
 热启动，并可在有效工作包内自主调用临时子 Agent。子任务使用最小 Context Capsule、

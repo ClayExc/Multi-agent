@@ -33,7 +33,8 @@ Contract 和当前 Work Package 引用。长期任务的新 Attempt 默认按
 - M0～M7 工程候选与 P2 恢复能力已进入 `master`。
 - M7 有 24 条知识问答产品执行器；固定 156 条 Case 中另 132 条明确失败，因此
   `RELEASED=false`、`FROZEN=false`。
-- M8～M20 已规划但未激活。现状以
+- M8 身份与租户链已激活，当前只运行 WP-081（S6）与 WP-082（S3）；M9～M20
+  未激活。现状以
   [`PROJECT_HANDOFF.md`](docs/roadmap/PROJECT_HANDOFF.md) 和机器追踪清单为准。
 - `DESIGNED / IMPLEMENTED / VERIFIED / RELEASED` 只按
   [`ACCEPTANCE.md`](docs/acceptance/ACCEPTANCE.md) 提升。

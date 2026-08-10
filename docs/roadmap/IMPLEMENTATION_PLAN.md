@@ -5,8 +5,8 @@
 ~~~text
 CURRENT_BASELINE=M0-M7_CANDIDATE_MERGED
 NEXT_MILESTONE=M8
-ACTIVE_DEVELOPMENT_CHAIN=none
-PLAN_STATUS=M7-CANDIDATE-MERGED-RELEASE-BLOCKED
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M8-IDENTITY-TENANCY-01
+PLAN_STATUS=M8-ACTIVE-IDENTITY-TENANCY
 RELEASED=false
 FROZEN=false
 ~~~
@@ -79,7 +79,7 @@ M6 只表示语料和工具链候选收口，不表示整体发布。历史提�
 
 状态：`MERGED_CANDIDATE / RELEASE_BLOCKED`。WP-070～WP-073 已完成并通过 S7/S1
 组合复算。固定分母为 156 条，其中 24 条知识问答 Case 通过真实产品组合边界，132 条
-因没有执行器明确失败，0 条跳过或隔离。下一里程碑为 M8；当前不自动启动新链。
+因没有执行器明确失败，0 条跳过或隔离。M8 身份与租户链已由用户批准启动。
 
 目标：让用户从 Web 发起中文请求，经过真实模型和可恢复运行时得到可观察结果。
 
@@ -117,6 +117,9 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 因为 132 条后续业务与安全 Case 尚无产品执行器；这不会被 skip 或缩分母掩盖。
 
 ## 6. M8：本地身份与租户
+
+状态：`ACTIVE`。首批并行工作为 WP-081 本地 Keycloak 与 WP-082 可信身份边界；
+后续在 S1 Join 后按 API/RLS、Runtime/Web、黑盒验收和 S7 组合验证推进。
 
 目标：用户身份、工作负载身份和租户上下文由可信边界生成，不由浏览器或模型自报。
 

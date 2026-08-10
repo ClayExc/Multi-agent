@@ -6,13 +6,13 @@
 
 | 会话 | 契约 | 当前工作包 | 当前激活状态 |
 |---|---|---|---|
-| S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | 无；M7 候选已合入 | IDLE |
-| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | 无；WP-070/071/072 已完成 | IDLE |
-| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | 无 | IDLE |
-| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | 无；WP-072/073 已完成 | IDLE |
-| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | 无；WP-070/071 与安全返修已完成 | IDLE |
-| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | 无；WP-071 已完成 | IDLE |
-| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | 无；WP-073 组合复现已完成 | IDLE |
+| S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | WP-080 / M8 Join | ACTIVE |
+| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | WP-085 | DEPENDENCY_WAIT |
+| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | WP-082 | ACTIVE |
+| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | WP-086/087 | DEPENDENCY_WAIT |
+| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | WP-083 | DEPENDENCY_WAIT |
+| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | WP-081/084 | ACTIVE |
+| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | WP-088 | DEPENDENCY_WAIT |
 
 S1～S7 均是各自领域的主 Agent。取得有效工作包后，可按
 [`PRINCIPAL_SUBAGENT_PROTOCOL.md`](../PRINCIPAL_SUBAGENT_PROTOCOL.md) 自主调用临时
@@ -35,9 +35,10 @@ S1～S7 均是各自领域的主 Agent。取得有效工作包后，可按
 - `BLOCKED`：存在外部前置条件，除记录阻塞信息外不能推进。
 - `HANDOFF`：实现结束，等待跨角色审查或集成。
 
-当前只保留主 Worktree，没有活动开发 Agent。ContractSet 候选摘要为
+M8 已启动，当前只激活 S3 WP-082 与 S6 WP-081；其他主 Agent 等待对应 Join。
+ContractSet 候选摘要为
 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`；
-M0～M7 与 P2 已进入主分支，M8 尚未激活。任何角色必须按 Agent Registry
+M0～M7 与 P2 已进入主分支。任何角色必须按 Agent Registry
 从新的主基线取得 Attempt 和写入范围，历史分支或会话状态不能自动视为写授权。
 
 本摘要的五角色只读复审已经完成；[rc2 五会话复审指令](../RC2_REVIEW_INSTRUCTIONS.md) 现作为历史复现入口。若被摘要覆盖的内容发生变化，全部 Review 自动失效并重新进入 `REVIEW_ONLY`。

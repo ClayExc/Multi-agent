@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
+WORK_PACKAGE=WP-081 / WP-084
+FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-OPS-001
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：IDLE
-- 当前工作：无；M7 数据组合、Task 初始化与迁移已进入主分支。
-- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
+- 契约状态：ACTIVE
+- 当前工作：先完成 WP-081 Keycloak；Join-1 后再进入 WP-084 Context Store/RLS。
+- 激活条件：WP-081 已满足；WP-084 等待 Join-1。
 
 ## 使命
 

@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S4-QUALITY
-WORK_PACKAGE=NONE
-FEATURE_IDS=NONE
+WORK_PACKAGE=WP-086 / WP-087
+FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-EVAL-002
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
-- 契约状态：IDLE
-- 当前工作：无；M7 Web/Studio、产品执行器与固定分母证据已进入主分支。
-- 激活条件：后续 Agent Registry 分配 Base、Attempt、范围与退出条件。
+- 契约状态：DEPENDENCY_WAIT
+- 当前工作：等待 M8 API/Keycloak 后实现 Web，再执行身份租户黑盒验收。
+- 激活条件：WP-086 或 WP-087 对应 Join Head 与 Attempt。
 
 ## 使命
 

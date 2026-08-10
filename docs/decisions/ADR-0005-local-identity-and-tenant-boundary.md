@@ -28,6 +28,17 @@ PostgreSQL 强制 RLS，但尚未把真实 OIDC 身份、工作负载身份和�
    连接前清除。预存高权限角色、缺少 tenant、连接池残留和恢复时陈旧 tenant 一律失败关闭。
 7. 本地演示提供两个租户、普通用户、审批用户和独立服务 Client。配置可重复导入，演示
    密码只能来自本地环境，不进入 Git、日志或证据。
+8. API/BFF 的服务端一次性会话存储是 state、nonce 与 PKCE verifier 的权威来源；
+   OIDC 验证器只接收该可信存储给出的 expected nonce 并执行比较/消费。浏览器提交的
+   nonce 不能直接成为 expected nonce。
+9. MCP Gateway 的外部生产入口接收瞬时工作负载 Bearer，并在入口内部完成验证后才
+   构造调用对象。接受 `AuthenticatedWorkload` 的核心服务仅属于进程内已认证边界，
+   不得被 HTTP/MCP Transport 直接挂载。
+10. 工作负载注册精确绑定 issuer、authorized party 和 subject。`attested` 默认拒绝，
+    只有完整验证证据存在时才能为真；摘要统一采用严格的 64 位小写 SHA-256。
+11. `context_hash` 覆盖不可变授权快照，包括 tenant/subject、issuer/authorized party、
+    roles/scopes、认证信息、purpose、数据上限、issued/expires 与源 Token Hash。`active`
+    是独立可撤销状态，不进入不可变快照，但每次解析都必须同时检查。
 
 ## 兼容性
 

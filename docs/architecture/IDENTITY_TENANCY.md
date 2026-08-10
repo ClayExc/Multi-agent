@@ -32,6 +32,8 @@ Header、正文或 Graph State 覆盖。角色只做认证属性输入，最终�
 
 - 浏览器只获得 `HttpOnly`、`SameSite` 的不透明会话 Cookie；生产模式要求 `Secure`。
 - state、nonce 与 PKCE verifier 为一次性材料，回调成功或失败后立即失效。
+- expected nonce 只能由 API/BFF 的服务端一次性会话存储提供；验证器不得把浏览器字段
+  当成 expected nonce。
 - Access/Refresh Token 只在服务端会话边界使用；Refresh 失败、登出或 Keycloak 撤销后，
   本地会话和关联 SecurityContext 同时失效。
 - API 将认证结果映射为 `TrustedRequestIdentity` 和服务端上下文记录。请求正文携带的
@@ -42,6 +44,9 @@ Header、正文或 Graph State 覆盖。角色只做认证属性输入，最终�
 服务端记录至少保存 ref/hash、tenant、subject、角色/组、scope、认证方法与强度、用途、
 数据分级上限、issued/expires、session hash 和 active 状态。跨进程对象仍只携带现有
 `SecurityContextRef v1`。
+
+`context_hash` 绑定上述不可变授权快照以及 issuer、authorized party 和源 Token Hash；
+roles/scopes 不能只作为未绑定的附加字段。active 为单独的撤销状态，解析时同时验证。
 
 以下边界必须重新解析，而不是相信上一步传入的 Mapping：
 
@@ -57,6 +62,10 @@ RLS 的 tenant 值不能直接来自外部字符串。生产组合先验证 Secu
 事务可消费的 tenant binding；Persistence 在事务开始时设置 tenant/context/subject，
 在提交、回滚和连接归还前清理。数据库角色必须显式拒绝 `SUPERUSER` 与 `BYPASSRLS`，
 启动时发现不安全的既存角色应失败，而不是沿用。
+
+MCP Gateway 的 Transport 入口必须接收瞬时工作负载 Bearer，并内部完成 issuer、
+audience、authorized party、subject 与注册记录的精确匹配。接受已认证对象的核心方法
+只允许进程内组合调用，不能直接暴露为网络入口。
 
 ## 6. 禁止传播的数据
 

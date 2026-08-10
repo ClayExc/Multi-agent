@@ -48,15 +48,15 @@ flowchart LR
 
 `SESSION_ROLE` 是机器身份，不能因显示名变化而修改分支、证据或契约字段。中文名用于用户识别、任务标题和日常沟通。
 
-| 会话 | 中文显示名 | 定位 | 独占产物 | 当前工作包 |
+| 会话 | 中文显示名 | 定位 | 独占产物 | 当前状态 |
 |---|---|---|---|---|
-| S1-ARCH | 架构验收师 | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | WP-000 |
-| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | WP-010 / WP-012 |
-| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | WP-020 |
-| S4-QUALITY | 质量体验师 | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | WP-030 |
-| S5-CORE | 领域核心师 | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | WP-011 |
-| S6-DATA | 数据可靠性师 | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | WP-021 |
-| S7-INTEGRATION | 集成验证师 | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | WP-040 |
+| S1-ARCH | 架构验收师 | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | IDLE；M8 未激活 |
+| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | IDLE |
+| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | IDLE |
+| S4-QUALITY | 质量体验师 | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | IDLE |
+| S5-CORE | 领域核心师 | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | IDLE |
+| S6-DATA | 数据可靠性师 | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | IDLE |
+| S7-INTEGRATION | 集成验证师 | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | IDLE |
 
 路径所有权以根目录 `AGENTS.md` 为唯一总规则；Session Contract 和 Work Package 只能进一步收紧。
 
@@ -94,8 +94,8 @@ CANCELLED 由用户或 S1 明确终止
 
 ContractSet 摘要
 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`
-仍是当前实现基线。M0～M6 工程候选与 P2 持久化恢复已进入主分支；M7～M20
-已批准为规划但没有激活开发链。发布级 `frozen` 仍等待正式产品执行器、Evidence、
+仍是当前实现基线。M0～M7 工程候选与 P2 持久化恢复已进入主分支；M8～M20
+已批准为规划但没有激活开发链。发布级 `frozen` 仍等待其余产品执行器、Evidence、
 Judge 校准和 Traceability 提升。
 
 当前状态只在 [`PROJECT_HANDOFF.md`](../roadmap/PROJECT_HANDOFF.md) 和
@@ -124,13 +124,19 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 集合，最多三个互斥路径写 Agent；依赖链必须 `ORDERED`，独立审查可
 `READ_ONLY_PARALLEL`。R3、契约、安全、破坏性迁移和发布仍逐次人工批准。
 
-后续 M7～M20 按里程碑注册临时 Agent，不新增永久 S 编号。具体依赖、并行路径
+后续 M8～M20 按里程碑注册临时 Agent，不新增永久 S 编号。具体依赖、并行路径
 和拆包规则见 [`IMPLEMENTATION_PLAN.md`](../roadmap/IMPLEMENTATION_PLAN.md)。
+
+每个 S 会话都是领域主 Agent，可以在有效工作包内自主调用临时子 Agent。多个只读
+子 Agent可并行，同一 Worktree 仍只有一个写入者；子 Agent没有 Git、跨会话唤醒或
+裁决权。完整规则见
+[`PRINCIPAL_SUBAGENT_PROTOCOL.md`](./PRINCIPAL_SUBAGENT_PROTOCOL.md)。
 
 链执行、唤醒、增量上下文和门禁细节分别由
 [`CHAIN_EXECUTION_PROTOCOL.md`](./CHAIN_EXECUTION_PROTOCOL.md)、
 [`THREAD_WAKE_PROTOCOL.md`](./THREAD_WAKE_PROTOCOL.md)、
 [`CONTEXT_BOOTSTRAP_PROTOCOL.md`](./CONTEXT_BOOTSTRAP_PROTOCOL.md) 与
+[`PRINCIPAL_SUBAGENT_PROTOCOL.md`](./PRINCIPAL_SUBAGENT_PROTOCOL.md)、
 [`INTEGRATION_GATES.md`](./INTEGRATION_GATES.md) 维护，本文件不再重复。
 
 ### 信息预算
@@ -144,6 +150,8 @@ S1 留在主 Worktree。禁止两个会话使用同一 Worktree，禁止同一�
 5. S1 选择性通知实际执行者和必要 Reviewer，不默认广播七个会话。
 6. 原始隐藏思考过程不得写入仓库、Trace、Audit、Security Event 或验收证据。
 7. S1 到达用户门禁时只报告“本轮完成 / 本轮问题 / 需要重大决策 / 下一步”；机器证据按需展开。
+8. 相关 Blob、契约和证据未变化时复用已有判断；强制独立审查更换观察边界。
+9. 同类错误第二次出现时修共享机理，第三次等价绕过停止局部补丁并升级处理。
 
 ## 7. RACI
 

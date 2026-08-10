@@ -14,6 +14,10 @@
 | S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | 无；WP-071 已完成 | IDLE |
 | S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | 无；WP-073 组合复现已完成 | IDLE |
 
+S1～S7 均是各自领域的主 Agent。取得有效工作包后，可按
+[`PRINCIPAL_SUBAGENT_PROTOCOL.md`](../PRINCIPAL_SUBAGENT_PROTOCOL.md) 自主调用临时
+子 Agent；路径所有权、Git、测试、Handoff 和最终结论仍由本表中的主会话承担。
+
 ## 约束优先级
 
 1. 用户对当前工作的明确要求。

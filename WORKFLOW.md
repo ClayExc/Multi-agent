@@ -80,6 +80,11 @@ BACKLOG → READY → IN_PROGRESS → REVIEW → HANDOFF → ACCEPTED → MERGED
 
 人工阶段同时写入的工作项不超过 3。其余会话可以只读审查、补测试设计或准备后续 Issue。
 
+责任会话是领域主 Agent，可在当前工作包内按
+[`docs/team/PRINCIPAL_SUBAGENT_PROTOCOL.md`](./docs/team/PRINCIPAL_SUBAGENT_PROTOCOL.md)
+自主调用临时子 Agent。内部只读任务可以并行；同一 Worktree 只能有一个写入者，
+子 Agent不得执行 Git 写操作或唤醒下一长期会话。
+
 跨会话派发必须明确调度语义：
 
 - `PARALLEL`：任务可同时写入各自独占路径；派发必须说明最终汇合门禁。
@@ -125,11 +130,12 @@ Agent 不得自行降低风险等级。
 
 1. 按 `AGENTS.md` 顺序读取必需文档。
 2. 核对 `BASE_COMMIT`、`content_digest`、路径所有权和工作区状态。
-3. 先运行可用基线门禁，记录缺失命令，不把未运行写成通过。
-4. 只修改 `WRITE_SCOPE`。
-5. 每次契约、数据库、依赖或共享文件需求先走 RFC/交接。
-6. 运行正常、边界、失败、安全和恢复测试。
-7. 生成 Handoff 和 Proof of Work 后停止写入，进入 `REVIEW`。
+3. 检查 `KNOWN_FACTS/DO_NOT_RECHECK`、相关 Blob 与证据 Hash；前提未变化时复用结论。
+4. 先运行必要的基线门禁，记录缺失命令，不把未运行写成通过。
+5. 只修改 `WRITE_SCOPE`。
+6. 每次契约、数据库、依赖或共享文件需求先走 RFC/交接。
+7. 按风险运行正常、边界、失败、安全和恢复测试；独立复核不原样重复生产者测试。
+8. 生成 Handoff 和 Proof of Work 后停止写入，进入 `REVIEW`。
 
 ## 7. Recovery
 
@@ -173,3 +179,5 @@ Agent 应在内部充分分析实现、契约、安全、恢复和证据，不�
 5. `USER_INPUT_REQUIRED=none` 时会话继续推进，不因发送状态消息暂停。
 6. 等待中的会话只在依赖、HEAD、门禁或风险发生变化时更新，不重复发送相同状态。
 7. S1 只向实际 Owner 和必要 Reviewer 选择性派发；不得把所有更新广播给无关会话。
+8. 同一问题使用稳定 `DEDUP_KEY`；输入与相关证据未变化时返回已有结论。
+9. 同类失败重复出现时记录失败签名并修共享机理，不继续堆样本补丁。

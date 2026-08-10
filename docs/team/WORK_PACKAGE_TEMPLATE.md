@@ -15,6 +15,8 @@
 - 交接策略：S1_GATE / CONSUMER_GATE / FINAL_GATE
 - 下一角色：
 - 目标分支：`codex/<session>/<work-package>`
+- 子 Agent 策略：`disabled` / `read-only` / `bounded-write`
+- 子 Agent 并发上限：`0` / `1` / `2` / `3`
 
 ## 目标
 
@@ -34,6 +36,13 @@
 |---|---|---|
 | | | |
 
+## 已知事实与复用
+
+- `KNOWN_FACTS`：
+- `DO_NOT_RECHECK`：
+- 可复用证据/Decision Hash：
+- 必须独立复核且需要更换的观察边界：
+
 ## 输出契约
 
 | 契约 | 版本 | 消费者 |
@@ -47,6 +56,15 @@
 ## 实施内容
 
 1. 
+
+## 子 Agent 分派
+
+- 可自主分派的子任务：
+- 禁止分派的决策：
+- 子 Agent 允许读取路径：
+- 子 Agent 允许写入路径：`none` / 明确子集
+- 主 Agent 复现要求：
+- 子任务 `TASK_DEDUP_KEY` 规则：
 
 ## 必须测试
 

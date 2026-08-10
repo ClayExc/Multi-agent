@@ -54,6 +54,14 @@
 
 - 
 
+## 已知事实与避免重复
+
+- `KNOWN_FACTS`：
+- `DO_NOT_RECHECK`：
+- `FAILURE_SIGNATURES`：
+- `REUSED_DECISIONS`：
+- `DUPLICATE_WORK_AVOIDED`：
+
 ## 学习候选
 
 没有发现新的可复用机理时填写 `LEARNING_CANDIDATE=none`，不要为凑数重复常识。
@@ -67,6 +75,20 @@ STRUCTURE=<采用或建议的结构>
 EVIDENCE=<提交/测试/报告/最小复现>
 RESIDUAL_RISK=<残余风险>
 TARGET=<playbook section|ADR|work package|none>
+```
+
+## 子 Agent 使用摘要
+
+没有使用时填写 `SUBAGENTS_USED=0`。
+
+```text
+SUBAGENTS_USED=<0|count>
+SUBAGENT_MODES=<none|READ_ONLY_PARALLEL|ORDERED_WRITE|mixed>
+SUBAGENT_TASKS=<none|short-id-list>
+SUBAGENT_WRITERS=<0|1>
+PARENT_REPRODUCED_RESULTS=<yes|no|not-applicable>
+REUSED_DECISIONS=<none|evidence-or-decision-refs>
+DUPLICATE_WORK_AVOIDED=<count>
 ```
 
 ## 接收会话下一步
@@ -88,6 +110,7 @@ HANDOFF=<repository-relative-path>
 NEXT_ROLE=<role|S1-ARCH|none>
 NEXT_ATTEMPT_ID=<id|none>
 ESCALATE_TO_S1=<yes|no>
+SUBAGENTS_USED=<0|count>
 ```
 
 ## 可回滚方式

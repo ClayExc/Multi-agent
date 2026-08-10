@@ -28,6 +28,7 @@
 | [WP-034](./WP-034-five-role-contract-delta-review.md) | S2～S6 | ACCEPTED | WP-033 | 新摘要五角色只读 DELTA 复审 |
 | [WP-035](./WP-035-judge-calibration-trust-boundary.md) | S4-QUALITY | DEFERRED_TO_M19 | WP-034 | 流水线问题已识别；真实产品输出和 Judge 校准随 M19 产品评测处理 |
 | [WP-036](./WP-036-control-plane-reconciliation.md) | S1-ARCH | DONE | M0～M6/P2 | 事实源、工程质量入口、CI 与 M7 拆包收口 |
+| [WP-037](./WP-037-principal-subagent-contract.md) | S1-ARCH | DONE | M7 final | DELTA 热启动、领域主 Agent 自主调用子 Agent 与复用优先契约 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 | [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | MERGED_M7_CANDIDATE | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |

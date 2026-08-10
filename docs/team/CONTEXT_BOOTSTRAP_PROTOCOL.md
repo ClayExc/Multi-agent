@@ -7,8 +7,9 @@
 会消耗大量 Token，却很少改变工程判断。本协议用 Git 祖先关系和文档差异替代
 无条件全量重读。
 
-本协议只优化上下文加载，不降低路径所有权、ContractSet、安全门禁、测试或
-最终验收要求。
+本协议用于长期领域主 Agent，只优化上下文加载，不降低路径所有权、ContractSet、
+安全门禁、测试或最终验收要求。主 Agent内部创建的子 Agent 使用第 6 节的 Context
+Capsule，不再重复执行完整 `DELTA/FULL` 流程。
 
 ## 2. 两种模式
 
@@ -27,6 +28,9 @@
 2. 直接上游 Handoff/Proof（首 Step 可无）。
 3. `CONTEXT_BASE_COMMIT..CONTEXT_TARGET_COMMIT` 之间基线文件的变化片段。
 4. 实施过程中实际触达的代码、测试和直接引用。
+
+直接 Handoff 已给出可验证的 `KNOWN_FACTS/DO_NOT_RECHECK` 时，消费者先核对相关
+Blob 和证据 Hash；前提未变化则复用结论，不重新执行相同调查。
 
 系统或客户端已经注入当前 `AGENTS.md` 内容时，视为已经加载，不得再次通过
 终端全文读取。
@@ -90,3 +94,12 @@ git diff --unified=20 <context-base>..<context-target> -- <changed-required-file
 
 增量加载不是“相信聊天记忆”。所有跳过都必须由 Git 祖先、文件差异、Blob
 或内容摘要支持。无法证明“未变化”时停止，而不是静默跳过安全或契约资料。
+
+## 7. 子 Agent Context Capsule
+
+领域主 Agent先完成 `DELTA/FULL`，再给子 Agent传递精确 Head、单一任务、读写范围、
+相关接口、不变量、验收条件和必须读取的少量路径。子 Agent不得重新加载 README、
+STRUCTURE、路线、全部 Handoff 或未变化架构文档；上下文不足时返回 `CONTEXT_GAP`。
+
+Capsule、并发和退出规则以
+[`PRINCIPAL_SUBAGENT_PROTOCOL.md`](./PRINCIPAL_SUBAGENT_PROTOCOL.md) 为准。

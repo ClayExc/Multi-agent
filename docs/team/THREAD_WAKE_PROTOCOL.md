@@ -4,6 +4,9 @@
 
 Codex 客户端允许一个既有任务向另一个既有任务发送后续指令并唤醒空闲任务。FlowPilot 用它减少人工复制交接，但不把聊天消息变成工作状态或授权事实。
 
+只有 S1～S7 领域主 Agent可以发送跨任务唤醒。主 Agent内部的子 Agent将结果返回
+父任务，`WAKE_AUTHORITY=none`，不能直接进入 Chain 下一 Step。
+
 推荐循环：
 
 ```mermaid
@@ -88,6 +91,9 @@ USER_GATE_REQUIRED=<yes|no>
 6. 门禁满足时执行授权 Attempt，生成新的 Head、Handoff 和证据。
 7. 只有 `CONSUMER_ACCEPTED` 且不命中停止条件，才向链中的下一个角色发送唤醒信封。
 8. 最后一个生产者唤醒 S1；S1 运行 final gate 后输出 `USER_GATE_REQUIRED=yes` 并停止。
+
+主 Agent使用子 Agent时，必须先汇总并复现其结果，再由主 Agent生成 Head/Handoff；
+子 Agent输出不能直接替代生产者门禁。
 
 唤醒发送成功只表示消息已投递，不表示消费者已经接受或完成。
 

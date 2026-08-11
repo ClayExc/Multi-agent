@@ -8,6 +8,7 @@ from factories import (
     AUDIENCE,
     NOW,
     OTHER_TENANT,
+    bind_context_snapshot,
     make_fixture,
 )
 from flowpilot_domain import (
@@ -193,9 +194,11 @@ async def test_context_classification_ceiling_is_enforced() -> None:
 @pytest.mark.asyncio
 async def test_expired_context_is_rejected_before_policy_or_ledger() -> None:
     fixture = make_fixture()
-    expired = replace(
-        fixture.invocation.request.security_context,
-        expires_at=NOW - timedelta(seconds=1),
+    expired = bind_context_snapshot(
+        replace(
+            fixture.invocation.request.security_context,
+            expires_at=NOW - timedelta(seconds=1),
+        )
     )
     fixture.context_source.context = expired
     request_mapping = fixture.invocation.request.to_mapping()

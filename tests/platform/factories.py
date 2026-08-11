@@ -56,6 +56,7 @@ from flowpilot_security import (
     CapabilityHandle,
     SecurityVerifier,
     TrustedSecurityContext,
+    trusted_context_snapshot_hash,
 )
 from flowpilot_tool_contracts import AgentPrincipal, ToolContract, ToolRequest
 
@@ -70,6 +71,37 @@ AGENT_PRINCIPAL = "workload://flowpilot/agent/m0"
 PURPOSE = "it-service-fulfillment"
 POLICY_VERSION = "policy-m0.1"
 AUDIENCE = "mcp://flowpilot-gateway"
+IDENTITY_ISSUER = "https://identity.fixture.local/realms/flowpilot"
+USER_AUTHORIZED_PARTY = "flowpilot-web-fixture"
+WORKLOAD_AUTHORIZED_PARTY = "flowpilot-worker-fixture"
+WORKLOAD_SUBJECT = "service-account-flowpilot-worker-fixture"
+USER_TOKEN_HASH = canonical_sha256({"credential": "user-fixture"})
+WORKLOAD_TOKEN_HASH = canonical_sha256({"credential": "workload-fixture"})
+CONTEXT_ROLES = frozenset({"requester", "group:vpn-users"})
+CONTEXT_SCOPES = frozenset({"tasks:read", "tools:invoke"})
+
+
+def bind_context_snapshot(context: SecurityContextRef) -> SecurityContextRef:
+    return replace(
+        context,
+        context_hash=trusted_context_snapshot_hash(
+            context_id=context.context_id,
+            context_ref=context.context_ref,
+            tenant_id=context.tenant_id,
+            subject_id=context.subject_id,
+            subject_type=context.subject_type,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            roles=CONTEXT_ROLES,
+            scopes=CONTEXT_SCOPES,
+            authentication=context.authentication,
+            purpose=context.purpose,
+            data_classification_ceiling=context.data_classification_ceiling,
+            issued_at=context.issued_at,
+            expires_at=context.expires_at,
+            source_token_hash=USER_TOKEN_HASH,
+        ),
+    )
 
 WRITE_INPUT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -116,16 +148,25 @@ class ContextSource:
     def __init__(self, context: SecurityContextRef) -> None:
         self.context = context
         self.available = True
+        self.active = True
+        self.resolution_count = 0
+        self.roles = CONTEXT_ROLES
+        self.scopes = CONTEXT_SCOPES
 
     async def resolve(self, context_ref: str) -> TrustedSecurityContext:
+        self.resolution_count += 1
         if not self.available:
             raise RuntimeError("context backend unavailable")
         if context_ref != self.context.context_ref:
             raise RuntimeError("context not found")
         return TrustedSecurityContext(
             context=self.context,
-            active=True,
-            roles=frozenset({"requester", "group:vpn-users"}),
+            active=self.active,
+            roles=self.roles,
+            scopes=self.scopes,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            identity_token_hash=USER_TOKEN_HASH,
         )
 
 
@@ -133,8 +174,10 @@ class PolicySource:
     def __init__(self, record: ResolvedPolicyDecision) -> None:
         self.record = record
         self.available = True
+        self.resolve_count = 0
 
     async def resolve(self, decision_id: str) -> ResolvedPolicyDecision:
+        self.resolve_count += 1
         if not self.available:
             raise RuntimeError("PDP unavailable")
         if decision_id != self.record.decision.decision_id:
@@ -456,24 +499,41 @@ def make_fixture(
 ) -> GatewayFixture:
     clock = TickingClock()
     expires_at = NOW + timedelta(minutes=15)
+    authentication = AuthenticationRef(
+        method=AuthenticationMethod.OIDC,
+        assurance_level=AssuranceLevel.HIGH,
+        session_id_hash=canonical_sha256({"session": "fixture"}),
+    )
+    context_issued_at = NOW - timedelta(minutes=5)
+    context_expires_at = NOW + timedelta(hours=1)
     context = SecurityContextRef(
         context_id="secctx_alpha0001",
         context_ref="security-context://tenant-alpha/user-alice",
-        context_hash=canonical_sha256(
-            {"tenant_id": TENANT, "subject_id": SUBJECT, "purpose": PURPOSE}
+        context_hash=trusted_context_snapshot_hash(
+            context_id="secctx_alpha0001",
+            context_ref="security-context://tenant-alpha/user-alice",
+            tenant_id=TENANT,
+            subject_id=SUBJECT,
+            subject_type=ActorType.USER,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            roles=CONTEXT_ROLES,
+            scopes=CONTEXT_SCOPES,
+            authentication=authentication,
+            purpose=PURPOSE,
+            data_classification_ceiling=DataClassification.CONFIDENTIAL,
+            issued_at=context_issued_at,
+            expires_at=context_expires_at,
+            source_token_hash=USER_TOKEN_HASH,
         ),
         tenant_id=TENANT,
         subject_id=SUBJECT,
         subject_type=ActorType.USER,
         purpose=PURPOSE,
-        authentication=AuthenticationRef(
-            method=AuthenticationMethod.OIDC,
-            assurance_level=AssuranceLevel.HIGH,
-            session_id_hash=canonical_sha256({"session": "fixture"}),
-        ),
+        authentication=authentication,
         data_classification_ceiling=DataClassification.CONFIDENTIAL,
-        issued_at=NOW - timedelta(minutes=5),
-        expires_at=NOW + timedelta(hours=1),
+        issued_at=context_issued_at,
+        expires_at=context_expires_at,
     )
     if operation is ToolOperation.READ:
         contract = KNOWLEDGE_CONTRACT
@@ -645,6 +705,11 @@ def make_fixture(
         allowed_tools=frozenset({action.tool.name}),
         issued_at=NOW - timedelta(minutes=5),
         expires_at=NOW + timedelta(hours=1),
+        attested=True,
+        issuer=IDENTITY_ISSUER,
+        authorized_party=WORKLOAD_AUTHORIZED_PARTY,
+        subject_id=WORKLOAD_SUBJECT,
+        credential_hash=WORKLOAD_TOKEN_HASH,
     )
     invocation = GatewayInvocation(
         request=request,

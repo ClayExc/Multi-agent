@@ -6,6 +6,8 @@ from typing import Protocol
 
 from flowpilot_domain import SecurityContextRef
 
+from .digests import require_sha256_digest
+
 _CLASSIFICATIONS = frozenset({"public", "internal", "confidential", "restricted"})
 
 
@@ -20,6 +22,23 @@ class TrustedSecurityContext:
     context: SecurityContextRef
     active: bool
     roles: frozenset[str]
+    scopes: frozenset[str] = frozenset()
+    issuer: str | None = None
+    authorized_party: str | None = None
+    identity_token_hash: str | None = None
+
+    def __post_init__(self) -> None:
+        for field, value in (
+            ("context.issuer", self.issuer),
+            ("context.authorized_party", self.authorized_party),
+        ):
+            if value is not None and not value:
+                raise ValueError(f"{field} cannot be empty")
+        if self.identity_token_hash is not None:
+            require_sha256_digest(
+                self.identity_token_hash,
+                "context.identity_token_hash",
+            )
 
 
 class SecurityContextSource(Protocol):
@@ -37,7 +56,11 @@ class AuthenticatedWorkload:
     allowed_tools: frozenset[str]
     issued_at: datetime
     expires_at: datetime
-    attested: bool = True
+    attested: bool = False
+    issuer: str | None = None
+    authorized_party: str | None = None
+    subject_id: str | None = None
+    credential_hash: str | None = None
 
     def __post_init__(self) -> None:
         for field, value in (
@@ -52,6 +75,21 @@ class AuthenticatedWorkload:
         expires = utc(self.expires_at, "workload.expires_at")
         if expires <= issued:
             raise ValueError("workload identity must expire after issuance")
+        evidence = (
+            self.issuer,
+            self.authorized_party,
+            self.subject_id,
+            self.credential_hash,
+        )
+        if any(item is not None for item in evidence) and not all(evidence):
+            raise ValueError("workload OIDC evidence must be complete")
+        if self.attested and not all(evidence):
+            raise ValueError("attested workload requires complete OIDC evidence")
+        if self.credential_hash is not None:
+            require_sha256_digest(
+                self.credential_hash,
+                "workload.credential_hash",
+            )
         object.__setattr__(self, "issued_at", issued)
         object.__setattr__(self, "expires_at", expires)
 

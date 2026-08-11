@@ -9,7 +9,7 @@ docker compose --env-file .env -f infra/compose/compose.yaml up -d
 docker compose --env-file .env -f infra/compose/compose.yaml ps
 ```
 
-PostgreSQL 会在命名卷为空时按 `0001 -> 0002 -> 0003` 运行正向迁移。如果需要
+PostgreSQL 会在命名卷为空时按 `0001 -> 0002 -> 0003 -> 0004` 运行正向迁移。如果需要
 在不删除业务事实的情况下再次验证，请执行 `migrations/README.md` 中的 `psql`
 命令。
 
@@ -20,6 +20,18 @@ docker compose --env-file .env -f infra/compose/compose.yaml exec -T postgres \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f - \
   < tests/data/integration/verify_postgres.sql
 ```
+
+M8 的身份绑定还应使用真实 PostgreSQL 运行可撤销 SecurityContext、事务级
+tenant/context/subject 绑定、连接复用清理、跨租户读取为零和 Redis 丢失恢复负例：
+
+```text
+$env:FLOWPILOT_TEST_DATABASE_URL = "postgresql://<migrator>:<password>@127.0.0.1:<port>/<database>"
+uv run python tests/data/integration/verify_security_context.py
+```
+
+该验证脚本会分别切换到最小权限 API/Worker 角色；连接使用迁移账号仅用于建立连接和
+验证不安全数据库角色会被持久化适配器拒绝。业务 UoW 必须使用可信
+`TrustedSecurityContext`，不能从浏览器 Tenant Header 构造绑定。
 
 Redis 被有意配置为不启用 AOF 或 RDB 持久化。清空或替换 Redis 不得影响 Task、
 Checkpoint、Outbox、Approval 或执行事实。调度提示应通过

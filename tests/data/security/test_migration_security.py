@@ -18,6 +18,12 @@ TASK_INITIALIZATION_MIGRATION = (
 TASK_INITIALIZATION_DOWN = (
     ROOT / "migrations" / "0003_api_task_initialization.down.sql"
 ).read_text(encoding="utf-8")
+SECURITY_CONTEXT_MIGRATION = (
+    ROOT / "migrations" / "0004_security_context_rls_binding.sql"
+).read_text(encoding="utf-8")
+SECURITY_CONTEXT_DOWN = (
+    ROOT / "migrations" / "0004_security_context_rls_binding.down.sql"
+).read_text(encoding="utf-8")
 
 TENANT_TABLES = {
     "tasks",
@@ -157,6 +163,62 @@ def test_task_initialization_down_revokes_before_migration_record() -> None:
         "DROP COLUMN IF EXISTS checkpoint_sequence"
     )
     assert successor_guard < destructive_change
+
+
+def test_security_context_migration_is_linear_atomic_and_role_safe() -> None:
+    assert SECURITY_CONTEXT_MIGRATION.startswith("BEGIN;\n")
+    assert SECURITY_CONTEXT_MIGRATION.rstrip().endswith("COMMIT;")
+    assert "requires 0003_api_task_initialization" in SECURITY_CONTEXT_MIGRATION
+    for role in (
+        "flowpilot_api",
+        "flowpilot_worker",
+        "flowpilot_gateway",
+        "flowpilot_publisher",
+    ):
+        assert f"ALTER ROLE {role} NOLOGIN NOSUPERUSER" in (
+            SECURITY_CONTEXT_MIGRATION
+        )
+    for unsafe_flag in ("rolsuper", "rolbypassrls", "rolcanlogin", "rolinherit"):
+        assert unsafe_flag in SECURITY_CONTEXT_MIGRATION
+    assert "tenant runtime database roles are unsafe" in SECURITY_CONTEXT_MIGRATION
+
+
+def test_security_context_store_is_revocable_rls_fact_source() -> None:
+    for field in (
+        "context_ref text PRIMARY KEY",
+        "context_id text NOT NULL UNIQUE",
+        "tenant_id text NOT NULL",
+        "context_hash text NOT NULL",
+        "subject_id text NOT NULL",
+        "expires_at timestamptz NOT NULL",
+        "context_snapshot jsonb NOT NULL",
+        "identity_token_hash text NOT NULL",
+        "active boolean NOT NULL DEFAULT true",
+        "revoked_at timestamptz",
+    ):
+        assert field in SECURITY_CONTEXT_MIGRATION
+    assert "FORCE ROW LEVEL SECURITY" in SECURITY_CONTEXT_MIGRATION
+    assert "CREATE POLICY security_context_binding" in SECURITY_CONTEXT_MIGRATION
+    assert "flowpilot.validate_security_context()" in SECURITY_CONTEXT_MIGRATION
+    assert "security context snapshots are immutable" in SECURITY_CONTEXT_MIGRATION
+    assert "security contexts cannot be deleted" in SECURITY_CONTEXT_MIGRATION
+
+
+def test_security_context_down_guards_data_and_predecessor_order() -> None:
+    guard = SECURITY_CONTEXT_DOWN.index(
+        "cannot drop non-empty security context store"
+    )
+    destructive = SECURITY_CONTEXT_DOWN.index(
+        "DROP TABLE flowpilot.security_contexts"
+    )
+    assert guard < destructive
+    successor = TASK_INITIALIZATION_DOWN.index(
+        "rollback 0004_security_context_rls_binding before 0003_api_task_initialization"
+    )
+    revoke = TASK_INITIALIZATION_DOWN.index(
+        "REVOKE INSERT ON flowpilot.tasks FROM flowpilot_api"
+    )
+    assert successor < revoke
 
 
 def test_persistence_does_not_import_graph_package() -> None:

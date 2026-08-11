@@ -124,16 +124,24 @@ MIGRATION_HASHES = {
         "41b2adc5ae72a20d015fe4df5b403112"
     ),
     "migrations/0003_api_task_initialization.down.sql": (
-        "8ecfcbc518f18a9c8d5346669c61dc8d"
-        "9ec78bffa7be6ed6949761b76857e4a4"
+        "fa6a349b1319c654345d8bb80a84e1ef"
+        "78457b9ec9ba23a8c635123dc097dc3c"
     ),
     "migrations/0003_api_task_initialization.sql": (
         "3c10f73ccc33fad8cc304b4945cf8acf"
         "443dae6a8b401e926f4b2e1896d1cd15"
     ),
+    "migrations/0004_security_context_rls_binding.down.sql": (
+        "5386c89dcdcdcc0aab8323f360c98f77"
+        "70e2a161904f501f51c185ec04d1930b"
+    ),
+    "migrations/0004_security_context_rls_binding.sql": (
+        "f9bd159ae37f7c8eb8963e3b8ca5e938"
+        "db22b83f0f304337989303ce6ed06121"
+    ),
 }
 
-MIGRATION_HEAD = "0003_api_task_initialization"
+MIGRATION_HEAD = "0004_security_context_rls_binding"
 MIGRATION_HEAD_CONTRACT_DIGEST = (
     "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c"
     "5e3039c15f88f7b624211abf2b5b42a2"
@@ -1188,9 +1196,26 @@ def verify_migrations(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
     third_upgrade_source = (
         repo / "migrations/0003_api_task_initialization.sql"
     ).read_text(encoding="utf-8")
-    predecessor_down_successor_guard = (
+    third_down_source = (
+        repo / "migrations/0003_api_task_initialization.down.sql"
+    ).read_text(encoding="utf-8")
+    fourth_upgrade_source = (
+        repo / "migrations/0004_security_context_rls_binding.sql"
+    ).read_text(encoding="utf-8")
+    fourth_down_source = (
+        repo / "migrations/0004_security_context_rls_binding.down.sql"
+    ).read_text(encoding="utf-8")
+    second_down_successor_guard = (
         "rollback 0003_api_task_initialization before "
         "0002_checkpoint_sequence_cas" in second_down_source
+    )
+    third_down_successor_guard = (
+        "rollback 0004_security_context_rls_binding before "
+        "0003_api_task_initialization" in third_down_source
+    )
+    head_down_successor_guard = (
+        "rollback later migrations before 0004_security_context_rls_binding"
+        in fourth_down_source
     )
     linear = (
         "requires 0001_persistence_baseline" in second_upgrade_source
@@ -1198,9 +1223,14 @@ def verify_migrations(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
         and CONTRACT_DIGEST in second_upgrade_source
         and "checkpoint_sequence bigint" in second_upgrade_source
         and "requires 0002_checkpoint_sequence_cas" in third_upgrade_source
-        and MIGRATION_HEAD in third_upgrade_source
+        and "0003_api_task_initialization" in third_upgrade_source
         and MIGRATION_HEAD_CONTRACT_DIGEST in third_upgrade_source
-        and predecessor_down_successor_guard
+        and "requires 0003_api_task_initialization" in fourth_upgrade_source
+        and MIGRATION_HEAD in fourth_upgrade_source
+        and MIGRATION_HEAD_CONTRACT_DIGEST in fourth_upgrade_source
+        and second_down_successor_guard
+        and third_down_successor_guard
+        and head_down_successor_guard
     )
     heads = discover_migration_heads(repo / "migrations")
     checks = [
@@ -1215,6 +1245,7 @@ def verify_migrations(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
             (
                 "0001_persistence_baseline -> "
                 "0002_checkpoint_sequence_cas -> "
+                "0003_api_task_initialization -> "
                 f"{','.join(heads) if heads else 'none'}"
             ),
         ),
@@ -1222,13 +1253,19 @@ def verify_migrations(repo: Path) -> tuple[dict[str, Any], list[CheckResult]]:
     record = {
         "head": MIGRATION_HEAD,
         "discovered_heads": heads,
-        "predecessor": "0002_checkpoint_sequence_cas",
+        "predecessor": "0003_api_task_initialization",
         "linear_chain": [
             "0001_persistence_baseline",
             "0002_checkpoint_sequence_cas",
+            "0003_api_task_initialization",
             MIGRATION_HEAD,
         ],
-        "predecessor_down_successor_guard": predecessor_down_successor_guard,
+        "predecessor_down_successor_guard": third_down_successor_guard,
+        "down_successor_guards": {
+            "0002_checkpoint_sequence_cas": second_down_successor_guard,
+            "0003_api_task_initialization": third_down_successor_guard,
+            MIGRATION_HEAD: head_down_successor_guard,
+        },
         "file_sha256": {
             path: f"sha256:{digest}"
             for path, digest in actual_hashes.items()

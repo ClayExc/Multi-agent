@@ -29,6 +29,15 @@ class ShellStore:
         self._actions: dict[str, PlannedActionView] = {}
         self._artifacts: dict[str, ResultArtifactView] = {}
 
+    def clear(self) -> None:
+        """Discard all projections and replay state for one browser session."""
+
+        self._tasks.clear()
+        self._timeline = TimelineReconstructor()
+        self._approvals.clear()
+        self._actions.clear()
+        self._artifacts.clear()
+
     # -- ingestion -----------------------------------------------------
 
     def register_task(self, task: TaskView) -> None:

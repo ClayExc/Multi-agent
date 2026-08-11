@@ -26,13 +26,9 @@ class LiveSession:
         self,
         api: ApiClient,
         *,
-        tenant_id: str,
         store: ShellStore | None = None,
     ) -> None:
-        if not tenant_id:
-            raise ShellContractError("live tenant configuration is missing")
         self._api = api
-        self._tenant_id = tenant_id
         self.store = store or ShellStore()
         self._last_event_id: str | None = None
 
@@ -47,7 +43,6 @@ class LiveSession:
 
     def refresh(self, task_id: str) -> TaskView:
         task = self._api.get_task(task_id)
-        self._assert_task_tenant(task)
         self.store.rebuild_from_projection(task)
         return task
 
@@ -63,10 +58,30 @@ class LiveSession:
         event = EventView.from_mapping(decoded)
         if frame.id != event.event_id:
             raise ShellContractError("SSE id differs from event_id")
-        if event.tenant_id != self._tenant_id:
-            raise ShellContractError("SSE tenant differs from trusted configuration")
+        existing = next(
+            (
+                item
+                for item in self.store.timeline_events(event.task_id)
+                if item.event_id == event.event_id
+            ),
+            None,
+        )
+        if existing is not None:
+            self.store.apply_event(event)
+            self._last_event_id = event.event_id
+            return LiveUpdate(
+                task_id=event.task_id,
+                event_id=event.event_id,
+                gaps=self.store.timeline_gaps(event.task_id),
+                projection_refreshed=False,
+            )
+        task = self._api.get_task(event.task_id)
+        if event.tenant_id != task.tenant_id:
+            raise ShellContractError(
+                "SSE tenant differs from authoritative Task projection"
+            )
         _task_id, gaps = self.store.apply_event(event)
-        self.refresh(event.task_id)
+        self.store.rebuild_from_projection(task)
         self._last_event_id = event.event_id
         return LiveUpdate(
             task_id=event.task_id,
@@ -74,9 +89,3 @@ class LiveSession:
             gaps=gaps,
             projection_refreshed=True,
         )
-
-    def _assert_task_tenant(self, task: TaskView) -> None:
-        if task.tenant_id != self._tenant_id:
-            raise ShellContractError(
-                "Task tenant differs from trusted live configuration"
-            )

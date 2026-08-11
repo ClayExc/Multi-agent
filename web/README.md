@@ -1,6 +1,6 @@
 # FlowPilot 可替换 Web 外壳
 
-本目录提供 Fixture 演示与 M7 真实 API/SSE 两种可切换模式，注册身份为
+本目录提供 Fixture 演示与 M8 Cookie-only 真实 API/SSE 两种可切换模式，注册身份为
 `experience-builder`（`S4-QUALITY`）。本目录不修改公共 ContractSet。
 
 ## 边界（硬约束，tests/experience/ 静态断言）
@@ -10,6 +10,8 @@
   适配层不提供审批命令构建/提交方法。
 - Web 不直接访问 PostgreSQL/MCP：`web/src` 运行期仅依赖标准库
   （依赖图断言），数据只经 API/SSE 适配边界流入。
+- 浏览器只持有 API/BFF 设置的 HttpOnly 不透明 Cookie，不读取或解析 Token；tenant、
+  subject、role、scope 和 purpose 不能由浏览器 Header、Query、表单或本地状态选择。
 - 数据形态对齐 `apps/api` 的 Task/Command/Event v1 契约与
   `apps/api/stream.py` 的 SSE 帧格式（`id:` / `event: task.event` /
   `data:` + `: ping`）。
@@ -30,7 +32,7 @@ web/
     models.py                   # 契约适配视图（严格校验，拒绝未知字段）
     api_client.py               # API 适配边界（只读投影 + 非审批命令）
     sse_client.py               # SSE 消费：帧解析/去重/序列缺口检测
-    live.py                     # 权威 Task 刷新、重连断点与租户绑定
+    live.py                     # 权威 Task 刷新、重连断点与投影租户复核
     projection.py               # 五阶段安全 Studio 产品投影
     store.py                    # 内存外壳状态（无持久化）
     commands.py                 # task.message.submit.v1 / task.retry.request.v1
@@ -47,10 +49,9 @@ tests/experience/               # fixture 契约 + 适配边界 + 渲染断言 +
 uv run --frozen python web/server.py --port 8765
 # 打开 http://127.0.0.1:8765/
 
-# 真实 API/SSE 模式（租户只由服务端环境配置，浏览器不能覆盖）
+# 真实 API/SSE 模式（身份与租户只由 API/BFF 不透明会话解析）
 WEB_SHELL_MODE=live \
 WEB_SHELL_API_BASE=http://127.0.0.1:8000 \
-WEB_SHELL_TENANT_ID=tenant-it \
 uv run --frozen python web/server.py --port 8765
 
 # 测试
@@ -60,7 +61,8 @@ uv run --frozen python -m pytest -q tests/experience
 演示页可浏览：任务列表、任务详情与时间线（运行/等待/失败）、信息补全表单、
 审批卡（影响/参数/依据/摘要/过期时间）、引用与结果引用、错误面板与重试入口、
 SSE 断线提示与自动重连（服务端透传 Last-Event-ID，客户端按 event_id 与内容指纹
-去重；同 ID 异内容或同 sequence 异事件失败关闭）。真实模式下每个合法事件都会重新
+去重；当前 API 可能完整重放，不能依赖只返回断点后事件；同 ID 异内容或同 sequence
+异事件失败关闭）。真实模式下每个合法事件都会重新
 读取权威 Task 投影，事件只构建时间线，不直接改写业务终态。
 
 ## 恢复语义（适配层模拟）
@@ -74,7 +76,10 @@ SSE 断线提示与自动重连（服务端透传 Last-Event-ID，客户端按 e
 
 ## 安全边界
 
-- `WEB_SHELL_TENANT_ID` 是服务端配置；浏览器传入的租户 Header 不向上游传播。
+- Live Proxy 只向 API 转发不透明 Cookie、`Last-Event-ID` 和协议 Header；浏览器传入的
+  tenant/role/subject/purpose Header、Query 或表单值不向上游传播。
+- Task 缓存、时间线和 SSE 去重状态按 Cookie 的不可逆会话指纹隔离；刷新、登出和
+  重新认证会清除旧会话状态，不能跨会话复用。
 - 真实模式拒绝浏览器直接提交 authority-bearing 原始 TaskCommand；外壳只允许
   从权威 Task 投影构建已注册的补全/重试命令。
 - 当前工作包不增加正文上传接口；请求正文必须先通过受信任的引用入口落地，Web

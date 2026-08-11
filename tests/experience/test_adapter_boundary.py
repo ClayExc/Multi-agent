@@ -18,7 +18,7 @@ def _transport_with(responses: list[tuple[int, Any]], calls: list) -> Any:
     def transport(
         method: str, url: str, headers: dict[str, str], body: bytes | None
     ) -> tuple[int, dict[str, str], bytes]:
-        calls.append((method, url))
+        calls.append((method, url, dict(headers), body))
         status, payload = responses.pop(0)
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         return status, {"content-type": "application/json"}, raw
@@ -43,6 +43,55 @@ def test_get_task_success(fixture_files) -> None:
     assert view.task_id == task["task_id"]
     assert view.status == task["status"]
     assert view.purpose == task["purpose"]
+
+
+def test_adapter_forwards_only_opaque_cookie_not_browser_authority(
+    fixture_files,
+) -> None:
+    """安全: 上游身份只来自不透明 Cookie，不发送 tenant/role Header。"""
+    from flowpilot_shell.api_client import ApiClient
+
+    task = fixture_files["tasks.v1.json"]["tasks"][0]
+    calls: list = []
+    client = ApiClient(transport=_transport_with([(200, task)], calls))
+
+    client.get_task(task["task_id"], cookie_header="__Host-flowpilot-session=sess_x")
+
+    _method, _path, headers, _body = calls[0]
+    assert headers == {
+        "Accept": "application/json",
+        "Cookie": "__Host-flowpilot-session=sess_x",
+    }
+    assert all("tenant" not in name.lower() for name in headers)
+    assert all("role" not in name.lower() for name in headers)
+
+
+def test_adapter_rejects_cookie_header_injection(fixture_files) -> None:
+    from flowpilot_shell.api_client import ApiClient
+    from flowpilot_shell.models import ShellContractError
+
+    task = fixture_files["tasks.v1.json"]["tasks"][0]
+    client = ApiClient(transport=_transport_with([(200, task)], []))
+
+    with pytest.raises(ShellContractError, match="cookie header"):
+        client.get_task(task["task_id"], cookie_header="sess=x\r\nX-Tenant: forged")
+
+
+def test_adapter_rejects_duplicate_browser_session_cookie(fixture_files) -> None:
+    from flowpilot_shell.api_client import ApiClient
+    from flowpilot_shell.models import ShellContractError
+
+    task = fixture_files["tasks.v1.json"]["tasks"][0]
+    client = ApiClient(transport=_transport_with([(200, task)], []))
+
+    with pytest.raises(ShellContractError, match="ambiguous"):
+        client.get_task(
+            task["task_id"],
+            cookie_header=(
+                "__Host-flowpilot-session=first; "
+                "__Host-flowpilot-session=second"
+            ),
+        )
 
 
 def test_get_task_404_maps_to_not_found(fixture_files) -> None:

@@ -602,7 +602,9 @@ def test_event_stream_delivers_lifecycle_events_in_order(
 
     events = asyncio.run(scenario())
 
-    assert security.event_stream_calls == ["tenant-a"]
+    # The connection and every emitted event are independently reauthorized,
+    # so a server-side session/context revocation terminates a live stream.
+    assert security.event_stream_calls == ["tenant-a"] * 4
     assert [event["sequence"] for event in events] == [1, 2, 3]
     assert [event["event_type"] for event in events] == [
         "task.created.v1",

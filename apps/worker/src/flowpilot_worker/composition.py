@@ -19,6 +19,7 @@ from flowpilot_application import (
     ThreadIdFactory,
 )
 from flowpilot_domain import DataClassification
+from flowpilot_graph import SecurityContextValidationPort
 from flowpilot_persistence import (
     ApplicationUnitOfWorkFactories,
     AsyncPostgresConnectionFactory,
@@ -26,13 +27,16 @@ from flowpilot_persistence import (
     CoordinationRebuilder,
     DataUnitOfWorkFactory,
     PostgresDataUnitOfWorkFactory,
+    PostgresSecurityContextSource,
     compose_application_unit_of_work_factories,
 )
+from flowpilot_security import SecurityVerifier
 from flowpilot_tool_contracts import GatewayClientPort
 
 from .adapter import RuntimeExecutionAdapter
 from .durable import DurableRuntime, build_durable_runtime
 from .events import TaskEventPublisher
+from .identity import RuntimeSecurityContextValidator
 from .knowledge import (
     EnterpriseKnowledgeDurableGraphFactory,
     KnowledgeGraphConfig,
@@ -67,6 +71,7 @@ def compose_local_product_runtime(
     result_artifacts: ResultArtifactPort,
     gateway: GatewayClientPort,
     agent_runtime: AgentRuntimePort,
+    security_contexts: SecurityContextValidationPort,
     control_checkpointer: object,
     graph_config: KnowledgeGraphConfig | None = None,
     runtime_config: PersistenceRuntimeConfig | None = None,
@@ -113,6 +118,7 @@ def compose_local_product_runtime(
         artifacts=ResultArtifactService(result_artifacts),
         gateway=gateway,
         runtime=agent_runtime,
+        security_contexts=security_contexts,
         config=config,
         clock=clock,
     )
@@ -126,6 +132,7 @@ def compose_local_product_runtime(
         ),
         tenants=tenants,
         graph_factory=graph_factory,
+        security_contexts=security_contexts,
         control_checkpointer=control_checkpointer,
         runtime_config=runtime_config,
         clock=clock,
@@ -169,6 +176,11 @@ def compose_postgres_local_product_runtime(
         DataUnitOfWorkFactory,
         PostgresDataUnitOfWorkFactory(connection_factory),
     )
+    security_contexts = RuntimeSecurityContextValidator(
+        contexts=PostgresSecurityContextSource(connection_factory),
+        verifier=SecurityVerifier(),
+        clock=clock,
+    )
     return compose_local_product_runtime(
         worker_id=worker_id,
         data_unit_of_work=data_unit_of_work,
@@ -182,6 +194,7 @@ def compose_postgres_local_product_runtime(
         result_artifacts=result_artifacts,
         gateway=gateway,
         agent_runtime=agent_runtime,
+        security_contexts=security_contexts,
         control_checkpointer=control_checkpointer,
         graph_config=graph_config,
         runtime_config=runtime_config,

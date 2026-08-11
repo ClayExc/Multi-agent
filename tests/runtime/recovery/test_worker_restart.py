@@ -33,6 +33,7 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
+from identity_helpers import MutableSecurityContextValidator
 
 
 def _request_id(command_id: str, attempt: int) -> str:
@@ -62,6 +63,7 @@ def test_retryable_failure_resumes_from_checkpoint_with_new_run_generation(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_11111111",
         )
         second_worker = RuntimeWorker(
@@ -69,6 +71,7 @@ def test_retryable_failure_resumes_from_checkpoint_with_new_run_generation(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_22222222",
         )
 
@@ -114,6 +117,7 @@ def test_queue_signal_can_be_recovered_after_worker_crash(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_33333333",
         )
         result = await replacement.run_once()

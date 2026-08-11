@@ -4,7 +4,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Protocol
 
-from flowpilot_graph import CheckpointPort, GraphExecutionPort
+from flowpilot_graph import (
+    CheckpointPort,
+    GraphExecutionPort,
+    SecurityContextValidationPort,
+)
 from flowpilot_persistence import CoordinationRebuilder, DataUnitOfWorkFactory
 
 from .events import TaskEventPublisher
@@ -94,6 +98,7 @@ def build_durable_runtime(
     coordination_rebuilder: CoordinationRebuilder,
     tenants: TrustedTenantInventory,
     graph_factory: DurableGraphFactory,
+    security_contexts: SecurityContextValidationPort,
     control_checkpointer: object,
     runtime_config: PersistenceRuntimeConfig | None = None,
     clock: Callable[[], datetime] | None = None,
@@ -123,6 +128,7 @@ def build_durable_runtime(
         queue=queue,
         leases=leases,
         graph=graph,
+        security_contexts=security_contexts,
         execution_guard=PersistenceExecutionGuard(unit_of_work, tenants),
         run_id_factory=run_id_factory,
     )

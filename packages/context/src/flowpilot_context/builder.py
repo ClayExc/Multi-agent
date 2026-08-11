@@ -32,12 +32,19 @@ _OPTIONAL_DROP_ORDER = {
 }
 
 _FORBIDDEN_HANDOFF_FIELDS = {
+    "access_token",
     "approval",
     "approval_id",
     "credential",
     "credentials",
+    "client_secret",
+    "password",
     "provider_session",
     "session_ref",
+    "refresh_token",
+    "secret",
+    "session_token",
+    "token",
     "tool_credentials",
 }
 

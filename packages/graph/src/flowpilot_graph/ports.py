@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
+from flowpilot_domain import SecurityContextRef
+
 from .state import GraphState
 
 
@@ -68,3 +70,12 @@ class LeasePort(Protocol):
     async def assert_valid(self, lease: LeaseToken) -> None: ...
 
     async def release(self, lease: LeaseToken) -> None: ...
+
+
+class SecurityContextValidationPort(Protocol):
+    """Resolve and revalidate the current server-trusted context snapshot."""
+
+    async def validate_current(
+        self,
+        presented: SecurityContextRef,
+    ) -> SecurityContextRef: ...

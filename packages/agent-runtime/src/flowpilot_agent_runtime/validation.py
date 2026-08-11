@@ -9,15 +9,22 @@ from .models import AgentRunRequest, RuntimeUsage, ToolProposal
 
 FORBIDDEN_SENSITIVE_FIELD_NAMES = frozenset(
     {
+        "access_token",
         "api_key",
         "authorization",
         "bearer_token",
         "cookie",
+        "client_secret",
         "credential",
         "credentials",
         "private_key",
+        "password",
         "provider_session",
         "session_ref",
+        "refresh_token",
+        "secret",
+        "session_token",
+        "token",
     }
 )
 

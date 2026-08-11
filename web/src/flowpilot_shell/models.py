@@ -61,6 +61,22 @@ class ShellContractError(ShellError):
     """A payload does not match the v1 contract shape the shell adapts."""
 
 
+class ShellAuthenticationError(ShellError):
+    """The opaque browser session is missing, expired or revoked."""
+
+    def __init__(self, message: str, *, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+class ShellAuthorizationError(ShellError):
+    """The authenticated session cannot access the requested resource."""
+
+    def __init__(self, message: str, *, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 class ShellNotFoundError(ShellError):
     """The API answered 404 for a tenant-scoped resource."""
 

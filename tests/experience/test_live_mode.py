@@ -92,7 +92,7 @@ def test_live_session_refreshes_authoritative_projection_on_gap(fixture_files) -
 
     raw, _waiting, approval, _terminal = _task_states(fixture_files)
     api = FakeApi([approval])
-    session = LiveSession(api, tenant_id="tenant-it")
+    session = LiveSession(api)
 
     update = session.ingest(_event(raw, sequence=2))
 
@@ -110,7 +110,7 @@ def test_live_session_handles_multiple_interrupts_and_terminal_refresh(
 
     raw, waiting_user, waiting_approval, terminal = _task_states(fixture_files)
     api = FakeApi([waiting_user, waiting_approval, terminal])
-    session = LiveSession(api, tenant_id="tenant-it")
+    session = LiveSession(api)
 
     statuses = []
     for sequence in (1, 2, 3):
@@ -131,17 +131,36 @@ def test_live_session_rejects_forged_event_and_projection_tenant(
 
     raw, waiting_user, _approval, _terminal = _task_states(fixture_files)
     api = FakeApi([waiting_user])
-    session = LiveSession(api, tenant_id="tenant-it")
-    with pytest.raises(ShellContractError, match="SSE tenant differs"):
+    session = LiveSession(api)
+    with pytest.raises(ShellContractError, match="authoritative Task"):
         session.ingest(_event(raw, sequence=1, tenant_id="tenant-forged"))
-    assert api.calls == []
+    assert api.calls == [raw["task_id"]]
 
     forged = deepcopy(raw)
     forged["tenant_id"] = "tenant-forged"
     projection_api = FakeApi([TaskView.from_mapping(forged)])
-    projection_session = LiveSession(projection_api, tenant_id="tenant-it")
-    with pytest.raises(ShellContractError, match="Task tenant differs"):
+    projection_session = LiveSession(projection_api)
+    with pytest.raises(ShellContractError, match="authoritative Task"):
         projection_session.ingest(_event(raw, sequence=1))
+
+
+def test_live_session_deduplicates_replay_without_another_task_read(
+    fixture_files,
+) -> None:
+    from flowpilot_shell.live import LiveSession
+
+    raw, waiting_user, _approval, _terminal = _task_states(fixture_files)
+    api = FakeApi([waiting_user])
+    session = LiveSession(api)
+    frame = _event(raw, sequence=1)
+
+    first = session.ingest(frame)
+    replay = session.ingest(frame)
+
+    assert first.projection_refreshed is True
+    assert replay.projection_refreshed is False
+    assert api.calls == [raw["task_id"]]
+    assert len(session.store.timeline_events(raw["task_id"])) == 1
 
 
 def test_live_backend_requires_server_owned_configuration() -> None:
@@ -159,7 +178,7 @@ def test_live_server_rejects_raw_browser_authority() -> None:
     from web.server import DemoServer, LiveBackend
 
     server = DemoServer(
-        LiveBackend("http://127.0.0.1:1", tenant_id="tenant-server-owned"),
+        LiveBackend("http://127.0.0.1:1"),
         0,
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)

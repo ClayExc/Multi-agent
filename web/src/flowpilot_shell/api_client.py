@@ -19,6 +19,8 @@ from collections.abc import Callable
 from typing import Any
 
 from .models import (
+    ShellAuthenticationError,
+    ShellAuthorizationError,
     ShellContractError,
     ShellError,
     ShellNotFoundError,
@@ -56,26 +58,29 @@ def _urllib_transport(base_url: str, *, timeout: float) -> Transport:
 
 
 class ApiClient:
-    """Tenant-scoped client for the Task v1 read projection and command intake.
+    """Cookie-authenticated client for Task reads and command intake.
 
-    ``tenant_id`` travels in the ``X-FlowPilot-Tenant-Id`` header (phase-1
-    convention; production OIDC authentication stays out of the shell).
+    Tenant, subject, role and purpose are never client configuration. The API
+    derives them from its opaque server session.
     """
 
     def __init__(
         self,
         base_url: str = "http://127.0.0.1:8000",
         *,
-        tenant_id: str = "tenant-it",
         transport: Transport | None = None,
         timeout: float = 10.0,
     ) -> None:
         self._base_url = base_url
-        self._tenant_id = tenant_id
         self._transport = transport or _urllib_transport(base_url, timeout=timeout)
 
-    def get_task(self, task_id: str) -> TaskView:
-        payload = self.get_task_mapping(task_id)
+    def get_task(
+        self,
+        task_id: str,
+        *,
+        cookie_header: str | None = None,
+    ) -> TaskView:
+        payload = self.get_task_mapping(task_id, cookie_header=cookie_header)
         try:
             return TaskView.from_mapping(payload)
         except ShellContractError as exc:
@@ -83,13 +88,15 @@ class ApiClient:
                 f"task projection {task_id} violates the v1 contract: {exc}"
             ) from exc
 
-    def get_task_mapping(self, task_id: str) -> dict[str, Any]:
+    def get_task_mapping(
+        self,
+        task_id: str,
+        *,
+        cookie_header: str | None = None,
+    ) -> dict[str, Any]:
         """Return the validated JSON object for server-side command building."""
 
-        headers = {
-            "Accept": "application/json",
-            "X-FlowPilot-Tenant-Id": self._tenant_id,
-        }
+        headers = _browser_session_headers(cookie_header)
         status, _response_headers, body = self._transport(
             "GET", f"/v1/tasks/{task_id}", headers, None
         )
@@ -100,12 +107,16 @@ class ApiClient:
             return mapping
         raise _map_error(status, payload)
 
-    def submit_command(self, command: dict[str, Any]) -> dict[str, Any]:
+    def submit_command(
+        self,
+        command: dict[str, Any],
+        *,
+        cookie_header: str | None = None,
+    ) -> dict[str, Any]:
         """Submit a non-approval TaskCommand and return the acceptance body."""
         headers = {
-            "Accept": "application/json",
+            **_browser_session_headers(cookie_header),
             "Content-Type": "application/json",
-            "X-FlowPilot-Tenant-Id": self._tenant_id,
         }
         body = json.dumps(command, ensure_ascii=False).encode("utf-8")
         status, _response_headers, raw = self._transport(
@@ -138,6 +149,25 @@ def _require_json_object(value: object, label: str) -> dict[str, Any]:
     return validated
 
 
+def _browser_session_headers(cookie_header: str | None) -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    if cookie_header is None:
+        return headers
+    if not cookie_header or "\r" in cookie_header or "\n" in cookie_header:
+        raise ShellContractError("browser session cookie header is invalid")
+    sessions = [
+        item.strip().partition("=")
+        for item in cookie_header.split(";")
+        if item.strip().partition("=")[0] == "__Host-flowpilot-session"
+    ]
+    if len(sessions) > 1 or any(
+        not separator or not value for _, separator, value in sessions
+    ):
+        raise ShellContractError("browser session cookie header is ambiguous")
+    headers["Cookie"] = cookie_header
+    return headers
+
+
 def _map_error(status: int, payload: object) -> ShellError:
     envelope = _require_json_object(payload, f"error response for HTTP {status}")
     error = (
@@ -146,19 +176,16 @@ def _map_error(status: int, payload: object) -> ShellError:
         else {}
     )
 
-    code = "UNKNOWN"
     if "code" in error:
         raw_code = error["code"]
         if not isinstance(raw_code, str) or not raw_code:
             raise ShellContractError("error response error.code must be a string")
-        code = raw_code
 
-    message = f"API error (HTTP {status})"
+    message = f"API request failed (HTTP {status})"
     if "message" in error:
         raw_message = error["message"]
         if not isinstance(raw_message, str) or not raw_message:
             raise ShellContractError("error response error.message must be a string")
-        message = raw_message
 
     retryable = status in {502, 503, 504}
     if "retryable" in error:
@@ -167,9 +194,23 @@ def _map_error(status: int, payload: object) -> ShellError:
             raise ShellContractError("error response error.retryable must be a boolean")
         retryable = raw_retryable
     if status == 404:
-        return ShellNotFoundError(message)
+        return ShellNotFoundError("API resource was not found")
+    if status == 401:
+        return ShellAuthenticationError(
+            "browser session is invalid",
+            code="API_AUTHENTICATION_INVALID",
+        )
+    if status == 403:
+        return ShellAuthorizationError(
+            "browser session is not authorized",
+            code="API_AUTHORIZATION_DENIED",
+        )
     if status in {502, 503, 504} or (retryable and status >= 500):
-        return ShellUnavailableError(message)
-    if status in {400, 422} or status in {403, 409}:
-        return ShellContractError(f"{code}: {message}")
-    return ShellServerError(message, code=code, retryable=retryable)
+        return ShellUnavailableError("API dependency is unavailable")
+    if status in {400, 409, 422}:
+        return ShellContractError(f"API request was rejected (HTTP {status})")
+    return ShellServerError(
+        message,
+        code="API_SERVER_ERROR",
+        retryable=retryable,
+    )

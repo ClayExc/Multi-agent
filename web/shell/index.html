@@ -11,11 +11,25 @@
     <h1>FlowPilot 工作台 <span id="shell-mode" class="badge-demo">安全模式检测中…</span></h1>
     <nav class="app-nav">
       <a href="#/tasks" data-route="tasks">任务列表</a>
-      <span id="sse-status" class="sse-status sse-connecting">SSE 连接中…</span>
+      <span id="sse-status" class="sse-status sse-connecting" hidden>SSE 尚未连接</span>
+      <section id="session-controls" class="session-controls" aria-label="登录会话">
+        <span id="session-status" class="session-status" role="status" aria-live="polite">
+          正在检查登录状态…
+        </span>
+        <a id="login-action" class="btn btn-primary" href="/api/v1/auth/login">
+          登录
+        </a>
+        <button id="refresh-action" class="btn btn-secondary" type="button" hidden>
+          验证并刷新会话
+        </button>
+        <button id="logout-action" class="btn btn-secondary" type="button" hidden>
+          退出登录
+        </button>
+      </section>
     </nav>
   </header>
 
-  <main id="view" class="app-view" aria-live="polite">
+  <main id="view" class="app-view" aria-live="polite" aria-busy="true" hidden>
     <p class="loading">加载中…</p>
   </main>
 
@@ -24,7 +38,7 @@
       本外壳不保存业务事实、不发起审批写调用、不直接访问 PostgreSQL/MCP；
       页面只消费受信任服务端配置的 API/SSE；刷新后以权威 Task 投影重建。
     </p>
-    <div id="demo-controls" class="demo-controls">
+    <div id="demo-controls" class="demo-controls" hidden>
       <span>演示控制：</span>
       <a class="btn btn-secondary" href="#/tasks" data-action="reset">恢复正常</a>
       <a class="btn btn-secondary" href="#/tasks/task_inventory_005?demo=unavailable" data-action="demo-503">模拟 API 不可用（503 错误面板）</a>

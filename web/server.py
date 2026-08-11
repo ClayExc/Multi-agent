@@ -22,6 +22,7 @@ Config via env: WEB_SHELL_PORT, WEB_SHELL_ROOT (repo root), WEB_SHELL_API_BASE.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -30,7 +31,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator, Mapping
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -42,6 +44,8 @@ if str(SRC) not in sys.path:
 
 from flowpilot_shell import (  # noqa: E402
     EventView,
+    ShellAuthenticationError,
+    ShellAuthorizationError,
     ShellContractError,
     ShellUnavailableError,
     TaskView,
@@ -120,11 +124,22 @@ class DemoBackend:
 
     # -- simulated API surface ----------------------------------------
 
-    def task_projection(self, task_id: str) -> dict[str, Any] | None:
+    def task_projection(
+        self,
+        task_id: str,
+        *,
+        cookie_header: str | None = None,
+    ) -> dict[str, Any] | None:
+        del cookie_header
         task = self._live_tasks.get(task_id) or self._tasks.get(task_id)
         return task
 
-    def all_tasks(self) -> tuple[TaskView, ...]:
+    def all_tasks(
+        self,
+        *,
+        cookie_header: str | None = None,
+    ) -> tuple[TaskView, ...]:
+        del cookie_header
         merged = dict(self._tasks)
         merged.update(self._live_tasks)
         return tuple(
@@ -193,7 +208,13 @@ class DemoBackend:
 
     # -- command intake simulation -------------------------------------
 
-    def accept_command(self, command: dict[str, Any]) -> dict[str, Any]:
+    def accept_command(
+        self,
+        command: dict[str, Any],
+        *,
+        cookie_header: str | None = None,
+    ) -> dict[str, Any]:
+        del cookie_header
         if command["command_type"] not in {
             "task.message.submit.v1",
             "task.retry.request.v1",
@@ -267,8 +288,13 @@ class DemoBackend:
 
     # -- recovery entry ------------------------------------------------
 
-    def rebuild(self, task_id: str) -> TaskView:
-        projection = self.task_projection(task_id)
+    def rebuild(
+        self,
+        task_id: str,
+        *,
+        cookie_header: str | None = None,
+    ) -> TaskView:
+        projection = self.task_projection(task_id, cookie_header=cookie_header)
         if projection is None:
             raise ShellContractError(f"unknown task {task_id}")
         view = TaskView.from_mapping(projection)
@@ -276,30 +302,59 @@ class DemoBackend:
         return view
 
 
-class LiveBackend:
-    """Server-side adapter for a real API/SSE deployment.
+@dataclass(frozen=True, slots=True)
+class AuthProxyResponse:
+    status: int
+    headers: tuple[tuple[str, str], ...]
+    body: bytes
 
-    Browser headers never select tenant identity.  The local shell proxy owns
-    the configured tenant and validates every upstream Task/Event projection
-    before exposing it to the browser.
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        return None
+
+
+class LiveBackend:
+    """Cookie-only server-side adapter for a real API/SSE deployment.
+
+    Browser tenant and role inputs are ignored. Every upstream call forwards
+    only the opaque Cookie plus protocol headers; Task caches and replay state
+    are isolated by an irreversible browser-session fingerprint.
     """
 
-    def __init__(self, api_base: str, *, tenant_id: str) -> None:
-        if not api_base or not tenant_id:
-            raise ShellContractError(
-                "live backend requires WEB_SHELL_API_BASE and WEB_SHELL_TENANT_ID"
-            )
+    _AUTH_PATHS = frozenset(
+        {
+            "/v1/auth/login",
+            "/v1/auth/callback",
+            "/v1/auth/refresh",
+            "/v1/auth/logout",
+        }
+    )
+
+    def __init__(self, api_base: str) -> None:
+        if not api_base:
+            raise ShellContractError("live backend requires WEB_SHELL_API_BASE")
         from flowpilot_shell.api_client import ApiClient
 
         self._api_base = api_base.rstrip("/")
-        self._tenant_id = tenant_id
-        self._api = ApiClient(self._api_base, tenant_id=tenant_id)
-        self.store = ShellStore()
-        self._tasks: dict[str, dict[str, Any]] = {}
+        self._api = ApiClient(self._api_base)
+        self._stores: dict[str, ShellStore] = {}
+        self._tasks: dict[str, dict[str, dict[str, Any]]] = {}
+        self._active_sessions: set[str] = set()
 
-    def task_projection(self, task_id: str) -> dict[str, Any] | None:
+    def task_projection(
+        self,
+        task_id: str,
+        *,
+        cookie_header: str | None = None,
+    ) -> dict[str, Any] | None:
+        key = self._session_key(cookie_header)
         try:
-            mapping = self._api.get_task_mapping(task_id)
+            mapping = self._api.get_task_mapping(
+                task_id,
+                cookie_header=cookie_header,
+            )
         except ShellUnavailableError:
             raise
         except Exception as exc:
@@ -309,31 +364,72 @@ class LiveBackend:
                 return None
             raise
         view = TaskView.from_mapping(mapping)
-        self._assert_tenant(view.tenant_id)
-        self._tasks[task_id] = mapping
-        self.store.rebuild_from_projection(view)
+        self._active_sessions.add(key)
+        self._tasks.setdefault(key, {})[task_id] = mapping
+        self._stores.setdefault(key, ShellStore()).rebuild_from_projection(view)
         return mapping
 
-    def all_tasks(self) -> tuple[TaskView, ...]:
+    def all_tasks(
+        self,
+        *,
+        cookie_header: str | None = None,
+    ) -> tuple[TaskView, ...]:
+        key = self._session_key(cookie_header)
+        if key not in self._active_sessions:
+            raise ShellAuthenticationError(
+                "browser session has not been validated",
+                code="API_AUTHENTICATION_INVALID",
+            )
+        for task_id in tuple(self._tasks.get(key, {})):
+            self.task_projection(task_id, cookie_header=cookie_header)
+        tasks = self._tasks.get(key, {})
         return tuple(
             sorted(
-                (TaskView.from_mapping(item) for item in self._tasks.values()),
+                (TaskView.from_mapping(item) for item in tasks.values()),
                 key=lambda task: task.created_at,
             )
         )
 
-    def accept_command(self, command: dict[str, Any]) -> dict[str, Any]:
-        if command.get("tenant_id") != self._tenant_id:
-            raise ShellContractError("command tenant differs from live configuration")
+    def store_for(self, cookie_header: str | None) -> ShellStore:
+        key = self._session_key(cookie_header)
+        return self._stores.setdefault(key, ShellStore())
+
+    def accept_command(
+        self,
+        command: dict[str, Any],
+        *,
+        cookie_header: str | None = None,
+    ) -> dict[str, Any]:
         if command.get("command_type") not in {
             "task.message.submit.v1",
             "task.retry.request.v1",
         }:
             raise ShellContractError("live shell command type is not registered")
-        return self._api.submit_command(command)
+        key = self._session_key(cookie_header)
+        task_id = command.get("task_id")
+        cached = (
+            self._tasks.get(key, {}).get(task_id)
+            if isinstance(task_id, str)
+            else None
+        )
+        if cached is None:
+            raise ShellContractError(
+                "command requires a session-scoped Task projection"
+            )
+        if (
+            command.get("tenant_id") != cached.get("tenant_id")
+            or command.get("security_context") != cached.get("security_context")
+        ):
+            raise ShellContractError("command identity differs from Task projection")
+        return self._api.submit_command(command, cookie_header=cookie_header)
 
-    def rebuild(self, task_id: str) -> TaskView:
-        mapping = self.task_projection(task_id)
+    def rebuild(
+        self,
+        task_id: str,
+        *,
+        cookie_header: str | None = None,
+    ) -> TaskView:
+        mapping = self.task_projection(task_id, cookie_header=cookie_header)
         if mapping is None:
             raise ShellContractError(f"unknown task {task_id}")
         return TaskView.from_mapping(mapping)
@@ -343,61 +439,375 @@ class LiveBackend:
         *,
         last_event_id: str | None,
         task_id: str | None,
+        cookie_header: str | None,
     ) -> Iterator[bytes]:
+        self._session_key(cookie_header)
         query = ""
         if task_id:
             query = "?" + urllib.parse.urlencode({"task_id": task_id})
+        headers = {
+            "Accept": "text/event-stream",
+            **self._cookie_headers(cookie_header),
+            **(
+                {"Last-Event-ID": last_event_id}
+                if last_event_id is not None
+                else {}
+            ),
+        }
         request = urllib.request.Request(
             self._api_base + "/v1/tasks/events" + query,
-            headers={
-                "Accept": "text/event-stream",
-                "X-FlowPilot-Tenant-Id": self._tenant_id,
-                **(
-                    {"Last-Event-ID": last_event_id}
-                    if last_event_id is not None
-                    else {}
-                ),
-            },
+            headers=headers,
         )
         try:
             response = urllib.request.urlopen(request, timeout=30)
+        except urllib.error.HTTPError as exc:
+            self._raise_http_error(exc)
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise ShellUnavailableError("live SSE source is unavailable") from exc
-        with response:
-            chunks = iter(lambda: response.read(4096), b"")
-            for frame in parse_sse(chunks):
-                if frame.event != "task.event" or not frame.id:
-                    continue
-                try:
-                    decoded: object = json.loads(frame.data)
-                except json.JSONDecodeError as exc:
-                    raise ShellContractError("live SSE data is not JSON") from exc
-                if not isinstance(decoded, Mapping):
-                    raise ShellContractError("live SSE event must be an object")
-                event = EventView.from_mapping(decoded)
-                if event.event_id != frame.id:
-                    raise ShellContractError("live SSE id differs from event_id")
-                self._assert_tenant(event.tenant_id)
-                if task_id is not None and event.task_id != task_id:
-                    raise ShellContractError("live SSE task filter was violated")
-                self.store.apply_event(event)
-                self.task_projection(event.task_id)
-                payload = json.dumps(
-                    dict(decoded),
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                )
-                yield (
-                    f"id: {event.event_id}\nevent: task.event\n"
-                    f"data: {payload}\n\n"
-                ).encode()
 
-    def _assert_tenant(self, tenant_id: str) -> None:
-        if tenant_id != self._tenant_id:
-            raise ShellContractError(
-                "upstream tenant differs from live configuration"
+        def validated_frames() -> Iterator[bytes]:
+            with response:
+                chunks = iter(lambda: response.read(4096), b"")
+                for frame in parse_sse(chunks):
+                    if frame.event != "task.event" or not frame.id:
+                        continue
+                    try:
+                        decoded: object = json.loads(frame.data)
+                    except json.JSONDecodeError as exc:
+                        raise ShellContractError("live SSE data is not JSON") from exc
+                    if not isinstance(decoded, Mapping):
+                        raise ShellContractError("live SSE event must be an object")
+                    event = EventView.from_mapping(decoded)
+                    if event.event_id != frame.id:
+                        raise ShellContractError("live SSE id differs from event_id")
+                    if task_id is not None and event.task_id != task_id:
+                        raise ShellContractError("live SSE task filter was violated")
+                    projection = self.task_projection(
+                        event.task_id,
+                        cookie_header=cookie_header,
+                    )
+                    if projection is None or event.tenant_id != projection["tenant_id"]:
+                        raise ShellContractError(
+                            "SSE tenant differs from authoritative Task projection"
+                        )
+                    self.store_for(cookie_header).apply_event(event)
+                    payload = json.dumps(
+                        dict(decoded),
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                    yield (
+                        f"id: {event.event_id}\nevent: task.event\n"
+                        f"data: {payload}\n\n"
+                    ).encode()
+
+        return validated_frames()
+
+    def proxy_auth(
+        self,
+        *,
+        method: str,
+        path: str,
+        query: str,
+        cookie_header: str | None,
+    ) -> AuthProxyResponse:
+        if path not in self._AUTH_PATHS:
+            raise ShellContractError("auth proxy path is not registered")
+        if path in {"/v1/auth/refresh", "/v1/auth/logout"}:
+            self._session_cookie_pair(cookie_header, required=False)
+        request = urllib.request.Request(
+            self._api_base + path + ("?" + query if query else ""),
+            headers={
+                "Accept": "application/json",
+                **self._cookie_headers(cookie_header),
+            },
+            data=b"" if method == "POST" else None,
+            method=method,
+        )
+        opener = urllib.request.build_opener(_NoRedirectHandler())
+        try:
+            response = opener.open(request, timeout=10)
+            status = response.status
+            response_headers = response.headers
+            body = response.read()
+            response.close()
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            response_headers = exc.headers
+            body = exc.read()
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise ShellUnavailableError(
+                "authentication service is unavailable"
+            ) from exc
+        normalized = self._normalize_auth_response(
+            path=path,
+            status=status,
+            headers=response_headers,
+            body=body,
+        )
+        if path in {"/v1/auth/refresh", "/v1/auth/logout"}:
+            self.clear_session(cookie_header)
+        if path in {"/v1/auth/callback", "/v1/auth/refresh"}:
+            self._mark_response_session(normalized)
+        return normalized
+
+    def clear_session(self, cookie_header: str | None) -> None:
+        pair = self._session_cookie_pair(cookie_header, required=False)
+        if pair is None:
+            return
+        key = self._key_from_session_pair(pair)
+        self._active_sessions.discard(key)
+        store = self._stores.pop(key, None)
+        if store is not None:
+            store.clear()
+        self._tasks.pop(key, None)
+
+    @classmethod
+    def _session_key(cls, cookie_header: str | None) -> str:
+        pair = cls._session_cookie_pair(cookie_header, required=True)
+        if pair is None:  # pragma: no cover - required=True is exhaustive
+            raise ShellAuthenticationError(
+                "browser session is required",
+                code="API_AUTHENTICATION_REQUIRED",
             )
+        return cls._key_from_session_pair(pair)
+
+    @staticmethod
+    def _key_from_session_pair(pair: str) -> str:
+        return hashlib.sha256(pair.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def _session_cookie_pair(
+        cls,
+        cookie_header: str | None,
+        *,
+        required: bool,
+    ) -> str | None:
+        if cookie_header is None:
+            if required:
+                raise ShellAuthenticationError(
+                    "browser session is required",
+                    code="API_AUTHENTICATION_REQUIRED",
+                )
+            return None
+        cls._cookie_headers(cookie_header)
+        pairs: list[str] = []
+        for item in cookie_header.split(";"):
+            name, separator, value = item.strip().partition("=")
+            if name != "__Host-flowpilot-session":
+                continue
+            if not separator or not value:
+                raise ShellAuthenticationError(
+                    "browser session cookie is invalid",
+                    code="API_AUTHENTICATION_INVALID",
+                )
+            pairs.append(f"{name}={value}")
+        if len(pairs) > 1:
+            raise ShellAuthenticationError(
+                "browser session cookie is ambiguous",
+                code="API_AUTHENTICATION_INVALID",
+            )
+        if not pairs:
+            if required:
+                raise ShellAuthenticationError(
+                    "browser session is required",
+                    code="API_AUTHENTICATION_REQUIRED",
+                )
+            return None
+        return pairs[0]
+
+    def _mark_response_session(self, response: AuthProxyResponse) -> None:
+        for name, value in response.headers:
+            if name.lower() != "set-cookie":
+                continue
+            pair = value.split(";", 1)[0].strip()
+            if not pair.startswith("__Host-flowpilot-session="):
+                continue
+            if pair.endswith("=") or "max-age=0" in value.lower():
+                continue
+            self._active_sessions.add(self._key_from_session_pair(pair))
+
+    @staticmethod
+    def _cookie_headers(cookie_header: str | None) -> dict[str, str]:
+        if cookie_header is None:
+            return {}
+        if not cookie_header or "\r" in cookie_header or "\n" in cookie_header:
+            raise ShellContractError("browser Cookie header is invalid")
+        return {"Cookie": cookie_header}
+
+    @staticmethod
+    def _raise_http_error(error: urllib.error.HTTPError) -> None:
+        code = _safe_error_code(error.read())
+        if error.code == 401:
+            raise ShellAuthenticationError(
+                "browser session is invalid",
+                code=code,
+            ) from None
+        if error.code == 403:
+            raise ShellAuthorizationError(
+                "browser session is not authorized",
+                code=code,
+            ) from None
+        if error.code in {502, 503, 504}:
+            raise ShellUnavailableError("live SSE source is unavailable") from None
+        raise ShellContractError("live SSE source rejected the request") from None
+
+    @staticmethod
+    def _normalize_auth_response(
+        *,
+        path: str,
+        status: int,
+        headers: Any,
+        body: bytes,
+    ) -> AuthProxyResponse:
+        safe_headers: list[tuple[str, str]] = []
+        location = headers.get("Location")
+        if location is not None:
+            if path == "/v1/auth/login":
+                parsed = urllib.parse.urlsplit(location)
+                loopback = parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+                if parsed.scheme != "https" and not (
+                    parsed.scheme == "http" and loopback
+                ):
+                    raise ShellContractError("OIDC redirect location is not trusted")
+            elif not location.startswith("/") or location.startswith("//"):
+                raise ShellContractError("post-login redirect is not local")
+            safe_headers.append(("Location", location))
+        get_all = getattr(headers, "get_all", None)
+        cookies = get_all("Set-Cookie") if callable(get_all) else []
+        for cookie in cookies or []:
+            if not _safe_set_cookie(cookie):
+                raise ShellContractError("authentication cookie is invalid")
+            safe_headers.append(("Set-Cookie", cookie))
+        if status == 200 and path == "/v1/auth/refresh":
+            payload = _safe_refresh_body(body)
+            safe_headers.append(("Content-Type", "application/json; charset=utf-8"))
+            return AuthProxyResponse(status, tuple(safe_headers), payload)
+        if status in {204, 302, 303}:
+            return AuthProxyResponse(status, tuple(safe_headers), b"")
+        code = _safe_error_code(body)
+        payload = _safe_auth_error_body(status, code)
+        safe_headers.append(("Content-Type", "application/json; charset=utf-8"))
+        return AuthProxyResponse(status, tuple(safe_headers), payload)
+
+
+_AUTH_ERROR_MESSAGES = {
+    "API_AUTHENTICATION_REQUIRED": "需要登录后继续。",
+    "API_AUTHENTICATION_INVALID": "会话已过期或已撤销，请重新认证。",
+    "API_AUTHORIZATION_DENIED": "当前会话无权访问该资源。",
+    "API_AUTH_FLOW_INVALID": "登录流程已失效，请重新开始登录。",
+    "API_DEPENDENCY_UNAVAILABLE": "认证服务暂时不可用，请稍后重试。",
+    "API_INTERNAL_ERROR": "认证服务发生内部错误。",
+}
+
+
+def _safe_error_code(body: bytes) -> str:
+    try:
+        payload: object = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return "API_AUTHENTICATION_INVALID"
+    if not isinstance(payload, Mapping):
+        return "API_AUTHENTICATION_INVALID"
+    error = payload.get("error")
+    if not isinstance(error, Mapping):
+        return "API_AUTHENTICATION_INVALID"
+    code = error.get("code")
+    if not isinstance(code, str) or code not in _AUTH_ERROR_MESSAGES:
+        return "API_AUTHENTICATION_INVALID"
+    return code
+
+
+def _safe_auth_error_body(status: int, code: str) -> bytes:
+    fallback = {
+        401: "API_AUTHENTICATION_INVALID",
+        403: "API_AUTHORIZATION_DENIED",
+        503: "API_DEPENDENCY_UNAVAILABLE",
+    }.get(status, "API_INTERNAL_ERROR")
+    allowed = {
+        401: {
+            "API_AUTHENTICATION_REQUIRED",
+            "API_AUTHENTICATION_INVALID",
+            "API_AUTH_FLOW_INVALID",
+        },
+        403: {"API_AUTHORIZATION_DENIED"},
+        503: {"API_DEPENDENCY_UNAVAILABLE"},
+        500: {"API_INTERNAL_ERROR"},
+    }.get(status, {"API_INTERNAL_ERROR"})
+    selected = code if code in allowed else fallback
+    payload = {
+        "error": {
+            "code": selected,
+            "message": _AUTH_ERROR_MESSAGES[selected],
+            "retryable": selected == "API_DEPENDENCY_UNAVAILABLE",
+            "detail_ref": None,
+        }
+    }
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+
+def _safe_refresh_body(body: bytes) -> bytes:
+    try:
+        payload: object = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ShellContractError("refresh response is not JSON") from exc
+    if not isinstance(payload, Mapping) or set(payload) != {"status", "expires_at"}:
+        raise ShellContractError("refresh response shape is invalid")
+    status = payload.get("status")
+    expires_at = payload.get("expires_at")
+    if status != "active" or not isinstance(expires_at, str) or not expires_at:
+        raise ShellContractError("refresh response fields are invalid")
+    try:
+        datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ShellContractError("refresh expiry is invalid") from exc
+    return json.dumps(
+        {"expires_at": expires_at, "status": "active"},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+
+def _safe_set_cookie(cookie: str) -> bool:
+    if "\r" in cookie or "\n" in cookie or "=" not in cookie:
+        return False
+    segments = [segment.strip() for segment in cookie.split(";")]
+    name, separator, value = segments[0].partition("=")
+    if not separator:
+        return False
+    if name not in {"__Host-flowpilot-login", "__Host-flowpilot-session"}:
+        return False
+    attributes: dict[str, str | None] = {}
+    allowed = {"expires", "httponly", "max-age", "path", "samesite", "secure"}
+    for segment in segments[1:]:
+        if not segment:
+            return False
+        attribute, has_value, attribute_value = segment.partition("=")
+        key = attribute.lower()
+        if key not in allowed or key in attributes:
+            return False
+        attributes[key] = attribute_value if has_value else None
+    if attributes.get("secure", "missing") is not None:
+        return False
+    if attributes.get("httponly", "missing") is not None:
+        return False
+    if attributes.get("path") != "/":
+        return False
+    if (attributes.get("samesite") or "").lower() not in {"lax", "strict"}:
+        return False
+    max_age = attributes.get("max-age")
+    if max_age is not None:
+        try:
+            int(max_age)
+        except ValueError:
+            return False
+    return bool(value) or max_age == "0"
 
 
 def _status_event(
@@ -452,7 +862,7 @@ class ShellHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         backend = self.server.backend
         try:
-            if path == "/" or path == "/index.html":
+            if path in {"/", "/index.html", "/studio"}:
                 self._send_file(
                     WEB / "shell" / "index.html", "text/html; charset=utf-8"
                 )
@@ -477,9 +887,20 @@ class ShellHandler(BaseHTTPRequestHandler):
                         ),
                     },
                 )
+            elif path in {
+                "/api/v1/auth/login",
+                "/api/v1/auth/callback",
+            }:
+                self._handle_auth_proxy("GET", path, parsed.query)
             elif path == "/views/tasks":
-                fragment = render_task_list(backend.all_tasks())
-                self._send_text(fragment, "text/html; charset=utf-8")
+                fragment = render_task_list(
+                    backend.all_tasks(cookie_header=self._browser_cookie())
+                )
+                self._send_text(
+                    fragment,
+                    "text/html; charset=utf-8",
+                    no_store=True,
+                )
             elif path.startswith("/views/tasks/"):
                 self._handle_view_task(path.removeprefix("/views/tasks/"), query)
             elif path == "/api/v1/tasks/events":
@@ -490,6 +911,44 @@ class ShellHandler(BaseHTTPRequestHandler):
                 self._send_json(404, ERROR_NOT_FOUND)
         except (BrokenPipeError, ConnectionResetError):
             return
+        except ShellAuthenticationError as exc:
+            self._send_identity_error(
+                401,
+                exc.code,
+                as_html=path.startswith("/views/"),
+            )
+        except ShellAuthorizationError as exc:
+            self._send_identity_error(
+                403,
+                exc.code,
+                as_html=path.startswith("/views/"),
+            )
+        except ShellUnavailableError:
+            self._send_identity_error(
+                503,
+                "API_DEPENDENCY_UNAVAILABLE",
+                as_html=path.startswith("/views/"),
+            )
+        except ShellContractError:
+            if path.startswith("/api/v1/auth/"):
+                self._send_identity_error(
+                    503,
+                    "API_DEPENDENCY_UNAVAILABLE",
+                    as_html=False,
+                )
+            else:
+                self._send_json(
+                    500,
+                    {
+                        "error": {
+                            "code": "INTERNAL_ERROR",
+                            "message": "request could not be completed",
+                            "retryable": False,
+                            "detail_ref": None,
+                        }
+                    },
+                    no_store=True,
+                )
         except Exception:  # noqa: BLE001 - demo server must never crash a thread
             self._send_json(
                 500,
@@ -507,7 +966,13 @@ class ShellHandler(BaseHTTPRequestHandler):
         backend = self.server.backend
         parsed = urllib.parse.urlsplit(self.path)
         try:
-            if parsed.path == "/api/v1/task-commands":
+            if parsed.path in {
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/logout",
+            }:
+                self._read_body()
+                self._handle_auth_proxy("POST", parsed.path, parsed.query)
+            elif parsed.path == "/api/v1/task-commands":
                 if isinstance(backend, LiveBackend):
                     self._send_json(
                         403,
@@ -526,50 +991,74 @@ class ShellHandler(BaseHTTPRequestHandler):
                     return
                 body = self._read_body()
                 command = json.loads(body.decode("utf-8"))
-                receipt = backend.accept_command(command)
-                self._send_json(202, receipt)
+                receipt = backend.accept_command(
+                    command,
+                    cookie_header=self._browser_cookie(),
+                )
+                self._send_json(202, receipt, no_store=True)
             elif parsed.path == "/shell/commands/submit":
                 form = self._read_form()
                 receipt = self._submit_completion(backend, form)
-                self._send_json(200, {"accepted": True, "receipt": receipt})
+                self._send_json(
+                    200,
+                    {"accepted": True, "receipt": receipt},
+                    no_store=True,
+                )
             elif parsed.path == "/shell/commands/retry":
                 form = self._read_form()
                 receipt = self._retry_task(backend, form)
-                self._send_json(200, {"accepted": True, "receipt": receipt})
+                self._send_json(
+                    200,
+                    {"accepted": True, "receipt": receipt},
+                    no_store=True,
+                )
             else:
                 self._send_json(404, ERROR_NOT_FOUND)
         except (BrokenPipeError, ConnectionResetError):
             return
-        except ShellContractError as exc:
+        except ShellAuthenticationError as exc:
+            self._send_identity_error(401, exc.code, as_html=False)
+        except ShellAuthorizationError as exc:
+            self._send_identity_error(403, exc.code, as_html=False)
+        except ShellUnavailableError:
+            self._send_identity_error(
+                503,
+                "API_DEPENDENCY_UNAVAILABLE",
+                as_html=False,
+            )
+        except ShellContractError:
             self._send_json(
                 409,
                 {
                     "error": {
                         "code": "TASK_VERSION_CONFLICT",
-                        "message": str(exc),
+                        "message": "请求与当前任务状态冲突，请刷新后重试。",
                         "retryable": False,
                         "detail_ref": None,
                     }
                 },
+                no_store=True,
             )
-        except (ValueError, KeyError) as exc:
+        except (ValueError, KeyError):
             self._send_json(
                 422,
                 {
                     "error": {
                         "code": "CONTRACT_INVALID",
-                        "message": str(exc),
+                        "message": "请求格式无效。",
                         "retryable": False,
                         "detail_ref": None,
                     }
                 },
+                no_store=True,
             )
 
     # -- view handlers -------------------------------------------------
 
     def _handle_view_task(self, task_id: str, query: dict[str, list[str]]) -> None:
         backend = self.server.backend
-        if "demo" in query:
+        cookie_header = self._browser_cookie()
+        if isinstance(backend, DemoBackend) and "demo" in query:
             mode = query["demo"][0]
             if mode == "unavailable":
                 fragment = render_error_panel(
@@ -585,31 +1074,50 @@ class ShellHandler(BaseHTTPRequestHandler):
                 return
         if "rebuild" in query:
             try:
-                backend.rebuild(task_id)
+                backend.rebuild(task_id, cookie_header=cookie_header)
             except ShellContractError:
                 self._send_text(
                     render_task_not_found(task_id), "text/html; charset=utf-8"
                 )
                 return
-        projection = backend.task_projection(task_id)
+        projection = backend.task_projection(
+            task_id,
+            cookie_header=cookie_header,
+        )
         if projection is None:
             self._send_text(render_task_not_found(task_id), "text/html; charset=utf-8")
             return
         task = TaskView.from_mapping(projection)
-        backend.store.rebuild_from_projection(task)
-        fragment = render_task_detail(task, backend.store)
-        self._send_text(fragment, "text/html; charset=utf-8")
+        store = (
+            backend.store_for(cookie_header)
+            if isinstance(backend, LiveBackend)
+            else backend.store
+        )
+        store.rebuild_from_projection(task)
+        fragment = render_task_detail(task, store)
+        self._send_text(
+            fragment,
+            "text/html; charset=utf-8",
+            no_store=True,
+        )
 
     def _handle_api_task(self, task_id: str, query: dict[str, list[str]]) -> None:
         backend = self.server.backend
-        if "simulate" in query and query["simulate"][0] == "unavailable":
+        if (
+            isinstance(backend, DemoBackend)
+            and "simulate" in query
+            and query["simulate"][0] == "unavailable"
+        ):
             self._send_json(503, ERROR_UNAVAILABLE)
             return
-        projection = backend.task_projection(task_id)
+        projection = backend.task_projection(
+            task_id,
+            cookie_header=self._browser_cookie(),
+        )
         if projection is None:
             self._send_json(404, ERROR_NOT_FOUND)
             return
-        self._send_json(200, projection)
+        self._send_json(200, projection, no_store=True)
 
     # -- SSE -----------------------------------------------------------
 
@@ -617,16 +1125,18 @@ class ShellHandler(BaseHTTPRequestHandler):
         backend = self.server.backend
         task_filter = query.get("task_id", [None])[0]
         if isinstance(backend, LiveBackend):
+            frames = backend.iter_event_frames(
+                last_event_id=self.headers.get("Last-Event-ID"),
+                task_id=task_filter,
+                cookie_header=self._browser_cookie(),
+            )
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.send_header("Transfer-Encoding", "chunked")
             self.end_headers()
-            for frame in backend.iter_event_frames(
-                last_event_id=self.headers.get("Last-Event-ID"),
-                task_id=task_filter,
-            ):
+            for frame in frames:
                 self._write_chunk(frame)
             self.wfile.write(b"0\r\n\r\n")
             self.wfile.flush()
@@ -667,6 +1177,88 @@ class ShellHandler(BaseHTTPRequestHandler):
 
     # -- helpers -------------------------------------------------------
 
+    def _browser_cookie(self) -> str | None:
+        return self.headers.get("Cookie")
+
+    def _handle_auth_proxy(self, method: str, path: str, query: str) -> None:
+        backend = self.server.backend
+        if isinstance(backend, DemoBackend):
+            if path.endswith("/refresh"):
+                body = json.dumps(
+                    {
+                        "expires_at": (
+                            datetime.now(UTC) + timedelta(hours=1)
+                        ).isoformat().replace("+00:00", "Z"),
+                        "status": "active",
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+                response = AuthProxyResponse(
+                    200,
+                    (("Content-Type", "application/json; charset=utf-8"),),
+                    body,
+                )
+            elif path.endswith("/logout"):
+                response = AuthProxyResponse(204, (), b"")
+            else:
+                response = AuthProxyResponse(303, (("Location", "/studio"),), b"")
+        else:
+            response = backend.proxy_auth(
+                method=method,
+                path=path.removeprefix("/api"),
+                query=query,
+                cookie_header=self._browser_cookie(),
+            )
+        self._send_proxy_response(response)
+
+    def _send_proxy_response(self, response: AuthProxyResponse) -> None:
+        self.send_response(response.status)
+        for name, value in response.headers:
+            self.send_header(name, value)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(response.body)))
+        self.end_headers()
+        if response.body:
+            self.wfile.write(response.body)
+
+    def _send_identity_error(
+        self,
+        status: int,
+        code: str,
+        *,
+        as_html: bool,
+    ) -> None:
+        selected = code if code in _AUTH_ERROR_MESSAGES else {
+            401: "API_AUTHENTICATION_INVALID",
+            403: "API_AUTHORIZATION_DENIED",
+            503: "API_DEPENDENCY_UNAVAILABLE",
+        }.get(status, "API_INTERNAL_ERROR")
+        if as_html:
+            message = _AUTH_ERROR_MESSAGES[selected]
+            fragment = (
+                '<section class="auth-error" role="alert">'
+                "<h2>需要重新认证</h2>"
+                f"<p>{message}</p>"
+                '<a class="btn btn-primary" href="/api/v1/auth/login">'
+                "重新登录</a></section>"
+            )
+            self._send_text(
+                fragment,
+                "text/html; charset=utf-8",
+                status=status,
+                no_store=True,
+            )
+            return
+        raw = _safe_auth_error_body(status, selected)
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(raw)
+
     def _send_file(self, path: Path, content_type: str) -> None:
         if not path.is_file():
             self._send_json(404, ERROR_NOT_FOUND)
@@ -679,19 +1271,36 @@ class ShellHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def _send_text(self, text: str, content_type: str) -> None:
+    def _send_text(
+        self,
+        text: str,
+        content_type: str,
+        *,
+        status: int = 200,
+        no_store: bool = False,
+    ) -> None:
         raw = text.encode("utf-8")
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(raw)))
+        if no_store:
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(raw)
 
-    def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+    def _send_json(
+        self,
+        status: int,
+        payload: dict[str, Any],
+        *,
+        no_store: bool = False,
+    ) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
+        if no_store:
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(raw)
 
@@ -707,7 +1316,11 @@ class ShellHandler(BaseHTTPRequestHandler):
         self, backend: DemoBackend | LiveBackend, form: dict[str, str]
     ) -> dict[str, Any]:
         task_id = form["task_id"]
-        projection = backend.task_projection(task_id)
+        cookie_header = self._browser_cookie()
+        projection = backend.task_projection(
+            task_id,
+            cookie_header=cookie_header,
+        )
         if projection is None:
             raise ShellContractError(f"unknown task {task_id}")
         security_context = projection["security_context"]
@@ -724,13 +1337,17 @@ class ShellHandler(BaseHTTPRequestHandler):
             message_id=message_id,
             message_ref=f"ref://messages/{task_id}",
         )
-        return backend.accept_command(command)
+        return backend.accept_command(command, cookie_header=cookie_header)
 
     def _retry_task(
         self, backend: DemoBackend | LiveBackend, form: dict[str, str]
     ) -> dict[str, Any]:
         task_id = form["task_id"]
-        projection = backend.task_projection(task_id)
+        cookie_header = self._browser_cookie()
+        projection = backend.task_projection(
+            task_id,
+            cookie_header=cookie_header,
+        )
         if projection is None:
             raise ShellContractError(f"unknown task {task_id}")
         security_context = projection["security_context"]
@@ -746,7 +1363,7 @@ class ShellHandler(BaseHTTPRequestHandler):
             failed_run_id=projection.get("active_run_id") or f"run_{task_id[-8:]}",
             reason="demo retry",
         )
-        return backend.accept_command(command)
+        return backend.accept_command(command, cookie_header=cookie_header)
 
 
 def _guess_content_type(path: str) -> str:
@@ -780,10 +1397,7 @@ def build_backend(
     if mode == "demo":
         return DemoBackend(WEB / "fixtures")
     if mode == "live":
-        return LiveBackend(
-            effective.get("WEB_SHELL_API_BASE", ""),
-            tenant_id=effective.get("WEB_SHELL_TENANT_ID", ""),
-        )
+        return LiveBackend(effective.get("WEB_SHELL_API_BASE", ""))
     raise ShellContractError("WEB_SHELL_MODE must be demo or live")
 
 

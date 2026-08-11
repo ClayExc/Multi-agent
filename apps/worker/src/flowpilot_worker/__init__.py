@@ -11,6 +11,7 @@ from .durable import (
     build_durable_runtime,
 )
 from .events import TaskEventPublisher
+from .identity import RuntimeSecurityContextValidator
 from .knowledge import (
     KNOWLEDGE_AGENT_ID,
     KNOWLEDGE_GRAPH_VERSION,
@@ -74,6 +75,7 @@ __all__ = [
     "PersistenceLeaseAdapter",
     "PersistenceRuntimeConfig",
     "RuntimeExecutionAdapter",
+    "RuntimeSecurityContextValidator",
     "RuntimeWorker",
     "TaskEventPublisher",
     "WorkerRun",

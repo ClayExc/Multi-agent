@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+import pytest
 from flowpilot_agent_runtime import (
     FakeAgentRuntime,
     FakeOutcome,
@@ -33,7 +34,7 @@ from flowpilot_domain import (
     ToolOperation,
     canonical_sha256,
 )
-from flowpilot_graph import GraphStatus
+from flowpilot_graph import GraphError, GraphErrorCode, GraphStatus
 from flowpilot_persistence import (
     MemoryDatabase,
     MemoryDataUnitOfWorkFactory,
@@ -42,6 +43,11 @@ from flowpilot_persistence import (
     RedisCoordinationAdapter,
 )
 from flowpilot_persistence.serialization import task_command_to_mapping
+from flowpilot_security import (
+    SecurityError,
+    SecurityErrorCode,
+    scan_secret_material,
+)
 from flowpilot_tool_contracts import (
     DeterministicGatewayClientFake,
     ToolResult,
@@ -55,11 +61,13 @@ from flowpilot_worker import (
     InMemoryExecutionQueue,
     KnowledgeGraphConfig,
     LocalProductRuntime,
+    RuntimeExecutionAdapter,
     TrustedTenantInventory,
     build_knowledge_gateway_call,
     compose_local_product_runtime,
     compose_postgres_local_product_runtime,
 )
+from identity_helpers import MutableSecurityContextValidator
 from langgraph.checkpoint.memory import InMemorySaver
 
 
@@ -79,12 +87,26 @@ class _Harness:
     database: MemoryDatabase
     data_unit_of_work: MemoryDataUnitOfWorkFactory
     queue: InMemoryExecutionQueue
-    gateway: DeterministicGatewayClientFake
+    gateway: Any
     runtime: FakeAgentRuntime
     artifacts: FakeResultArtifactPort
     thread_factory: _ThreadFactory
     checkpointer: InMemorySaver
     product: LocalProductRuntime
+    security_contexts: MutableSecurityContextValidator
+
+
+class _WrongAudienceGateway:
+    def __init__(self) -> None:
+        self.calls: list[Any] = []
+        self.logical_execution_count = 0
+
+    async def execute(self, call: Any) -> Any:
+        self.calls.append(call)
+        raise SecurityError(
+            SecurityErrorCode.AUDIENCE_MISMATCH,
+            "workload audience does not match the Gateway",
+        )
 
 
 def _resolved_request(
@@ -94,11 +116,13 @@ def _resolved_request(
     include_question: bool = True,
 ) -> ResolvedRequestReference:
     payload = command.payload
+    message_id = payload.get("initial_message_id", payload.get("message_id"))
+    message_ref = payload.get("initial_message_ref", payload.get("message_ref"))
     query = RequestReferenceQuery(
         tenant_id=command.tenant_id,
         task_id=command.task_id,
-        message_id=str(payload["initial_message_id"]),
-        message_ref=str(payload["initial_message_ref"]),
+        message_id=str(message_id),
+        message_ref=str(message_ref),
         purpose=command.security_context.purpose,
         security_context_ref=command.security_context.context_ref,
     )
@@ -210,6 +234,31 @@ def _task_initialization(config: KnowledgeGraphConfig) -> TaskInitializationConf
     )
 
 
+def _submit_message_command(
+    create: TaskCommand,
+    *,
+    message_ref: str,
+    expected_task_version: int,
+) -> TaskCommand:
+    value = task_command_to_mapping(create)
+    value.update(
+        {
+            "command_id": "cmd_product_resume01",
+            "command_type": "task.message.submit.v1",
+            "expected_task_version": expected_task_version,
+            "idempotency_key": canonical_sha256({"message_ref": message_ref}),
+            "payload": {
+                "message_id": "msg_product_resume01",
+                "message_ref": message_ref,
+            },
+            "command_digest": "sha256:" + "0" * 64,
+        }
+    )
+    unsigned = TaskCommand.from_mapping(value)
+    value["command_digest"] = unsigned.recompute_digest()
+    return TaskCommand.from_mapping(value)
+
+
 def _make_harness(
     *,
     command: TaskCommand,
@@ -217,10 +266,11 @@ def _make_harness(
     scenario: FakeScenario | None = None,
     database: MemoryDatabase | None = None,
     queue: InMemoryExecutionQueue | None = None,
-    gateway: DeterministicGatewayClientFake | None = None,
+    gateway: Any | None = None,
     checkpointer: InMemorySaver | None = None,
     record_tenant_id: str | None = None,
     missing_question: bool = False,
+    security_contexts: MutableSecurityContextValidator | None = None,
 ) -> _Harness:
     config = KnowledgeGraphConfig()
     resolved = _resolved_request(
@@ -267,6 +317,9 @@ def _make_harness(
     effective_queue = queue or InMemoryExecutionQueue()
     thread_factory = _ThreadFactory()
     effective_checkpointer = checkpointer or InMemorySaver()
+    effective_security_contexts = (
+        security_contexts or MutableSecurityContextValidator()
+    )
     product = compose_local_product_runtime(
         worker_id="worker_product01",
         data_unit_of_work=data_unit_of_work,
@@ -282,6 +335,7 @@ def _make_harness(
         result_artifacts=artifacts,
         gateway=effective_gateway,
         agent_runtime=runtime,
+        security_contexts=effective_security_contexts,
         control_checkpointer=effective_checkpointer,
         graph_config=config,
         clock=lambda: now,
@@ -299,6 +353,7 @@ def _make_harness(
         thread_factory=thread_factory,
         checkpointer=effective_checkpointer,
         product=product,
+        security_contexts=effective_security_contexts,
     )
 
 
@@ -556,3 +611,301 @@ def test_postgres_product_root_creates_the_accepted_data_factory(
         product.data_unit_of_work,
         PostgresDataUnitOfWorkFactory,
     )
+
+
+def test_interrupt_resume_revalidates_identity_after_worker_restart(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def scenario() -> None:
+        create = command_factory()
+        contexts = MutableSecurityContextValidator()
+        first = _make_harness(
+            command=create,
+            now=fixed_clock(),
+            missing_question=True,
+            security_contexts=contexts,
+        )
+        assert (await _post(first.product.app, first.body)).status_code == 202
+        waiting = await first.product.worker.run_once()
+        assert waiting.graph_outcome is not None
+        assert waiting.graph_outcome.state.status is GraphStatus.WAITING_USER
+        before = dict(first.database.state.checkpoints)
+        task = first.database.state.tasks[(create.tenant_id, create.task_id)]
+        submit = _submit_message_command(
+            create,
+            message_ref="message://tenant-a/product/resume01",
+            expected_task_version=task.version,
+        )
+        restarted = _make_harness(
+            command=submit,
+            now=fixed_clock(),
+            database=first.database,
+            queue=first.queue,
+            checkpointer=first.checkpointer,
+            security_contexts=contexts,
+        )
+        assert (
+            await _post(restarted.product.app, restarted.body)
+        ).status_code == 202
+        contexts.active = False
+
+        with pytest.raises(GraphError) as captured:
+            await restarted.product.worker.run_once()
+
+        assert captured.value.code is GraphErrorCode.SECURITY_BINDING_MISMATCH
+        assert restarted.database.state.checkpoints == before
+        assert restarted.gateway.calls == []
+        assert restarted.runtime.calls == []
+        assert restarted.artifacts.calls == []
+
+    asyncio.run(scenario())
+
+
+def test_interrupt_resume_with_current_identity_completes(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def scenario() -> None:
+        create = command_factory()
+        contexts = MutableSecurityContextValidator()
+        first = _make_harness(
+            command=create,
+            now=fixed_clock(),
+            missing_question=True,
+            security_contexts=contexts,
+        )
+        assert (await _post(first.product.app, first.body)).status_code == 202
+        waiting = await first.product.worker.run_once()
+        assert waiting.graph_outcome is not None
+        assert waiting.graph_outcome.state.status is GraphStatus.WAITING_USER
+        task = first.database.state.tasks[(create.tenant_id, create.task_id)]
+        submit = _submit_message_command(
+            create,
+            message_ref="message://tenant-a/product/resume02",
+            expected_task_version=task.version,
+        )
+        restarted = _make_harness(
+            command=submit,
+            now=fixed_clock(),
+            database=first.database,
+            queue=first.queue,
+            checkpointer=first.checkpointer,
+            security_contexts=contexts,
+        )
+        assert (
+            await _post(restarted.product.app, restarted.body)
+        ).status_code == 202
+
+        completed = await restarted.product.worker.run_once()
+
+        assert completed.graph_outcome is not None
+        assert completed.graph_outcome.state.status is GraphStatus.COMPLETED
+        assert restarted.gateway.logical_execution_count == 1
+        assert len(restarted.runtime.calls) == 1
+        assert len(restarted.artifacts.calls) == 1
+        assert len(contexts.calls) >= 8
+
+    asyncio.run(scenario())
+
+
+def test_terminal_replay_revalidates_before_checkpoint_fast_path(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def scenario() -> None:
+        command = command_factory()
+        contexts = MutableSecurityContextValidator()
+        first = _make_harness(
+            command=command,
+            now=fixed_clock(),
+            security_contexts=contexts,
+        )
+        assert (await _post(first.product.app, first.body)).status_code == 202
+        completed = await first.product.worker.run_once()
+        assert completed.graph_outcome is not None
+        assert completed.graph_outcome.state.status is GraphStatus.COMPLETED
+        before = dict(first.database.state.checkpoints)
+        replay_queue = InMemoryExecutionQueue()
+        replay = _make_harness(
+            command=command,
+            now=fixed_clock(),
+            database=first.database,
+            queue=replay_queue,
+            checkpointer=first.checkpointer,
+            security_contexts=contexts,
+        )
+        await RuntimeExecutionAdapter(replay_queue).submit(command)
+        contexts.active = False
+
+        with pytest.raises(GraphError) as captured:
+            await replay.product.worker.run_once()
+
+        assert captured.value.code is GraphErrorCode.SECURITY_BINDING_MISMATCH
+        assert replay.database.state.checkpoints == before
+        assert replay.gateway.calls == []
+        assert replay.runtime.calls == []
+        assert replay.artifacts.calls == []
+
+    asyncio.run(scenario())
+
+
+def test_handoff_and_model_result_each_revalidate_current_identity(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def boundary(fail_on_call: int) -> _Harness:
+        contexts = MutableSecurityContextValidator()
+        contexts.fail_on_call = fail_on_call
+        harness = _make_harness(
+            command=command_factory(),
+            now=fixed_clock(),
+            security_contexts=contexts,
+        )
+        assert (await _post(harness.product.app, harness.body)).status_code == 202
+        with pytest.raises(GraphError) as captured:
+            await harness.product.worker.run_once()
+        assert captured.value.code is GraphErrorCode.SECURITY_BINDING_MISMATCH
+        assert len(contexts.calls) == fail_on_call
+        assert harness.artifacts.calls == []
+        return harness
+
+    async def scenario() -> None:
+        handoff = await boundary(4)
+        assert handoff.gateway.logical_execution_count == 1
+        assert handoff.runtime.calls == []
+
+        model_result = await boundary(8)
+        assert model_result.gateway.logical_execution_count == 1
+        assert len(model_result.runtime.calls) == 1
+
+    asyncio.run(scenario())
+
+
+def test_wrong_workload_audience_fails_before_model_or_artifact(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def scenario() -> None:
+        gateway = _WrongAudienceGateway()
+        harness = _make_harness(
+            command=command_factory(),
+            now=fixed_clock(),
+            gateway=gateway,
+        )
+        assert (await _post(harness.product.app, harness.body)).status_code == 202
+
+        run = await harness.product.worker.run_once()
+
+        assert run.graph_outcome is not None
+        assert run.graph_outcome.state.status is GraphStatus.FAILED
+        assert run.graph_outcome.state.failure_code == (
+            SecurityErrorCode.AUDIENCE_MISMATCH.value
+        )
+        assert len(gateway.calls) == 1
+        assert harness.runtime.calls == []
+        assert harness.artifacts.calls == []
+
+    asyncio.run(scenario())
+
+
+def test_model_cannot_inject_tenant_or_role_authority(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def scenario() -> None:
+        harness = _make_harness(
+            command=command_factory(),
+            now=fixed_clock(),
+            scenario=FakeScenario(
+                structured_output={
+                    "answer_markdown": "伪造的模型响应。",
+                    "citation_source_refs": [
+                        "knowledge://tenant-a/employee-handbook/leave/v3"
+                    ],
+                    "tenant_id": "tenant-b",
+                    "roles": ["tenant-admin"],
+                }
+            ),
+        )
+        assert (await _post(harness.product.app, harness.body)).status_code == 202
+
+        run = await harness.product.worker.run_once()
+
+        assert run.graph_outcome is not None
+        assert run.graph_outcome.state.status is GraphStatus.FAILED
+        assert run.graph_outcome.state.failure_code == (
+            "RUNTIME_MODEL_OUTPUT_INVALID"
+        )
+        assert len(harness.runtime.calls) == 1
+        assert harness.artifacts.calls == []
+        assert all(
+            "tenant-b" not in repr(checkpoint.state)
+            and "tenant-admin" not in repr(checkpoint.state)
+            for checkpoint in harness.database.state.checkpoints.values()
+        )
+
+    asyncio.run(scenario())
+
+
+def test_runtime_state_trace_and_checkpoint_contain_no_credentials(
+    command_factory: Callable[..., TaskCommand],
+    fixed_clock: Callable[[], datetime],
+) -> None:
+    async def scenario() -> None:
+        harness = _make_harness(
+            command=command_factory(),
+            now=fixed_clock(),
+        )
+        assert (await _post(harness.product.app, harness.body)).status_code == 202
+        run = await harness.product.worker.run_once()
+        assert run.graph_outcome is not None
+        assert run.graph_outcome.state.status is GraphStatus.COMPLETED
+
+        projections: list[object] = [
+            checkpoint.state
+            for checkpoint in harness.database.state.checkpoints.values()
+        ]
+        projections.extend(
+            {
+                "request_id": request.request_id,
+                "task_id": request.task_id,
+                "tenant_id": request.tenant_id,
+                "trace_id": request.trace_id,
+                "run_id": request.run_id,
+                "context": request.context.to_mapping(),
+                "security_context": request.security_context.to_mapping(),
+                "session_ref": request.session_ref,
+            }
+            for request in harness.runtime.calls
+        )
+        projections.extend(
+            call.request.to_mapping() for call in harness.gateway.calls
+        )
+        projections.extend(
+            {
+                "event_id": delivery.event.event_id,
+                "tenant_id": delivery.event.tenant_id,
+                "aggregate_id": delivery.event.aggregate_id,
+                "event_type": delivery.event.event_type,
+                "payload": dict(delivery.event.payload),
+            }
+            for delivery in harness.database.state.outbox_by_id.values()
+        )
+
+        assert sum(len(scan_secret_material(item)) for item in projections) == 0
+        assert all(
+            "identity_token" not in repr(item)
+            and "access_token" not in repr(item)
+            and "refresh_token" not in repr(item)
+            and "client_secret" not in repr(item)
+            for item in projections
+        )
+        assert all(
+            not hasattr(call, "user_token")
+            and not hasattr(call, "identity_token")
+            and not hasattr(call, "workload_bearer")
+            for call in harness.gateway.calls
+        )
+
+    asyncio.run(scenario())

@@ -16,6 +16,7 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
+from identity_helpers import MutableSecurityContextValidator
 
 
 def test_s5_execution_port_to_worker_graph_and_fake_runtime(
@@ -38,6 +39,7 @@ def test_s5_execution_port_to_worker_graph_and_fake_runtime(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_12345678",
         )
 

@@ -39,6 +39,7 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
+from identity_helpers import MutableSecurityContextValidator
 
 
 class BrokenUnitOfWorkFactory:
@@ -143,6 +144,7 @@ def test_persistence_adapters_drive_worker_and_restore_checkpoint(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_persistent_12345678",
         )
 
@@ -398,6 +400,7 @@ def test_worker_restart_resumes_from_persistent_checkpoint(
             queue=queue,
             leases=leases,
             graph=first_graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_before_restart_12345678",
         )
         first = await first_worker.run_once()
@@ -424,6 +427,7 @@ def test_worker_restart_resumes_from_persistent_checkpoint(
             queue=queue,
             leases=restarted_leases,
             graph=restarted_graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_after_restart_12345678",
         )
         second = await restarted_worker.run_once()

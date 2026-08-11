@@ -55,15 +55,22 @@ _TRANSITIONS: dict[GraphStatus, frozenset[GraphStatus]] = {
 }
 
 _FORBIDDEN_STATE_KEYS = {
+    "access_token",
     "api_key",
     "authorization",
     "bearer_token",
     "cookie",
+    "client_secret",
     "credential",
     "credentials",
     "private_key",
+    "password",
     "provider_session",
     "session_ref",
+    "refresh_token",
+    "secret",
+    "session_token",
+    "token",
     "acl",
     "acl_subjects",
     "answer_body",

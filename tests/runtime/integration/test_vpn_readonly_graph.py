@@ -53,6 +53,7 @@ from flowpilot_worker import (
     vpn_debug_projection,
 )
 from flowpilot_worker.studio import create_studio_graph_definition
+from identity_helpers import MutableSecurityContextValidator
 from langgraph.checkpoint.memory import InMemorySaver
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -318,6 +319,7 @@ async def test_missing_environment_interrupts_then_resumes_after_worker_restart(
         queue=queue,
         leases=leases,
         graph=graph,
+        security_contexts=MutableSecurityContextValidator(),
         run_id_factory=lambda: "run_vpnmiss01",
     )
 
@@ -345,6 +347,7 @@ async def test_missing_environment_interrupts_then_resumes_after_worker_restart(
         queue=queue,
         leases=leases,
         graph=restarted,
+        security_contexts=MutableSecurityContextValidator(),
         run_id_factory=lambda: "run_vpnresume1",
     )
     restarted_run = await restarted_worker.run_once()

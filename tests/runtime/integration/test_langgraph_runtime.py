@@ -11,6 +11,7 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
+from identity_helpers import MutableSecurityContextValidator
 
 
 def test_state_graph_owns_runtime_node_routing(
@@ -28,6 +29,7 @@ def test_state_graph_owns_runtime_node_routing(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_langgraph_12345678",
         )
 

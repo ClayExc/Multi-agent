@@ -44,6 +44,7 @@ from flowpilot_worker import (
     TrustedTenantInventory,
     build_durable_runtime,
 )
+from identity_helpers import MutableSecurityContextValidator
 
 
 def _request_id(command_id: str, attempt: int) -> str:
@@ -163,6 +164,7 @@ def test_runtime_rebuilds_lost_coordination_before_dequeue(
             ),
             tenants=TrustedTenantInventory((command.tenant_id,)),
             graph_factory=graph_factory,
+            security_contexts=MutableSecurityContextValidator(),
             control_checkpointer=object(),
             clock=fixed_clock,
         )
@@ -221,6 +223,7 @@ def test_new_runtime_generation_resumes_cas_and_terminal_does_not_rerun(
             coordination_rebuilder=rebuilder,
             tenants=tenants,
             graph_factory=first_factory,
+            security_contexts=MutableSecurityContextValidator(),
             control_checkpointer=first_control,
             clock=fixed_clock,
             run_id_factory=lambda: "run_before_restart_12345678",
@@ -246,6 +249,7 @@ def test_new_runtime_generation_resumes_cas_and_terminal_does_not_rerun(
             coordination_rebuilder=rebuilder,
             tenants=tenants,
             graph_factory=second_factory,
+            security_contexts=MutableSecurityContextValidator(),
             control_checkpointer=second_control,
             clock=fixed_clock,
             run_id_factory=lambda: "run_after_restart_12345678",
@@ -284,6 +288,7 @@ def test_new_runtime_generation_resumes_cas_and_terminal_does_not_rerun(
             coordination_rebuilder=rebuilder,
             tenants=tenants,
             graph_factory=duplicate_factory,
+            security_contexts=MutableSecurityContextValidator(),
             control_checkpointer=object(),
             clock=fixed_clock,
             run_id_factory=lambda: "run_terminal_replay_12345678",
@@ -333,6 +338,7 @@ def test_untrusted_command_tenant_is_rejected_before_lease(
             ),
             tenants=TrustedTenantInventory(("tenant-b",)),
             graph_factory=graph_factory,
+            security_contexts=MutableSecurityContextValidator(),
             control_checkpointer=object(),
             clock=fixed_clock,
         )
@@ -399,6 +405,7 @@ def test_control_checkpointer_must_be_explicitly_configured(
             ),
             tenants=TrustedTenantInventory(("tenant-a",)),
             graph_factory=graph_factory,
+            security_contexts=MutableSecurityContextValidator(),
             control_checkpointer=None,  # type: ignore[arg-type]
             clock=fixed_clock,
         )

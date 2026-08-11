@@ -59,9 +59,11 @@ from flowpilot_graph import (
     GraphState,
     GraphStatus,
     LeaseToken,
+    SecurityContextValidationPort,
     build_flowpilot_it_service_graph,
 )
 from flowpilot_model_gateway import PRIMARY_FAST_MODEL
+from flowpilot_security import SecurityError
 from flowpilot_tool_contracts import (
     AgentPrincipal,
     GatewayCall,
@@ -285,6 +287,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         artifacts: ResultArtifactService,
         gateway: GatewayClientPort,
         runtime: AgentRuntimePort,
+        security_contexts: SecurityContextValidationPort,
         checkpoints: CheckpointPort,
         context_builder: ContextBuilder,
         config: KnowledgeGraphConfig | None = None,
@@ -295,6 +298,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         self._artifacts = artifacts
         self._gateway = gateway
         self._runtime = runtime
+        self._security_contexts = security_contexts
         self._checkpoints = checkpoints
         self._context_builder = context_builder
         self._config = config or KnowledgeGraphConfig()
@@ -321,6 +325,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         lease: LeaseToken,
     ) -> GraphRunOutcome:
         self._validate_command(command)
+        await self._validate_current_context(command)
         current = await self._load_or_initialize(command, lease)
         if current.status in {GraphStatus.COMPLETED, GraphStatus.FAILED}:
             return GraphRunOutcome(current, None, False)
@@ -423,6 +428,18 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         finally:
             _ACTIVE_INVOCATION.reset(token)
 
+    async def _validate_current_context(
+        self,
+        command: TaskCommand | None = None,
+    ) -> None:
+        presented = (command or self._invocation().command).security_context
+        current = await self._security_contexts.validate_current(presented)
+        if current.to_mapping() != presented.to_mapping():
+            raise GraphError(
+                GraphErrorCode.SECURITY_BINDING_MISMATCH,
+                "resolved security context does not match the graph command",
+            )
+
     async def _resolve(self) -> RequestObservation:
         try:
             observation = await self._requests.resolve(self._invocation().command)
@@ -439,6 +456,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         self,
         observation: RequestObservation,
     ) -> tuple[dict[str, str], ...]:
+        await self._validate_current_context()
         invocation = self._invocation()
         if invocation.records:
             return invocation.records
@@ -451,6 +469,11 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         try:
             result = await self._gateway.execute(call)
         except GatewayPortError as exc:
+            raise _KnowledgeFailure(
+                exc.code.value,
+                knowledge_called=True,
+            ) from exc
+        except SecurityError as exc:
             raise _KnowledgeFailure(
                 exc.code.value,
                 knowledge_called=True,
@@ -529,6 +552,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         records: tuple[dict[str, str], ...],
     ) -> tuple[str, tuple[ResultCitation, ...]]:
         invocation = self._invocation()
+        await self._validate_current_context()
         context = invocation.context or self._build_context(observation, records)
         command = invocation.command
         request = AgentRunRequest(
@@ -559,6 +583,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 knowledge_called=True,
                 model_called=True,
             ) from exc
+        await self._validate_current_context()
         invocation.runtime_result = result
         if (
             result.request_id != request.request_id
@@ -1106,6 +1131,7 @@ class _KnowledgeNodes:
         return self._advance("join_reads", {"reads_complete": True})
 
     async def handoff(self, state: Mapping[str, Any]) -> Mapping[str, Any]:
+        await self._runtime._validate_current_context()
         observation = await self._runtime._resolve()
         records = await self._runtime._fetch_records(observation)
         expected_refs = {
@@ -1299,6 +1325,7 @@ class EnterpriseKnowledgeDurableGraphFactory:
         artifacts: ResultArtifactService,
         gateway: GatewayClientPort,
         runtime: AgentRuntimePort,
+        security_contexts: SecurityContextValidationPort,
         config: KnowledgeGraphConfig | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -1306,6 +1333,7 @@ class EnterpriseKnowledgeDurableGraphFactory:
         self._artifacts = artifacts
         self._gateway = gateway
         self._runtime = runtime
+        self._security_contexts = security_contexts
         self._config = config
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -1320,6 +1348,7 @@ class EnterpriseKnowledgeDurableGraphFactory:
             artifacts=self._artifacts,
             gateway=self._gateway,
             runtime=self._runtime,
+            security_contexts=self._security_contexts,
             checkpoints=checkpoints,
             context_builder=ContextBuilder(clock=self._clock),
             config=self._config,

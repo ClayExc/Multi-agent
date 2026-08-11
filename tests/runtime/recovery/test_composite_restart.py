@@ -26,6 +26,7 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
+from identity_helpers import MutableSecurityContextValidator
 from onboarding_harness import (
     MANAGER,
     TENANT_A,
@@ -53,6 +54,7 @@ async def _run_to_approval_via_worker(
         queue=queue,
         leases=harness.leases,
         graph=harness.graph,
+        security_contexts=MutableSecurityContextValidator(),
         run_id_factory=lambda: run_id,
     )
     task_id = harness.create.task_id
@@ -105,6 +107,7 @@ def test_worker_restart_keeps_task_thread_and_bumps_run_generation() -> None:
             queue=queue,
             leases=harness.leases,
             graph=harness.graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_worker_b_restart001",
         )
         decide = build_decide_command(

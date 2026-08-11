@@ -68,7 +68,12 @@ from .onboarding import (
     build_onboarding_write_call,
     plan_onboarding_sub_actions,
 )
-from .ports import CheckpointPort, LeasePort, LeaseToken
+from .ports import (
+    CheckpointPort,
+    LeasePort,
+    LeaseToken,
+    SecurityContextValidationPort,
+)
 from .reducer import BranchResult, ReducedBranches, reduce_parallel
 from .state import (
     GraphNode,
@@ -135,6 +140,7 @@ __all__ = [
     "ReducedBranches",
     "RuntimeGraphConfig",
     "RuntimeGraphKernel",
+    "SecurityContextValidationPort",
     "StudioProfile",
     "TICKET_CREATE_SCHEMA_PIN",
     "TICKET_CREATE_TOOL",

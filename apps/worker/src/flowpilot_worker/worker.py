@@ -13,6 +13,7 @@ from flowpilot_graph import (
     GraphRunOutcome,
     LeasePort,
     LeaseToken,
+    SecurityContextValidationPort,
 )
 
 from .queue import ExecutionQueuePort
@@ -50,6 +51,7 @@ class RuntimeWorker:
         queue: ExecutionQueuePort,
         leases: LeasePort,
         graph: GraphExecutionPort,
+        security_contexts: SecurityContextValidationPort,
         execution_guard: ExecutionGuardPort | None = None,
         run_id_factory: Callable[[], str] | None = None,
     ) -> None:
@@ -57,6 +59,7 @@ class RuntimeWorker:
         self._queue = queue
         self._leases = leases
         self._graph = graph
+        self._security_contexts = security_contexts
         self._execution_guard = execution_guard or _CommandExecutionGuard()
         self._run_id_factory = run_id_factory or (
             lambda: f"run_{uuid.uuid4().hex}"
@@ -74,6 +77,9 @@ class RuntimeWorker:
         lease: LeaseToken | None = None
         try:
             await self._execution_guard.validate(envelope.command)
+            await self._security_contexts.validate_current(
+                envelope.command.security_context
+            )
             lease = await self._leases.acquire(
                 envelope.command.tenant_id,
                 envelope.command.task_id,

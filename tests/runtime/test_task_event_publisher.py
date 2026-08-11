@@ -65,6 +65,7 @@ from flowpilot_worker import (  # noqa: E402
     RuntimeWorker,
     TaskEventPublisher,
 )
+from identity_helpers import MutableSecurityContextValidator  # noqa: E402
 
 
 class FaultyUnitOfWork:
@@ -174,6 +175,7 @@ def test_worker_publishes_full_lifecycle_events_in_order(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_events_12345678",
         )
 
@@ -251,6 +253,7 @@ def test_failed_run_publishes_failed_event(
             queue=queue,
             leases=leases,
             graph=graph,
+            security_contexts=MutableSecurityContextValidator(),
             run_id_factory=lambda: "run_events_12345678",
         )
 

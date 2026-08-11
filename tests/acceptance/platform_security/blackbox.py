@@ -71,9 +71,7 @@ USER_AUTHORIZED_PARTY = "flowpilot-web-acceptance"
 WORKLOAD_AUTHORIZED_PARTY = "flowpilot-worker-acceptance"
 WORKLOAD_SUBJECT = "service-account-flowpilot-worker-acceptance"
 USER_TOKEN_HASH = canonical_sha256({"credential": "user-acceptance"})
-WORKLOAD_TOKEN_HASH = canonical_sha256(
-    {"credential": "workload-acceptance"}
-)
+WORKLOAD_TOKEN_HASH = canonical_sha256({"credential": "workload-acceptance"})
 CONTEXT_ROLES = frozenset({"requester"})
 CONTEXT_SCOPES = frozenset({"tools:invoke"})
 
@@ -571,9 +569,7 @@ def make_blackbox(
     authentication = AuthenticationRef(
         method=AuthenticationMethod.OIDC,
         assurance_level=AssuranceLevel.HIGH,
-        session_id_hash=canonical_sha256(
-            {"session": "wp030a2-acceptance"}
-        ),
+        session_id_hash=canonical_sha256({"session": "wp030a2-acceptance"}),
     )
     context_issued_at = NOW - timedelta(minutes=5)
     context_expires_at = NOW + timedelta(hours=1)
@@ -582,9 +578,7 @@ def make_blackbox(
         context_ref="security-context://acceptance/tenant-alpha/requester",
         context_hash=trusted_context_snapshot_hash(
             context_id="secctx_acceptance_alpha0001",
-            context_ref=(
-                "security-context://acceptance/tenant-alpha/requester"
-            ),
+            context_ref="security-context://acceptance/tenant-alpha/requester",
             tenant_id=TENANT,
             subject_id=SUBJECT,
             subject_type=ActorType.USER,

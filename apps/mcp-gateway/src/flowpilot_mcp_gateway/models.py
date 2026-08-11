@@ -7,11 +7,29 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from flowpilot_security import AuthenticatedWorkload
+from flowpilot_security import (
+    AuthenticatedWorkload,
+    SecurityError,
+    SecurityErrorCode,
+)
 from flowpilot_tool_contracts import ToolRequest, ToolResult
 
 _THREAD = re.compile(r"^thread_[A-Za-z0-9_-]{8,128}$")
 _RUN = re.compile(r"^run_[A-Za-z0-9_-]{8,128}$")
+
+
+def _validate_routing(
+    *,
+    thread_id: str,
+    run_id: str | None,
+    correlation_id: str,
+) -> None:
+    if _THREAD.fullmatch(thread_id) is None:
+        raise ValueError("thread_id must be a public v1 identifier")
+    if run_id is not None and _RUN.fullmatch(run_id) is None:
+        raise ValueError("run_id must be a public v1 identifier")
+    if not correlation_id or len(correlation_id) > 128:
+        raise ValueError("correlation_id must contain 1..128 characters")
 
 
 class LifecycleStage(StrEnum):
@@ -41,7 +59,26 @@ class LifecycleOutcome(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class GatewayIngressRequest:
+    """Credential-free request accepted by the production transport boundary."""
+
+    request: ToolRequest
+    thread_id: str
+    run_id: str | None
+    correlation_id: str
+
+    def __post_init__(self) -> None:
+        _validate_routing(
+            thread_id=self.thread_id,
+            run_id=self.run_id,
+            correlation_id=self.correlation_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class GatewayInvocation:
+    """Process-internal invocation constructed after workload verification."""
+
     request: ToolRequest
     workload: AuthenticatedWorkload
     thread_id: str
@@ -49,12 +86,16 @@ class GatewayInvocation:
     correlation_id: str
 
     def __post_init__(self) -> None:
-        if _THREAD.fullmatch(self.thread_id) is None:
-            raise ValueError("thread_id must be a public v1 identifier")
-        if self.run_id is not None and _RUN.fullmatch(self.run_id) is None:
-            raise ValueError("run_id must be a public v1 identifier")
-        if not self.correlation_id or len(self.correlation_id) > 128:
-            raise ValueError("correlation_id must contain 1..128 characters")
+        if not isinstance(self.workload, AuthenticatedWorkload):
+            raise SecurityError(
+                SecurityErrorCode.USER_TOKEN_FORBIDDEN,
+                "Gateway requires an independently authenticated workload",
+            )
+        _validate_routing(
+            thread_id=self.thread_id,
+            run_id=self.run_id,
+            correlation_id=self.correlation_id,
+        )
 
 
 @dataclass(frozen=True, slots=True)

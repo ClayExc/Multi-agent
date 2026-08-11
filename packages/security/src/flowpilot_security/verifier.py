@@ -5,6 +5,8 @@ from datetime import datetime
 from flowpilot_domain import PlannedAction, SecurityContextRef
 from flowpilot_tool_contracts import AgentPrincipal
 
+from .context_integrity import verify_trusted_context_integrity
+from .digests import require_sha256_digest
 from .errors import SecurityError, SecurityErrorCode
 from .models import AuthenticatedWorkload, TrustedSecurityContext
 
@@ -24,6 +26,7 @@ class SecurityVerifier:
         trusted: TrustedSecurityContext,
         now: datetime,
     ) -> SecurityContextRef:
+        verify_trusted_context_integrity(trusted)
         if not trusted.active:
             raise SecurityError(
                 SecurityErrorCode.CONTEXT_NOT_ACTIVE,
@@ -86,6 +89,24 @@ class SecurityVerifier:
                 SecurityErrorCode.WORKLOAD_UNTRUSTED,
                 "workload identity is not server-attested",
             )
+        evidence = (
+            workload.issuer,
+            workload.authorized_party,
+            workload.subject_id,
+            workload.credential_hash,
+        )
+        try:
+            if not all(evidence) or workload.credential_hash is None:
+                raise ValueError("workload OIDC evidence is incomplete")
+            require_sha256_digest(
+                workload.credential_hash,
+                "workload.credential_hash",
+            )
+        except (TypeError, ValueError):
+            raise SecurityError(
+                SecurityErrorCode.WORKLOAD_UNTRUSTED,
+                "workload identity evidence is incomplete or invalid",
+            ) from None
         if now < workload.issued_at or now >= workload.expires_at:
             raise SecurityError(
                 SecurityErrorCode.WORKLOAD_EXPIRED,

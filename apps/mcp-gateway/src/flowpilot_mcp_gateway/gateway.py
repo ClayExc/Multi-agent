@@ -130,6 +130,8 @@ def _execution_id(invocation: GatewayInvocation) -> str:
 
 
 class McpGateway:
+    """Process-internal core; network transports must mount GatewayIngress."""
+
     def __init__(self, dependencies: GatewayDependencies) -> None:
         self._deps = dependencies
 

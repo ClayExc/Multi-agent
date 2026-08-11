@@ -63,6 +63,7 @@ from flowpilot_security import (
     CapabilityHandle,
     SecurityVerifier,
     TrustedSecurityContext,
+    trusted_context_snapshot_hash,
 )
 from flowpilot_tool_contracts import AgentPrincipal, ToolContract, ToolRequest
 from onboarding_harness import (
@@ -87,6 +88,16 @@ AGENT_PRINCIPAL = "workload://flowpilot/agent/m0"
 PURPOSE = "it-service-fulfillment"
 POLICY_VERSION = "policy-m0.1"
 AUDIENCE = "mcp://flowpilot-gateway"
+IDENTITY_ISSUER = "https://identity.fixture.local/realms/flowpilot"
+USER_AUTHORIZED_PARTY = "flowpilot-runtime-fixture"
+WORKLOAD_AUTHORIZED_PARTY = "flowpilot-worker-fixture"
+WORKLOAD_SUBJECT = "service-account-flowpilot-worker-fixture"
+USER_TOKEN_HASH = canonical_sha256({"credential": "runtime-user-fixture"})
+WORKLOAD_TOKEN_HASH = canonical_sha256(
+    {"credential": "runtime-workload-fixture"}
+)
+CONTEXT_ROLES = frozenset({"employee"})
+CONTEXT_SCOPES = frozenset({"tools:invoke"})
 
 WRITE_INPUT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -122,7 +133,11 @@ class _ContextSource:
         return TrustedSecurityContext(
             context=self._context,
             active=True,
-            roles=frozenset({"employee"}),
+            roles=CONTEXT_ROLES,
+            scopes=CONTEXT_SCOPES,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            identity_token_hash=USER_TOKEN_HASH,
         )
 
 
@@ -292,25 +307,7 @@ class _GatewayHarness:
 def _build_gateway_harness(*, run_id: str) -> _GatewayHarness:
     clock = _Clock()
     expires_at = NOW + timedelta(minutes=15)
-    context = SecurityContextRef(
-        context_id="secctx_alpha0001",
-        context_ref="security-context://tenant-alpha/user-alice",
-        context_hash=canonical_sha256(
-            {"tenant_id": TENANT, "subject_id": SUBJECT, "purpose": PURPOSE}
-        ),
-        tenant_id=TENANT,
-        subject_id=SUBJECT,
-        subject_type=ActorType.USER,
-        purpose=PURPOSE,
-        authentication=AuthenticationRef(
-            method=AuthenticationMethod.OIDC,
-            assurance_level=AssuranceLevel.HIGH,
-            session_id_hash=canonical_sha256({"session": "fixture"}),
-        ),
-        data_classification_ceiling=DataClassification.CONFIDENTIAL,
-        issued_at=NOW - timedelta(minutes=5),
-        expires_at=NOW + timedelta(hours=1),
-    )
+    context = _trusted_security_context()
     adapter = _WriteAdapter()
     action = PlannedAction(
         action_id="act_alpha0001",
@@ -584,25 +581,7 @@ def _invocation(harness: _GatewayHarness, *, run_id: str) -> GatewayInvocation:
         {
             "request_id": "treq_alpha0001",
             "trace_id": "trace_alpha0000001",
-            "security_context": SecurityContextRef(
-                context_id="secctx_alpha0001",
-                context_ref="security-context://tenant-alpha/user-alice",
-                context_hash=canonical_sha256(
-                    {"tenant_id": TENANT, "subject_id": SUBJECT, "purpose": PURPOSE}
-                ),
-                tenant_id=TENANT,
-                subject_id=SUBJECT,
-                subject_type=ActorType.USER,
-                purpose=PURPOSE,
-                authentication=AuthenticationRef(
-                    method=AuthenticationMethod.OIDC,
-                    assurance_level=AssuranceLevel.HIGH,
-                    session_id_hash=canonical_sha256({"session": "fixture"}),
-                ),
-                data_classification_ceiling=DataClassification.CONFIDENTIAL,
-                issued_at=NOW - timedelta(minutes=5),
-                expires_at=NOW + timedelta(hours=1),
-            ).to_mapping(),
+            "security_context": _trusted_security_context().to_mapping(),
             "agent_principal": AgentPrincipal(
                 id=AGENT_ID,
                 version=AGENT_VERSION,
@@ -630,8 +609,55 @@ def _invocation(harness: _GatewayHarness, *, run_id: str) -> GatewayInvocation:
             allowed_tools=frozenset({context.tool.name}),
             issued_at=NOW - timedelta(minutes=5),
             expires_at=NOW + timedelta(hours=1),
+            attested=True,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=WORKLOAD_AUTHORIZED_PARTY,
+            subject_id=WORKLOAD_SUBJECT,
+            credential_hash=WORKLOAD_TOKEN_HASH,
         ),
         thread_id="thread_alpha0001",
         run_id=run_id,
         correlation_id="corr-alpha-0001",
+    )
+
+
+def _trusted_security_context() -> SecurityContextRef:
+    context_id = "secctx_alpha0001"
+    context_ref = "security-context://tenant-alpha/user-alice"
+    authentication = AuthenticationRef(
+        method=AuthenticationMethod.OIDC,
+        assurance_level=AssuranceLevel.HIGH,
+        session_id_hash=canonical_sha256({"session": "fixture"}),
+    )
+    issued_at = NOW - timedelta(minutes=5)
+    expires_at = NOW + timedelta(hours=1)
+    context_hash = trusted_context_snapshot_hash(
+        context_id=context_id,
+        context_ref=context_ref,
+        tenant_id=TENANT,
+        subject_id=SUBJECT,
+        subject_type=ActorType.USER,
+        issuer=IDENTITY_ISSUER,
+        authorized_party=USER_AUTHORIZED_PARTY,
+        roles=CONTEXT_ROLES,
+        scopes=CONTEXT_SCOPES,
+        authentication=authentication,
+        purpose=PURPOSE,
+        data_classification_ceiling=DataClassification.CONFIDENTIAL,
+        issued_at=issued_at,
+        expires_at=expires_at,
+        source_token_hash=USER_TOKEN_HASH,
+    )
+    return SecurityContextRef(
+        context_id=context_id,
+        context_ref=context_ref,
+        context_hash=context_hash,
+        tenant_id=TENANT,
+        subject_id=SUBJECT,
+        subject_type=ActorType.USER,
+        purpose=PURPOSE,
+        authentication=authentication,
+        data_classification_ceiling=DataClassification.CONFIDENTIAL,
+        issued_at=issued_at,
+        expires_at=expires_at,
     )

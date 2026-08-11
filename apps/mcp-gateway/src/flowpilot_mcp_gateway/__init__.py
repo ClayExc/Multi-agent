@@ -9,6 +9,7 @@ from .gateway import (
     GatewayDependencies,
     McpGateway,
 )
+from .ingress import GatewayIngress
 from .lifecycle import (
     COMPONENT_VERSION,
     DEBUG_PROJECTION_KEYS,
@@ -18,6 +19,7 @@ from .lifecycle import (
 )
 from .models import (
     GatewayExecution,
+    GatewayIngressRequest,
     GatewayInvocation,
     LifecycleEvent,
     LifecycleOutcome,
@@ -51,6 +53,8 @@ __all__ = [
     "GatewayControlError",
     "GatewayDependencies",
     "GatewayExecution",
+    "GatewayIngress",
+    "GatewayIngressRequest",
     "GatewayInvocation",
     "GatewayReason",
     "GATEWAY_INBOUND_PORT_VERSION",

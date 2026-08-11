@@ -25,6 +25,7 @@ from .blackbox import (
     AUDIENCE,
     NOW,
     OTHER_TENANT,
+    bind_context_snapshot,
     make_blackbox,
 )
 
@@ -107,9 +108,11 @@ async def test_purpose_and_audience_are_server_bound(
 @pytest.mark.asyncio
 async def test_expired_context_is_rejected() -> None:
     fixture = make_blackbox()
-    expired = replace(
-        fixture.invocation.request.security_context,
-        expires_at=NOW - timedelta(seconds=1),
+    expired = bind_context_snapshot(
+        replace(
+            fixture.invocation.request.security_context,
+            expires_at=NOW - timedelta(seconds=1),
+        )
     )
     fixture.context_source.context = expired
     request_mapping = fixture.invocation.request.to_mapping()

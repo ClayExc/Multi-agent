@@ -51,6 +51,7 @@ from flowpilot_security import (
     CapabilityHandle,
     SecurityVerifier,
     TrustedSecurityContext,
+    trusted_context_snapshot_hash,
 )
 from flowpilot_tool_contracts import AgentPrincipal, ToolContract, ToolRequest
 
@@ -65,6 +66,39 @@ AGENT_PRINCIPAL = "workload://flowpilot/acceptance-action-agent/m1"
 PURPOSE = "it-service-acceptance"
 POLICY_VERSION = "policy-acceptance-m1"
 AUDIENCE = "mcp://flowpilot-gateway/acceptance"
+IDENTITY_ISSUER = "https://identity.acceptance.local/realms/flowpilot"
+USER_AUTHORIZED_PARTY = "flowpilot-web-acceptance"
+WORKLOAD_AUTHORIZED_PARTY = "flowpilot-worker-acceptance"
+WORKLOAD_SUBJECT = "service-account-flowpilot-worker-acceptance"
+USER_TOKEN_HASH = canonical_sha256({"credential": "user-acceptance"})
+WORKLOAD_TOKEN_HASH = canonical_sha256(
+    {"credential": "workload-acceptance"}
+)
+CONTEXT_ROLES = frozenset({"requester"})
+CONTEXT_SCOPES = frozenset({"tools:invoke"})
+
+
+def bind_context_snapshot(context: SecurityContextRef) -> SecurityContextRef:
+    return replace(
+        context,
+        context_hash=trusted_context_snapshot_hash(
+            context_id=context.context_id,
+            context_ref=context.context_ref,
+            tenant_id=context.tenant_id,
+            subject_id=context.subject_id,
+            subject_type=context.subject_type,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            roles=CONTEXT_ROLES,
+            scopes=CONTEXT_SCOPES,
+            authentication=context.authentication,
+            purpose=context.purpose,
+            data_classification_ceiling=context.data_classification_ceiling,
+            issued_at=context.issued_at,
+            expires_at=context.expires_at,
+            source_token_hash=USER_TOKEN_HASH,
+        ),
+    )
 
 WRITE_CONTRACT = ToolContract.create(
     name="acceptance.ticket.update.v1",
@@ -159,7 +193,11 @@ class ContextSource:
         return TrustedSecurityContext(
             context=self.context,
             active=self.active,
-            roles=frozenset({"requester"}),
+            roles=CONTEXT_ROLES,
+            scopes=CONTEXT_SCOPES,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            identity_token_hash=USER_TOKEN_HASH,
         )
 
 
@@ -530,30 +568,45 @@ def make_blackbox(
         if operation is ToolOperation.WRITE
         else {"query": "controlled acceptance"}
     )
+    authentication = AuthenticationRef(
+        method=AuthenticationMethod.OIDC,
+        assurance_level=AssuranceLevel.HIGH,
+        session_id_hash=canonical_sha256(
+            {"session": "wp030a2-acceptance"}
+        ),
+    )
+    context_issued_at = NOW - timedelta(minutes=5)
+    context_expires_at = NOW + timedelta(hours=1)
     context = SecurityContextRef(
         context_id="secctx_acceptance_alpha0001",
         context_ref="security-context://acceptance/tenant-alpha/requester",
-        context_hash=canonical_sha256(
-            {
-                "tenant_id": TENANT,
-                "subject_id": SUBJECT,
-                "purpose": PURPOSE,
-            }
+        context_hash=trusted_context_snapshot_hash(
+            context_id="secctx_acceptance_alpha0001",
+            context_ref=(
+                "security-context://acceptance/tenant-alpha/requester"
+            ),
+            tenant_id=TENANT,
+            subject_id=SUBJECT,
+            subject_type=ActorType.USER,
+            issuer=IDENTITY_ISSUER,
+            authorized_party=USER_AUTHORIZED_PARTY,
+            roles=CONTEXT_ROLES,
+            scopes=CONTEXT_SCOPES,
+            authentication=authentication,
+            purpose=PURPOSE,
+            data_classification_ceiling=DataClassification.CONFIDENTIAL,
+            issued_at=context_issued_at,
+            expires_at=context_expires_at,
+            source_token_hash=USER_TOKEN_HASH,
         ),
         tenant_id=TENANT,
         subject_id=SUBJECT,
         subject_type=ActorType.USER,
         purpose=PURPOSE,
-        authentication=AuthenticationRef(
-            method=AuthenticationMethod.OIDC,
-            assurance_level=AssuranceLevel.HIGH,
-            session_id_hash=canonical_sha256(
-                {"session": "wp030a2-acceptance"}
-            ),
-        ),
+        authentication=authentication,
         data_classification_ceiling=DataClassification.CONFIDENTIAL,
-        issued_at=NOW - timedelta(minutes=5),
-        expires_at=NOW + timedelta(hours=1),
+        issued_at=context_issued_at,
+        expires_at=context_expires_at,
     )
     action = PlannedAction(
         action_id="act_acceptance_alpha0001",
@@ -673,6 +726,11 @@ def make_blackbox(
         allowed_tools=frozenset({action.tool.name}),
         issued_at=NOW - timedelta(minutes=5),
         expires_at=NOW + timedelta(hours=1),
+        attested=True,
+        issuer=IDENTITY_ISSUER,
+        authorized_party=WORKLOAD_AUTHORIZED_PARTY,
+        subject_id=WORKLOAD_SUBJECT,
+        credential_hash=WORKLOAD_TOKEN_HASH,
     )
     invocation = GatewayInvocation(
         request=request,

@@ -1,0 +1,443 @@
+{
+  "id": "flowpilot-local",
+  "realm": "flowpilot-local",
+  "displayName": "FlowPilot Local Identity",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": false,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "maxDeltaTimeSeconds": 43200,
+  "accessTokenLifespan": 300,
+  "accessCodeLifespan": 5,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 300,
+  "ssoSessionIdleTimeout": 900,
+  "ssoSessionMaxLifespan": 3600,
+  "offlineSessionIdleTimeout": 1800,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 3600,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "defaultSignatureAlgorithm": "RS256",
+  "eventsEnabled": false,
+  "adminEventsEnabled": false,
+  "attributes": {
+    "flowpilot.fixture.revision": "WP-081-a1-v1"
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "flowpilot-user",
+        "description": "Authenticated FlowPilot user"
+      },
+      {
+        "name": "flowpilot-approver",
+        "description": "Approval-capable identity input; policy remains authoritative"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "tenants",
+      "subGroups": [
+        {
+          "name": "tenant-a",
+          "subGroups": [
+            {
+              "name": "users",
+              "attributes": {
+                "tenant_id": [
+                  "tenant-a"
+                ]
+              },
+              "realmRoles": [
+                "flowpilot-user"
+              ]
+            },
+            {
+              "name": "approvers",
+              "attributes": {
+                "tenant_id": [
+                  "tenant-a"
+                ]
+              },
+              "realmRoles": [
+                "flowpilot-user",
+                "flowpilot-approver"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tenant-b",
+          "subGroups": [
+            {
+              "name": "users",
+              "attributes": {
+                "tenant_id": [
+                  "tenant-b"
+                ]
+              },
+              "realmRoles": [
+                "flowpilot-user"
+              ]
+            },
+            {
+              "name": "approvers",
+              "attributes": {
+                "tenant_id": [
+                  "tenant-b"
+                ]
+              },
+              "realmRoles": [
+                "flowpilot-user",
+                "flowpilot-approver"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "flowpilot-identity",
+      "description": "Allow-listed local identity claims",
+      "protocol": "openid-connect",
+      "attributes": {
+        "display.on.consent.screen": "false",
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true",
+            "multivalued": "false"
+          }
+        },
+        {
+          "name": "flowpilot-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "flowpilot-api",
+            "included.custom.audience": "",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "lightweight.claim": "false"
+          }
+        },
+        {
+          "name": "tenant-group-path",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "user.attribute": "foo",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "flowpilot-web",
+      "name": "FlowPilot Web BFF Login",
+      "description": "Authorization Code + PKCE; callback is handled by the local BFF",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_WEB_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "fullScopeAllowed": false,
+      "rootUrl": "${FLOWPILOT_WEB_ORIGIN}",
+      "baseUrl": "/",
+      "redirectUris": [
+        "${FLOWPILOT_OIDC_REDIRECT_URI}"
+      ],
+      "webOrigins": [
+        "${FLOWPILOT_WEB_ORIGIN}"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${FLOWPILOT_WEB_ORIGIN}",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "oidc.ciba.grant.enabled": "false"
+      },
+      "defaultClientScopes": [
+        "flowpilot-identity"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "flowpilot-api",
+      "name": "FlowPilot API Audience",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": false,
+      "fullScopeAllowed": false
+    },
+    {
+      "clientId": "flowpilot-worker",
+      "name": "FlowPilot Worker Workload",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "secret": "${KEYCLOAK_WORKER_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "frontchannelLogout": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "client_credentials.use_refresh_token": "false"
+      },
+      "defaultClientScopes": [],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "worker-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "included.custom.audience": "mcp://flowpilot-gateway",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "lightweight.claim": "false"
+          }
+        },
+        {
+          "name": "worker-kind",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "workload_kind",
+            "claim.value": "worker",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "flowpilot-gateway",
+      "name": "FlowPilot MCP Gateway Workload",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "secret": "${KEYCLOAK_GATEWAY_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "frontchannelLogout": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "client_credentials.use_refresh_token": "false"
+      },
+      "defaultClientScopes": [],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "gateway-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "",
+            "included.custom.audience": "mcp://flowpilot-upstream",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "lightweight.claim": "false"
+          }
+        },
+        {
+          "name": "gateway-kind",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "workload_kind",
+            "claim.value": "gateway",
+            "jsonType.label": "String",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "scopeMappings": [
+    {
+      "client": "flowpilot-web",
+      "roles": [
+        "flowpilot-user",
+        "flowpilot-approver"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "tenant-a-user",
+      "firstName": "Tenant A",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tenant-a-user@example.invalid",
+      "attributes": {
+        "tenant_id": [
+          "tenant-a"
+        ]
+      },
+      "groups": [
+        "/tenants/tenant-a/users"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TENANT_A_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tenant-a-approver",
+      "firstName": "Tenant A",
+      "lastName": "Approver",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tenant-a-approver@example.invalid",
+      "attributes": {
+        "tenant_id": [
+          "tenant-a"
+        ]
+      },
+      "groups": [
+        "/tenants/tenant-a/approvers"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TENANT_A_APPROVER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tenant-b-user",
+      "firstName": "Tenant B",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tenant-b-user@example.invalid",
+      "attributes": {
+        "tenant_id": [
+          "tenant-b"
+        ]
+      },
+      "groups": [
+        "/tenants/tenant-b/users"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TENANT_B_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tenant-b-approver",
+      "firstName": "Tenant B",
+      "lastName": "Approver",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tenant-b-approver@example.invalid",
+      "attributes": {
+        "tenant_id": [
+          "tenant-b"
+        ]
+      },
+      "groups": [
+        "/tenants/tenant-b/approvers"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TENANT_B_APPROVER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

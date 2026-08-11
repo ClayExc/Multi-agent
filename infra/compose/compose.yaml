@@ -53,16 +53,30 @@ services:
     image: quay.io/keycloak/keycloak:26.1.4
     command:
       - start-dev
-      - --health-enabled=true
+      - --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-flowpilot-local-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: http://127.0.0.1:${KEYCLOAK_PORT:-8081}
+      FLOWPILOT_WEB_ORIGIN: ${FLOWPILOT_WEB_ORIGIN:?set FLOWPILOT_WEB_ORIGIN in .env}
+      FLOWPILOT_OIDC_REDIRECT_URI: ${FLOWPILOT_OIDC_REDIRECT_URI:?set FLOWPILOT_OIDC_REDIRECT_URI in .env}
+      KEYCLOAK_WEB_CLIENT_SECRET: ${KEYCLOAK_WEB_CLIENT_SECRET:?set KEYCLOAK_WEB_CLIENT_SECRET in .env}
+      KEYCLOAK_WORKER_CLIENT_SECRET: ${KEYCLOAK_WORKER_CLIENT_SECRET:?set KEYCLOAK_WORKER_CLIENT_SECRET in .env}
+      KEYCLOAK_GATEWAY_CLIENT_SECRET: ${KEYCLOAK_GATEWAY_CLIENT_SECRET:?set KEYCLOAK_GATEWAY_CLIENT_SECRET in .env}
+      KEYCLOAK_TENANT_A_USER_PASSWORD: ${KEYCLOAK_TENANT_A_USER_PASSWORD:?set KEYCLOAK_TENANT_A_USER_PASSWORD in .env}
+      KEYCLOAK_TENANT_A_APPROVER_PASSWORD: ${KEYCLOAK_TENANT_A_APPROVER_PASSWORD:?set KEYCLOAK_TENANT_A_APPROVER_PASSWORD in .env}
+      KEYCLOAK_TENANT_B_USER_PASSWORD: ${KEYCLOAK_TENANT_B_USER_PASSWORD:?set KEYCLOAK_TENANT_B_USER_PASSWORD in .env}
+      KEYCLOAK_TENANT_B_APPROVER_PASSWORD: ${KEYCLOAK_TENANT_B_APPROVER_PASSWORD:?set KEYCLOAK_TENANT_B_APPROVER_PASSWORD in .env}
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ../keycloak/flowpilot-local-realm.json:/opt/keycloak/data/import/flowpilot-local-realm.json:ro
     healthcheck:
       test:
         - CMD-SHELL
-        - /opt/keycloak/bin/kc.sh show-config >/dev/null
+        - "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'HEAD /health/ready HTTP/1.0\r\n\r\n' >&3; grep -qm1 'HTTP/1.0 200' <&3"
       interval: 10s
       timeout: 10s
       retries: 20
@@ -114,6 +128,7 @@ services:
 
 volumes:
   postgres-data:
+  keycloak-data:
 
 networks:
   data-plane: {}

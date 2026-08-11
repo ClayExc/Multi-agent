@@ -233,6 +233,11 @@ class HealthBody(StrictModel):
     configured: bool
 
 
+class AuthSessionBody(StrictModel):
+    status: Literal["active"]
+    expires_at: datetime
+
+
 class ErrorBody(StrictModel):
     code: str
     message: str

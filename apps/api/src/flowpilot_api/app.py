@@ -4,9 +4,9 @@ import asyncio
 import json
 from typing import Any, Literal
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from flowpilot_application import (
     ApplicationError,
     ApprovalDecisionResult,
@@ -32,6 +32,7 @@ from flowpilot_domain import (
 from .errors import ApiError, ApiErrorCode
 from .models import (
     ApprovalDecisionBody,
+    AuthSessionBody,
     CommandAcceptanceBody,
     ErrorBody,
     ErrorEnvelope,
@@ -41,6 +42,7 @@ from .models import (
     TaskCommandBody,
     TaskId,
 )
+from .oidc import OidcBffConfig, OidcBffService, OidcSessionStart
 from .security import RequestSecurityPort, TrustedRequestIdentity
 from .stream import InMemoryEventStream
 
@@ -61,10 +63,15 @@ _UNAVAILABLE_CODES = {
     ErrorCode.REPOSITORY_UNAVAILABLE,
 }
 _COMMAND_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
-    status: {"model": ErrorEnvelope} for status in (400, 403, 409, 422, 500, 502, 503)
+    status: {"model": ErrorEnvelope}
+    for status in (400, 401, 403, 409, 422, 500, 502, 503)
 }
 _TASK_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
-    status: {"model": ErrorEnvelope} for status in (403, 404, 422, 500, 502, 503)
+    status: {"model": ErrorEnvelope}
+    for status in (401, 403, 404, 422, 500, 502, 503)
+}
+_AUTH_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status: {"model": ErrorEnvelope} for status in (401, 403, 409, 503)
 }
 
 
@@ -76,6 +83,7 @@ def create_app(
     task_event_subscription: TaskEventSubscriptionService | None = None,
     event_stream: InMemoryEventStream | None = None,
     approval_decisions: ApprovalDecisionService | None = None,
+    oidc_bff: OidcBffService | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="FlowPilot API",
@@ -141,6 +149,137 @@ def create_app(
             and (command_intake is not None or approval_decisions is not None),
         )
 
+    @app.get(
+        "/v1/auth/login",
+        responses={
+            302: {"description": "Redirect to the trusted OIDC provider"},
+            **_AUTH_ERROR_RESPONSES,
+        },
+        tags=["auth"],
+        operation_id="startOidcLoginV1",
+    )
+    async def start_oidc_login() -> Response:
+        bff = _require_dependency(oidc_bff, "OIDC BFF is not configured")
+        start = await bff.begin_login()
+        response = RedirectResponse(start.authorization_url, status_code=302)
+        _set_cookie(
+            response,
+            name=bff.config.transaction_cookie_name,
+            value=start.transaction_cookie,
+            max_age=start.max_age_seconds,
+            config=bff.config,
+        )
+        return response
+
+    @app.get(
+        "/v1/auth/callback",
+        responses={
+            303: {"description": "OIDC login completed"},
+            **_AUTH_ERROR_RESPONSES,
+        },
+        tags=["auth"],
+        operation_id="completeOidcLoginV1",
+    )
+    async def complete_oidc_login(
+        request: Request,
+        state: str | None = None,
+        code: str | None = None,
+    ) -> Response:
+        bff = _require_dependency(oidc_bff, "OIDC BFF is not configured")
+        try:
+            session = await bff.complete_callback(
+                transaction_cookie=request.cookies.get(
+                    bff.config.transaction_cookie_name
+                ),
+                state=state,
+                code=code,
+            )
+        except ApiError as error:
+            error_response = _api_error_response(error)
+            _clear_cookie(
+                error_response,
+                name=bff.config.transaction_cookie_name,
+                config=bff.config,
+            )
+            return error_response
+        success_response = RedirectResponse(
+            bff.config.post_login_redirect,
+            status_code=303,
+        )
+        _clear_cookie(
+            success_response,
+            name=bff.config.transaction_cookie_name,
+            config=bff.config,
+        )
+        _set_session_cookie(success_response, bff.config, session)
+        return success_response
+
+    @app.post(
+        "/v1/auth/refresh",
+        response_model=AuthSessionBody,
+        responses=_AUTH_ERROR_RESPONSES,
+        tags=["auth"],
+        operation_id="refreshOidcSessionV1",
+    )
+    async def refresh_oidc_session(request: Request) -> Response:
+        bff = _require_dependency(oidc_bff, "OIDC BFF is not configured")
+        try:
+            session = await bff.refresh(
+                request.cookies.get(bff.config.session_cookie_name)
+            )
+        except ApiError as error:
+            response = _api_error_response(error)
+            _clear_cookie(
+                response,
+                name=bff.config.session_cookie_name,
+                config=bff.config,
+            )
+            return response
+        response = JSONResponse(
+            AuthSessionBody(
+                status="active",
+                expires_at=session.expires_at,
+            ).model_dump(mode="json")
+        )
+        _set_session_cookie(response, bff.config, session)
+        return response
+
+    @app.post(
+        "/v1/auth/logout",
+        status_code=204,
+        responses=_AUTH_ERROR_RESPONSES,
+        tags=["auth"],
+        operation_id="logoutOidcSessionV1",
+    )
+    async def logout_oidc_session(request: Request) -> Response:
+        bff = _require_dependency(oidc_bff, "OIDC BFF is not configured")
+        await bff.logout(request.cookies.get(bff.config.session_cookie_name))
+        response = Response(status_code=204)
+        _clear_cookie(
+            response,
+            name=bff.config.session_cookie_name,
+            config=bff.config,
+        )
+        return response
+
+    @app.post(
+        "/v1/auth/session/invalidate",
+        status_code=204,
+        responses=_AUTH_ERROR_RESPONSES,
+        tags=["auth"],
+        operation_id="invalidateOidcSessionV1",
+    )
+    async def invalidate_oidc_session(request: Request) -> Response:
+        bff = _require_dependency(oidc_bff, "OIDC BFF is not configured")
+        await bff.invalidate(request.cookies.get(bff.config.session_cookie_name))
+        response = Response(status_code=204)
+        _clear_cookie(
+            response,
+            name=bff.config.session_cookie_name,
+            config=bff.config,
+        )
+        return response
+
     @app.post(
         "/v1/task-commands",
         response_model=CommandAcceptanceBody | ApprovalDecisionBody,
@@ -173,6 +312,7 @@ def create_app(
     @app.get(
         "/v1/tasks/events",
         responses={
+            401: {"model": ErrorEnvelope},
             403: {"model": ErrorEnvelope},
             422: {"model": ErrorEnvelope},
             500: {"model": ErrorEnvelope},
@@ -185,6 +325,8 @@ def create_app(
         security = _require_dependency(
             request_security, "request security is not configured"
         )
+        identity = await security.authenticate(request)
+        await security.authorize_event_stream(identity)
         subscription = _require_dependency(
             task_event_subscription,
             "task event subscription is not configured",
@@ -192,8 +334,6 @@ def create_app(
         stream = _require_dependency(
             event_stream, "task event stream is not configured"
         )
-        identity = await security.authenticate(request)
-        await security.authorize_event_stream(identity)
         tenant_id = identity.tenant_id
         await subscription.attach(tenant_id)
         queue = stream.subscribe(tenant_id)
@@ -204,8 +344,16 @@ def create_app(
                     try:
                         envelope = await asyncio.wait_for(queue.get(), timeout=15)
                     except TimeoutError:
+                        try:
+                            await security.authorize_event_stream(identity)
+                        except ApiError:
+                            return
                         yield ": ping\n\n"
                         continue
+                    try:
+                        await security.authorize_event_stream(identity)
+                    except ApiError:
+                        return
                     yield _sse_frame(envelope)
             finally:
                 stream.unsubscribe(tenant_id, queue)
@@ -233,9 +381,9 @@ def create_app(
         security = _require_dependency(
             request_security, "request security is not configured"
         )
-        query = _require_dependency(task_query, "task query is not configured")
         identity = await security.authenticate(request)
         await security.authorize_task_read(identity, task_id)
+        query = _require_dependency(task_query, "task query is not configured")
         task = await query.get(identity.tenant_id, task_id)
         return _task_body(task)
 
@@ -258,7 +406,13 @@ def _assert_request_binding(
     identity: TrustedRequestIdentity, command: TaskCommand
 ) -> None:
     context = command.security_context
+    context_mismatch = (
+        identity.security_context is not None
+        and identity.security_context.to_mapping() != context.to_mapping()
+    )
     if (
+        context_mismatch
+        or
         identity.tenant_id != command.tenant_id
         or identity.subject_id != command.actor.id
         or identity.subject_type is not command.actor.type
@@ -272,6 +426,54 @@ def _assert_request_binding(
             "request identity does not match the command security context",
             status_code=403,
         )
+
+
+def _set_session_cookie(
+    response: Response,
+    config: OidcBffConfig,
+    session: OidcSessionStart,
+) -> None:
+    _set_cookie(
+        response,
+        name=config.session_cookie_name,
+        value=session.session_cookie,
+        max_age=session.max_age_seconds,
+        config=config,
+    )
+
+
+def _set_cookie(
+    response: Response,
+    *,
+    name: str,
+    value: str,
+    max_age: int,
+    config: OidcBffConfig,
+) -> None:
+    response.set_cookie(
+        key=name,
+        value=value,
+        max_age=max_age,
+        path="/",
+        secure=config.cookie_secure,
+        httponly=True,
+        samesite=config.cookie_same_site,
+    )
+
+
+def _clear_cookie(
+    response: Response,
+    *,
+    name: str,
+    config: OidcBffConfig,
+) -> None:
+    response.delete_cookie(
+        key=name,
+        path="/",
+        secure=config.cookie_secure,
+        httponly=True,
+        samesite=config.cookie_same_site,
+    )
 
 
 def _assert_command_integrity(command: TaskCommand) -> None:
@@ -415,4 +617,13 @@ def _error_response(
     return JSONResponse(
         status_code=status_code,
         content=payload.model_dump(mode="json"),
+    )
+
+
+def _api_error_response(error: ApiError) -> JSONResponse:
+    return _error_response(
+        status_code=error.status_code,
+        code=error.code.value,
+        message=error.safe_message,
+        retryable=error.retryable,
     )

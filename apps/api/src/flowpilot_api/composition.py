@@ -18,6 +18,7 @@ from flowpilot_application import (
 )
 
 from .app import create_app
+from .oidc import OidcBffService
 from .security import RequestSecurityPort
 from .stream import InMemoryEventStream
 
@@ -35,6 +36,7 @@ def create_product_app(
     event_stream: InMemoryEventStream | None = None,
     event_stream_config: TaskEventStreamConfig | None = None,
     clock: Callable[[], datetime] | None = None,
+    oidc_bff: OidcBffService | None = None,
 ) -> FastAPI:
     """Create the fully port-bound local-product API.
 
@@ -65,4 +67,5 @@ def create_product_app(
         task_event_subscription=subscription,
         event_stream=effective_stream,
         approval_decisions=approval_decisions,
+        oidc_bff=oidc_bff,
     )

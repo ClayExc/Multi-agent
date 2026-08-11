@@ -9,7 +9,7 @@ MYPY_SOURCES := apps/api/src apps/mcp-gateway/src apps/worker/src \
 	packages/persistence/src packages/policy/src packages/security/src \
 	packages/tool-contracts/src web/src
 
-.PHONY: bootstrap studio studio-smoke lint test test-all test-contract test-security test-coverage audit ci acceptance
+.PHONY: bootstrap studio studio-smoke lint test test-all test-contract test-security test-identity test-coverage audit ci acceptance
 
 bootstrap:
 	$(UV) sync --all-packages --all-groups --locked
@@ -34,7 +34,10 @@ test-contract:
 	$(UV) run --all-packages --all-groups --locked python -B contracts/conformance/validate.py
 
 test-security:
-	$(UV) run --all-packages --all-groups --locked python -B -m pytest tests/core/test_security.py tests/runtime/security tests/data/security tests/platform/security tests/platform/test_gateway_security.py tests/acceptance/platform_security tests/experience/test_secret_scan.py
+	$(UV) run --all-packages --all-groups --locked python -B -m pytest tests/core/test_security.py tests/core/test_oidc_api.py tests/runtime/security tests/data/security tests/platform/security tests/platform/test_gateway_security.py tests/platform/test_identity_boundary.py tests/acceptance/platform_security tests/experience/test_secret_scan.py
+
+test-identity:
+	$(UV) run --all-packages --all-groups --locked python -B -m pytest tests/core/test_oidc_api.py tests/platform/test_identity_boundary.py
 
 test-coverage:
 	$(UV) run --all-packages --all-groups --locked python -B -m pytest --cov --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml

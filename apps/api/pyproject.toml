@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115,<1",
     "flowpilot-application",
     "flowpilot-domain",
+    "flowpilot-security",
     "pydantic>=2.10,<3",
 ]
 
@@ -20,3 +21,4 @@ packages = ["src/flowpilot_api"]
 [tool.uv.sources]
 flowpilot-application = { workspace = true }
 flowpilot-domain = { workspace = true }
+flowpilot-security = { workspace = true }

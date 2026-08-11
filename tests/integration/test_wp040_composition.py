@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -37,11 +38,12 @@ def test_candidate_is_exact_and_dependency_complete(verifier: ModuleType) -> Non
     assert manifest["branch"] == verifier.CANDIDATE_BRANCH
     assert manifest["workspace"]["member_count"] == 9
     assert manifest["workspace"]["lock_package_count"] == 73
-    assert manifest["migrations"]["head"] == "0003_api_task_initialization"
+    assert manifest["migrations"]["head"] == "0004_security_context_rls_binding"
     assert manifest["migrations"]["linear_chain"] == [
         "0001_persistence_baseline",
         "0002_checkpoint_sequence_cas",
         "0003_api_task_initialization",
+        "0004_security_context_rls_binding",
     ]
     assert manifest["migrations"]["predecessor_down_successor_guard"] is True
     assert (
@@ -114,12 +116,12 @@ def test_manifest_and_report_are_deterministic(
     assert first_paths[1].read_bytes() == second_paths[1].read_bytes()
     assert first_paths[2:] == second_paths[2:]
     assert first_paths[2] == (
-        "sha256:a731ae741e5d22a158485671672156e1"
-        "05cf5704c10e98ae6dfa664b46f33cbf"
+        "sha256:5056790c039f3a0070d3bec6a24c468f"
+        "30ce754bf9bf5817cec355572de17aed"
     )
     assert first_paths[3] == (
-        "sha256:1b1bca696a21251be8ddf2608bca651"
-        "03b000f5618e4cdfd7e5d35e748e8448c"
+        "sha256:30caf939917ad72ed7293bf19d40b934d"
+        "9f5e960d0ee133c488f9aaa61b90391"
     )
 
 
@@ -289,10 +291,71 @@ def test_authorized_migration_chain_and_hashes_pass_closed(
     assert migration["linear_chain"] == [
         "0001_persistence_baseline",
         "0002_checkpoint_sequence_cas",
+        "0003_api_task_initialization",
         verifier.MIGRATION_HEAD,
     ]
     assert migration["predecessor_down_successor_guard"] is True
+    assert set(migration["down_successor_guards"].values()) == {True}
     assert {check.outcome for check in checks} == {"PASS"}
+
+
+def _copy_migrations(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    shutil.copytree(ROOT / "migrations", repo / "migrations")
+    return repo
+
+
+def test_migration_history_and_new_head_hashes_are_pinned(
+    verifier: ModuleType,
+) -> None:
+    assert {
+        path: verifier.sha256_file(ROOT / path)
+        for path in verifier.MIGRATION_HASHES
+    } == verifier.MIGRATION_HASHES
+    assert len(verifier.MIGRATION_HASHES) == 8
+
+
+def test_missing_migration_fails_closed(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    repo = _copy_migrations(tmp_path)
+    (repo / "migrations/0004_security_context_rls_binding.sql").unlink()
+
+    with pytest.raises(FileNotFoundError):
+        verifier.verify_migrations(repo)
+
+
+def test_tampered_migration_fails_closed(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    repo = _copy_migrations(tmp_path)
+    path = repo / "migrations/0004_security_context_rls_binding.sql"
+    path.write_bytes(path.read_bytes() + b"\n-- drift\n")
+
+    _, checks = verifier.verify_migrations(repo)
+
+    assert {check.check_id for check in checks if check.outcome == "FAIL"} == {
+        "migrations.file_hashes"
+    }
+
+
+def test_extra_illegal_migration_head_fails_closed(
+    verifier: ModuleType,
+    tmp_path: Path,
+) -> None:
+    repo = _copy_migrations(tmp_path)
+    (repo / "migrations/0005_unapproved.sql").write_text(
+        "-- requires 0004_security_context_rls_binding\n",
+        encoding="utf-8",
+    )
+
+    _, checks = verifier.verify_migrations(repo)
+
+    assert {check.check_id for check in checks if check.outcome == "FAIL"} == {
+        "migrations.linear_head"
+    }
 
 
 def test_digest_changes_when_lock_bytes_drift(

@@ -57,3 +57,10 @@ def test_keycloak_realm_import_is_persistent_and_read_only() -> None:
     assert "flowpilot-local-realm.json:ro" in COMPOSE
     assert "/health/ready" in COMPOSE
     assert "9000:9000" not in COMPOSE
+
+
+def test_compose_applies_security_context_migration_as_linear_head() -> None:
+    assert "004-security-context-rls-binding.sql:ro" in COMPOSE
+    assert COMPOSE.index("003-api-task-initialization.sql:ro") < COMPOSE.index(
+        "004-security-context-rls-binding.sql:ro"
+    )

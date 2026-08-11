@@ -14,6 +14,7 @@ services:
       - ../../migrations/0001_persistence_baseline.sql:/docker-entrypoint-initdb.d/001-persistence-baseline.sql:ro
       - ../../migrations/0002_checkpoint_sequence_cas.sql:/docker-entrypoint-initdb.d/002-checkpoint-sequence-cas.sql:ro
       - ../../migrations/0003_api_task_initialization.sql:/docker-entrypoint-initdb.d/003-api-task-initialization.sql:ro
+      - ../../migrations/0004_security_context_rls_binding.sql:/docker-entrypoint-initdb.d/004-security-context-rls-binding.sql:ro
     healthcheck:
       test:
         - CMD-SHELL

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from types import TracebackType
 from typing import Any, Protocol, Self
 from uuid import uuid4
@@ -14,7 +14,13 @@ from flowpilot_application import (
     TaskInitializationDisposition,
     VersionSlotReservation,
 )
-from flowpilot_domain import DomainViolation, Task
+from flowpilot_domain import DomainViolation, SecurityContextRef, Task
+from flowpilot_security import (
+    SecurityError,
+    SecurityErrorCode,
+    TrustedSecurityContext,
+    verify_trusted_context_integrity,
+)
 
 from .errors import PersistenceError, PersistenceErrorCode
 from .models import (
@@ -90,12 +96,149 @@ def _json_object(value: Any, field: str) -> dict[str, Any]:
     return value
 
 
+def _string_set(value: Any, field: str) -> frozenset[str]:
+    if isinstance(value, str):
+        value = json.loads(value)
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item for item in value
+    ):
+        raise SecurityError(
+            SecurityErrorCode.CONTEXT_UNTRUSTED,
+            f"stored security context {field} is invalid",
+        )
+    return frozenset(value)
+
+
+def _trusted_context_from_row(row: Row) -> TrustedSecurityContext:
+    try:
+        active = row["active"]
+        if not isinstance(active, bool):
+            raise ValueError("stored context active flag is invalid")
+        context = SecurityContextRef.from_mapping(
+            _json_object(row["context_snapshot"], "context_snapshot")
+        )
+        trusted = TrustedSecurityContext(
+            context=context,
+            active=active,
+            roles=_string_set(row["roles"], "roles"),
+            scopes=_string_set(row["scopes"], "scopes"),
+            issuer=str(row["issuer"]),
+            authorized_party=str(row["authorized_party"]),
+            identity_token_hash=str(row["identity_token_hash"]),
+        )
+        if (
+            row.get("tenant_id") != context.tenant_id
+            or row.get("context_id") != context.context_id
+            or row.get("context_ref") != context.context_ref
+            or row.get("context_hash") != context.context_hash
+            or row.get("subject_id") != context.subject_id
+            or row.get("expires_at") != context.expires_at
+        ):
+            raise ValueError("stored context columns do not match the snapshot")
+        verify_trusted_context_integrity(trusted)
+        return trusted
+    except (DomainViolation, KeyError, SecurityError, TypeError, ValueError):
+        raise SecurityError(
+            SecurityErrorCode.CONTEXT_UNTRUSTED,
+            "stored security context is invalid",
+        ) from None
+
+
+def _security_context_parameters(
+    trusted: TrustedSecurityContext,
+) -> dict[str, object]:
+    context = trusted.context
+    return {
+        "tenant_id": context.tenant_id,
+        "context_id": context.context_id,
+        "context_ref": context.context_ref,
+        "context_hash": context.context_hash,
+        "subject_id": context.subject_id,
+        "subject_type": context.subject_type.value,
+        "purpose": context.purpose,
+        "issued_at": context.issued_at,
+        "expires_at": context.expires_at,
+        "context_snapshot": _json_dump(context.to_mapping()),
+        "roles": _json_dump(sorted(trusted.roles)),
+        "scopes": _json_dump(sorted(trusted.scopes)),
+        "issuer": trusted.issuer,
+        "authorized_party": trusted.authorized_party,
+        "identity_token_hash": trusted.identity_token_hash,
+        "active": trusted.active,
+    }
+
+
 class _TenantTransaction:
-    def __init__(self, connection: AsyncPostgresConnection) -> None:
+    def __init__(
+        self,
+        connection: AsyncPostgresConnection,
+        trusted_context: TrustedSecurityContext | None = None,
+    ) -> None:
         self.connection = connection
         self.tenant_id: str | None = None
+        self.trusted_context = trusted_context
+        self.finished = False
+
+    async def activate(self, now: datetime) -> None:
+        trusted = self.trusted_context
+        if trusted is None:
+            return
+        try:
+            verify_trusted_context_integrity(trusted)
+        except SecurityError as exc:
+            raise PersistenceError(
+                PersistenceErrorCode.SECURITY_CONTEXT_UNTRUSTED,
+                "trusted security context integrity validation failed",
+            ) from exc
+        context = trusted.context
+        checked_now = utc(now, "security_context.now")
+        if (
+            not trusted.active
+            or checked_now < context.issued_at
+            or checked_now >= context.expires_at
+        ):
+            raise PersistenceError(
+                PersistenceErrorCode.SECURITY_CONTEXT_UNTRUSTED,
+                "trusted security context is inactive or expired",
+            )
+        await _assert_safe_database_role(self.connection)
+        await self.connection.execute(
+            """
+            SELECT
+                set_config('flowpilot.tenant_id', %(tenant_id)s, true),
+                set_config('flowpilot.context_ref', %(context_ref)s, true),
+                set_config('flowpilot.context_hash', %(context_hash)s, true),
+                set_config('flowpilot.subject_id', %(subject_id)s, true)
+            """,
+            {
+                "tenant_id": context.tenant_id,
+                "context_ref": context.context_ref,
+                "context_hash": context.context_hash,
+                "subject_id": context.subject_id,
+            },
+        )
+        row = await self.connection.fetch_one(
+            """
+            SELECT tenant_id, context_ref, context_hash, subject_id
+            FROM flowpilot.validate_security_context()
+            """
+        )
+        expected = {
+            "tenant_id": context.tenant_id,
+            "context_ref": context.context_ref,
+            "context_hash": context.context_hash,
+            "subject_id": context.subject_id,
+        }
+        if row is None or any(row.get(key) != value for key, value in expected.items()):
+            raise PersistenceError(
+                PersistenceErrorCode.SECURITY_CONTEXT_MISMATCH,
+                "database security context binding was rejected",
+            )
+        self.tenant_id = context.tenant_id
 
     async def bind(self, tenant_id: str) -> None:
+        if self.finished:
+            raise RuntimeError("transaction is already finished")
         if not tenant_id:
             raise PersistenceError(
                 PersistenceErrorCode.TENANT_REQUIRED,
@@ -113,6 +256,28 @@ class _TenantTransaction:
             {"tenant_id": tenant_id},
         )
         self.tenant_id = tenant_id
+
+    def finish(self) -> None:
+        self.finished = True
+
+
+async def _assert_safe_database_role(connection: AsyncPostgresConnection) -> None:
+    row = await connection.fetch_one(
+        """
+        SELECT rolname, rolsuper, rolbypassrls
+        FROM pg_roles
+        WHERE rolname = current_user
+        """
+    )
+    if (
+        row is None
+        or row.get("rolsuper") is not False
+        or row.get("rolbypassrls") is not False
+    ):
+        raise PersistenceError(
+            PersistenceErrorCode.UNSAFE_DATABASE_ROLE,
+            "database role is not safe for tenant-bound persistence",
+        )
 
 
 class PostgresTaskRepository:
@@ -1699,10 +1864,190 @@ class PostgresConsumerInbox:
         return False
 
 
-class PostgresDataUnitOfWork:
+class PostgresSecurityContextSource:
+    """PostgreSQL implementation of the revocable SecurityContext source."""
+
     def __init__(self, connection_factory: AsyncPostgresConnectionFactory) -> None:
         self._connection_factory = connection_factory
+
+    async def resolve(self, context_ref: str) -> TrustedSecurityContext:
+        if not context_ref:
+            raise SecurityError(
+                SecurityErrorCode.CONTEXT_UNAVAILABLE,
+                "trusted security context is unavailable",
+            )
+        connection = await self._connection_factory()
+        try:
+            await _assert_safe_database_role(connection)
+            await connection.execute(
+                "SELECT set_config('flowpilot.context_ref', %(context_ref)s, true)",
+                {"context_ref": context_ref},
+            )
+            row = await connection.fetch_one(
+                """
+                SELECT tenant_id, context_id, context_ref, context_hash,
+                       subject_id, expires_at, context_snapshot, roles, scopes,
+                       issuer, authorized_party, identity_token_hash, active
+                FROM flowpilot.security_contexts
+                WHERE context_ref = %(context_ref)s
+                """,
+                {"context_ref": context_ref},
+            )
+            if row is None:
+                raise SecurityError(
+                    SecurityErrorCode.CONTEXT_UNAVAILABLE,
+                    "trusted security context is unavailable",
+                )
+            return _trusted_context_from_row(row)
+        finally:
+            await connection.rollback()
+            await connection.close()
+
+    async def store(self, context: TrustedSecurityContext) -> None:
+        verify_trusted_context_integrity(context)
+        if not context.active:
+            raise SecurityError(
+                SecurityErrorCode.CONTEXT_NOT_ACTIVE,
+                "new trusted security context must be active",
+            )
+        parameters = _security_context_parameters(context)
+        connection = await self._connection_factory()
+        try:
+            await _assert_safe_database_role(connection)
+            await connection.execute(
+                """
+                SELECT
+                    set_config('flowpilot.tenant_id', %(tenant_id)s, true),
+                    set_config('flowpilot.context_ref', %(context_ref)s, true),
+                    set_config('flowpilot.context_hash', %(context_hash)s, true),
+                    set_config('flowpilot.subject_id', %(subject_id)s, true)
+                """,
+                parameters,
+            )
+            affected = await connection.execute(
+                """
+                INSERT INTO flowpilot.security_contexts (
+                    tenant_id, context_id, context_ref, context_hash,
+                    subject_id, subject_type, purpose, issued_at, expires_at,
+                    context_snapshot, roles, scopes, issuer, authorized_party,
+                    identity_token_hash, active
+                ) VALUES (
+                    %(tenant_id)s, %(context_id)s, %(context_ref)s,
+                    %(context_hash)s, %(subject_id)s, %(subject_type)s,
+                    %(purpose)s, %(issued_at)s, %(expires_at)s,
+                    %(context_snapshot)s::jsonb, %(roles)s::jsonb,
+                    %(scopes)s::jsonb, %(issuer)s, %(authorized_party)s,
+                    %(identity_token_hash)s, %(active)s
+                )
+                ON CONFLICT DO NOTHING
+                """,
+                parameters,
+            )
+            if affected == 0:
+                row = await connection.fetch_one(
+                    """
+                    SELECT tenant_id, context_id, context_ref, context_hash,
+                           subject_id, expires_at, context_snapshot, roles, scopes,
+                           issuer, authorized_party, identity_token_hash, active
+                    FROM flowpilot.security_contexts
+                    WHERE context_ref = %(context_ref)s
+                    """,
+                    {"context_ref": context.context.context_ref},
+                )
+                if row is None or _trusted_context_from_row(row) != context:
+                    raise SecurityError(
+                        SecurityErrorCode.CONTEXT_UNTRUSTED,
+                        "trusted security context reference already exists",
+                    )
+            await connection.commit()
+        except BaseException:
+            await connection.rollback()
+            raise
+        finally:
+            await connection.close()
+
+    async def revoke(
+        self,
+        context_ref: str,
+        *,
+        revoked_at: datetime,
+        reason_code: str,
+    ) -> None:
+        revoked = utc(revoked_at, "context.revoked_at")
+        if not context_ref or not reason_code:
+            raise ValueError("context reference and revocation reason are required")
+        connection = await self._connection_factory()
+        try:
+            await _assert_safe_database_role(connection)
+            await connection.execute(
+                "SELECT set_config('flowpilot.context_ref', %(context_ref)s, true)",
+                {"context_ref": context_ref},
+            )
+            binding = await connection.fetch_one(
+                """
+                SELECT tenant_id, context_hash, subject_id, active
+                FROM flowpilot.security_contexts
+                WHERE context_ref = %(context_ref)s
+                """,
+                {"context_ref": context_ref},
+            )
+            if binding is None:
+                raise SecurityError(
+                    SecurityErrorCode.CONTEXT_UNAVAILABLE,
+                    "trusted security context is unavailable",
+                )
+            if binding.get("active") is False:
+                await connection.rollback()
+                return
+            await connection.execute(
+                """
+                SELECT
+                    set_config('flowpilot.tenant_id', %(tenant_id)s, true),
+                    set_config('flowpilot.context_hash', %(context_hash)s, true),
+                    set_config('flowpilot.subject_id', %(subject_id)s, true)
+                """,
+                binding,
+            )
+            affected = await connection.execute(
+                """
+                UPDATE flowpilot.security_contexts
+                SET active = false,
+                    revoked_at = %(revoked_at)s,
+                    revocation_reason = %(reason_code)s
+                WHERE context_ref = %(context_ref)s AND active
+                """,
+                {
+                    "context_ref": context_ref,
+                    "revoked_at": revoked,
+                    "reason_code": reason_code,
+                },
+            )
+            if affected == 0:
+                raise SecurityError(
+                    SecurityErrorCode.CONTEXT_UNTRUSTED,
+                    "trusted security context revocation conflicted",
+                )
+            await connection.commit()
+        except BaseException:
+            await connection.rollback()
+            raise
+        finally:
+            await connection.close()
+
+
+class PostgresDataUnitOfWork:
+    def __init__(
+        self,
+        connection_factory: AsyncPostgresConnectionFactory,
+        *,
+        trusted_context: TrustedSecurityContext | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._connection_factory = connection_factory
+        self._trusted_context = trusted_context
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._connection: AsyncPostgresConnection | None = None
+        self._transaction: _TenantTransaction | None = None
         self._committed = False
         self.tasks: PostgresTaskRepository
         self.commands: PostgresCommandInbox
@@ -1715,7 +2060,16 @@ class PostgresDataUnitOfWork:
 
     async def __aenter__(self) -> Self:
         self._connection = await self._connection_factory()
-        transaction = _TenantTransaction(self._connection)
+        transaction = _TenantTransaction(self._connection, self._trusted_context)
+        self._transaction = transaction
+        try:
+            await transaction.activate(self._clock())
+        except BaseException:
+            await self._connection.rollback()
+            await self._connection.close()
+            self._connection = None
+            self._transaction = None
+            raise
         self.tasks = PostgresTaskRepository(transaction)
         self.commands = PostgresCommandInbox(transaction)
         self.ledger = PostgresExecutionLedger(transaction)
@@ -1740,9 +2094,13 @@ class PostgresDataUnitOfWork:
         try:
             if exc_type is not None or not self._committed:
                 await connection.rollback()
+            if self._trusted_context is not None:
+                await connection.execute("RESET ALL")
+                await connection.commit()
         finally:
             await connection.close()
             self._connection = None
+            self._transaction = None
 
     async def commit(self) -> None:
         connection = self._required_connection()
@@ -1750,6 +2108,8 @@ class PostgresDataUnitOfWork:
             raise RuntimeError("unit of work was already committed")
         await connection.commit()
         self._committed = True
+        if self._transaction is not None:
+            self._transaction.finish()
 
     def _required_connection(self) -> AsyncPostgresConnection:
         if self._connection is None:
@@ -1763,3 +2123,23 @@ class PostgresDataUnitOfWorkFactory:
 
     def __call__(self) -> PostgresDataUnitOfWork:
         return PostgresDataUnitOfWork(self._connection_factory)
+
+
+class PostgresContextBoundDataUnitOfWorkFactory:
+    def __init__(
+        self,
+        connection_factory: AsyncPostgresConnectionFactory,
+        trusted_context: TrustedSecurityContext,
+        *,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._connection_factory = connection_factory
+        self._trusted_context = trusted_context
+        self._clock = clock
+
+    def __call__(self) -> PostgresDataUnitOfWork:
+        return PostgresDataUnitOfWork(
+            self._connection_factory,
+            trusted_context=self._trusted_context,
+            clock=self._clock,
+        )

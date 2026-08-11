@@ -36,8 +36,10 @@ from .ports import (
 from .postgres import (
     AsyncPostgresConnection,
     AsyncPostgresConnectionFactory,
+    PostgresContextBoundDataUnitOfWorkFactory,
     PostgresDataUnitOfWork,
     PostgresDataUnitOfWorkFactory,
+    PostgresSecurityContextSource,
 )
 from .recovery import CoordinationRebuilder
 from .redis_coordination import (
@@ -78,6 +80,8 @@ __all__ = [
     "PersistenceErrorCode",
     "PostgresDataUnitOfWork",
     "PostgresDataUnitOfWorkFactory",
+    "PostgresContextBoundDataUnitOfWorkFactory",
+    "PostgresSecurityContextSource",
     "RedisCoordinationAdapter",
     "RecoverySignalPort",
     "RetryBasis",

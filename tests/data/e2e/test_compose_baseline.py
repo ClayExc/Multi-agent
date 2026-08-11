@@ -19,7 +19,7 @@ def test_compose_declares_required_data_and_control_services() -> None:
     ):
         assert f"  {service}" in COMPOSE
     assert COMPOSE.count("healthcheck:") == 5
-    assert COMPOSE.count("127.0.0.1:") == 6
+    assert COMPOSE.count('"127.0.0.1:${') == 6
     assert "0.0.0.0:" not in COMPOSE
 
 
@@ -44,5 +44,16 @@ def test_environment_file_contains_only_local_placeholders() -> None:
     assert "local-dev-postgres-change-me" in ENV_EXAMPLE
     assert "local-dev-redis-change-me" in ENV_EXAMPLE
     assert "local-dev-keycloak-change-me" in ENV_EXAMPLE
+    assert "local-dev-web-client-change-me" in ENV_EXAMPLE
+    assert "local-dev-worker-client-change-me" in ENV_EXAMPLE
+    assert "local-dev-gateway-client-change-me" in ENV_EXAMPLE
     for forbidden in ("BEGIN PRIVATE KEY", "AKIA", "sk-proj-", "Bearer "):
         assert forbidden not in ENV_EXAMPLE
+
+
+def test_keycloak_realm_import_is_persistent_and_read_only() -> None:
+    assert "--import-realm" in COMPOSE
+    assert "keycloak-data:/opt/keycloak/data" in COMPOSE
+    assert "flowpilot-local-realm.json:ro" in COMPOSE
+    assert "/health/ready" in COMPOSE
+    assert "9000:9000" not in COMPOSE

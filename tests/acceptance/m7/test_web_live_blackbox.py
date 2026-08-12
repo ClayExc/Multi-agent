@@ -23,7 +23,8 @@ class AuthoritativeHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     task: dict[str, Any]
     event: dict[str, Any]
-    observed: list[tuple[str, str | None, str | None]] = []
+    trusted_cookie = "__Host-flowpilot-session=live-session-opaque"
+    observed: list[tuple[str, str | None, str | None, str | None]] = []
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         return
@@ -34,8 +35,26 @@ class AuthoritativeHandler(BaseHTTPRequestHandler):
                 self.path,
                 self.headers.get("X-FlowPilot-Tenant-Id"),
                 self.headers.get("Last-Event-ID"),
+                self.headers.get("Cookie"),
             )
         )
+        if self.headers.get("Cookie") != type(self).trusted_cookie:
+            raw = json.dumps(
+                {
+                    "error": {
+                        "code": "API_AUTHENTICATION_INVALID",
+                        "message": "authentication failed",
+                        "retryable": False,
+                        "detail_ref": None,
+                    }
+                }
+            ).encode()
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
         if self.path.startswith("/v1/tasks/events"):
             payload = json.dumps(
                 type(self).event,
@@ -92,10 +111,7 @@ def test_live_web_uses_server_tenant_and_preserves_sse_resume() -> None:
     upstream_thread.start()
     upstream_host, upstream_port = upstream.server_address[:2]
     shell = DemoServer(
-        LiveBackend(
-            f"http://{upstream_host}:{upstream_port}",
-            tenant_id=trusted_tenant,
-        ),
+        LiveBackend(f"http://{upstream_host}:{upstream_port}"),
         0,
     )
     shell_thread = threading.Thread(target=shell.serve_forever, daemon=True)
@@ -105,7 +121,10 @@ def test_live_web_uses_server_tenant_and_preserves_sse_resume() -> None:
     try:
         task_request = urllib.request.Request(
             f"{base}/api/v1/tasks/{task['task_id']}",
-            headers={"X-FlowPilot-Tenant-Id": "tenant-browser-forged"},
+            headers={
+                "Cookie": AuthoritativeHandler.trusted_cookie,
+                "X-FlowPilot-Tenant-Id": "tenant-browser-forged",
+            },
         )
         with urllib.request.urlopen(task_request, timeout=5) as response:
             projected = json.loads(response.read().decode())
@@ -116,6 +135,7 @@ def test_live_web_uses_server_tenant_and_preserves_sse_resume() -> None:
             f"{base}/api/v1/tasks/events?task_id={task['task_id']}",
             headers={
                 "Last-Event-ID": prior_event_id,
+                "Cookie": AuthoritativeHandler.trusted_cookie,
                 "X-FlowPilot-Tenant-Id": "tenant-browser-forged",
             },
         )
@@ -128,10 +148,14 @@ def test_live_web_uses_server_tenant_and_preserves_sse_resume() -> None:
         event_observation = next(
             item for item in AuthoritativeHandler.observed if "events" in item[0]
         )
-        assert event_observation[1:] == (trusted_tenant, prior_event_id)
+        assert event_observation[1:] == (
+            None,
+            prior_event_id,
+            AuthoritativeHandler.trusted_cookie,
+        )
         assert all(
-            tenant != "tenant-browser-forged"
-            for _path, tenant, _last_event_id in AuthoritativeHandler.observed
+            tenant is None and cookie == AuthoritativeHandler.trusted_cookie
+            for _path, tenant, _last_event_id, cookie in AuthoritativeHandler.observed
         )
     finally:
         shell.shutdown()

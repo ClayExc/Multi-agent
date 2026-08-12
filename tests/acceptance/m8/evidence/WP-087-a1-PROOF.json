@@ -1,0 +1,104 @@
+{
+  "schema": "flowpilot.wp087.acceptance-proof.v1",
+  "work_package": "WP-087",
+  "attempt_id": "WP-087-a1",
+  "chain_id": "CHAIN-M8-IDENTITY-TENANCY-01",
+  "step_id": "M8-04-S4-ACCEPTANCE",
+  "input_head": "480391479427c70bc60fb71d281e3bcdab71aa7b",
+  "implementation_head": "f3342488a2da04a78cb9cfa4edbbed6d94f3a7a7",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "fixed_denominator": {
+    "policy": "all_declared_cases",
+    "declared": 156,
+    "functional": 120,
+    "safety_fault": 36,
+    "completed": 30,
+    "not_executed": 126,
+    "passed": 30,
+    "failed": 126,
+    "skipped": 0,
+    "quarantined": 0,
+    "gate_result": "fail"
+  },
+  "executors": [
+    {
+      "executor_id": "flowpilot.m7.enterprise-knowledge",
+      "executor_version": "1.0.0",
+      "supported_case_count": 24
+    },
+    {
+      "executor_id": "flowpilot.m8.identity-tenancy",
+      "executor_version": "1.0.0",
+      "supported_case_count": 6,
+      "category": "tenant_isolation"
+    }
+  ],
+  "blackbox_legs": {
+    "offline_oidc_api": "PASS",
+    "api_worker_langgraph": "PASS",
+    "runtime_security_context_revalidation": "PASS",
+    "mcp_gateway_in_process": "PASS",
+    "keycloak_live": "ENV_BLOCKED_NOT_RUN",
+    "postgresql_rls_connection_reuse": "ENV_BLOCKED_NOT_RUN"
+  },
+  "security_observations": {
+    "cross_tenant_read_success_count": 0,
+    "cross_tenant_write_success_count": 0,
+    "restart_replay_model_delta": 0,
+    "restart_replay_tool_delta": 0,
+    "token_or_secret_exposure_count": 0,
+    "judge_used_for_safety": false
+  },
+  "commands": [
+    {
+      "command": "uv run --frozen python -m pytest tests/acceptance/m8 tests/acceptance/evaluation/test_m7_product_executor.py tests/acceptance/evaluation/test_m8_identity_executor.py tests/experience -q",
+      "result": "PASS",
+      "detail": "124 passed"
+    },
+    {
+      "command": "uv run --frozen ruff check packages/evaluation scripts/acceptance/run_acceptance.py tests/acceptance/evaluation/test_m7_product_executor.py tests/acceptance/evaluation/test_m8_identity_executor.py tests/acceptance/m8 tests/experience",
+      "result": "PASS",
+      "detail": "All checks passed"
+    },
+    {
+      "command": "uv run --frozen mypy --strict packages/evaluation",
+      "result": "PASS",
+      "detail": "15 source files"
+    },
+    {
+      "command": "uv run --frozen mypy --strict --explicit-package-bases scripts/acceptance/run_acceptance.py",
+      "result": "PASS",
+      "detail": "1 source file"
+    },
+    {
+      "command": "uv run --frozen python -B contracts/conformance/validate.py",
+      "result": "PASS",
+      "detail": "20 schemas; 35 cases; 43 semantic negative cases; 52 features"
+    },
+    {
+      "command": "uv run --frozen python -m pytest tests/experience/test_secret_scan.py -q",
+      "result": "PASS",
+      "detail": "2 passed"
+    },
+    {
+      "command": "flowpilot_security.scan_secret_material on all changed source files",
+      "result": "PASS",
+      "detail": "0 high-confidence findings"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "reused_evidence": {
+    "wp085_handoff": "sha256:c3b3e927dd0ed801857d2c06968202d524d730bba272607643968b7c1f6d862a",
+    "wp086_handoff": "sha256:cbd1f3797b4a2f619cd24a32808171a819bec2a6e8bf720985228260de1451eb"
+  },
+  "claims": {
+    "m8_released": false,
+    "feature_released": false,
+    "frozen": false,
+    "compose_run": false,
+    "full_repository_test_run": false
+  }
+}

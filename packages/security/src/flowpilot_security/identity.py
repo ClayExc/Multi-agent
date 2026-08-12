@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from base64 import urlsafe_b64encode
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -41,6 +42,11 @@ _ASYMMETRIC_ALGORITHMS = frozenset(
     }
 )
 _SHA256_PREFIX = "sha256:"
+_AT_HASH_ALGORITHMS = {
+    "256": hashlib.sha256,
+    "384": hashlib.sha384,
+    "512": hashlib.sha512,
+}
 
 
 def _sha256(value: str) -> str:
@@ -56,6 +62,19 @@ def oidc_nonce_digest(
     if not issuer or not authorized_party or not nonce:
         raise ValueError("OIDC nonce binding fields must not be empty")
     return _sha256(issuer + "\x1f" + authorized_party + "\x1f" + nonce)
+
+
+def _oidc_at_hash(access_token: str, algorithm: str) -> str:
+    digest_factory = _AT_HASH_ALGORITHMS.get(algorithm[-3:])
+    if digest_factory is None:
+        raise SecurityError(
+            SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+            "OIDC ID Token uses an unsupported at_hash algorithm",
+        )
+    digest = digest_factory(access_token.encode("ascii")).digest()
+    return urlsafe_b64encode(digest[: len(digest) // 2]).rstrip(b"=").decode(
+        "ascii"
+    )
 
 
 def _immutable_mapping(
@@ -165,6 +184,7 @@ class UserClaimPolicy:
     role_mapping: Mapping[str, str]
     scope_mapping: Mapping[str, str]
     assurance_mapping: Mapping[str, AssuranceLevel]
+    id_token: OidcAudiencePolicy | None = None
     tenant_claim: tuple[str, ...] = ("tenant_id",)
     roles_claim: tuple[str, ...] = ("realm_access", "roles")
     scope_claim: tuple[str, ...] = ("scope",)
@@ -172,6 +192,13 @@ class UserClaimPolicy:
     session_claim: tuple[str, ...] = ("sid",)
 
     def __post_init__(self) -> None:
+        if self.id_token is not None:
+            if self.id_token.issuer != self.token.issuer:
+                raise ValueError("OIDC ID and Access Token issuers must match")
+            if self.id_token.audience == self.token.audience:
+                raise ValueError("OIDC ID and Access Token audiences must differ")
+            if self.id_token.authorized_parties != self.token.authorized_parties:
+                raise ValueError("OIDC ID and Access Token parties must match")
         object.__setattr__(
             self,
             "tenant_mapping",
@@ -338,6 +365,26 @@ class WorkloadTokenVerifierPort(Protocol):
     ) -> AuthenticatedWorkload: ...
 
 
+class UserTokenPairVerifierPort(Protocol):
+    async def verify_user_token_pair(
+        self,
+        *,
+        id_token: str,
+        access_token: str,
+        expected_nonce: str,
+        now: datetime,
+    ) -> VerifiedUserIdentity: ...
+
+    async def verify_user_refresh(
+        self,
+        *,
+        access_token: str,
+        previous_identity: VerifiedUserIdentity,
+        now: datetime,
+        id_token: str | None = None,
+    ) -> VerifiedUserIdentity: ...
+
+
 class RevocableSecurityContextSource(Protocol):
     async def resolve(self, context_ref: str) -> TrustedSecurityContext: ...
 
@@ -500,41 +547,123 @@ class OidcIdentityAdapter:
         expected_nonce: str,
         now: datetime,
     ) -> VerifiedUserIdentity:
+        """Verify one access token carrying an explicitly trusted nonce.
+
+        This compatibility entry is not the Authorization Code callback API.
+        New callback consumers must use ``verify_user_token_pair`` so the ID
+        Token and API Access Token retain their distinct OIDC semantics.
+        """
         if not token or not expected_nonce:
             raise SecurityError(
                 SecurityErrorCode.IDENTITY_TOKEN_INVALID,
                 "OIDC user token or nonce is missing",
             )
         claims = await self._decode(token, self._users.token, now=now)
-        nonce = _required_text(claims.get("nonce"))
-        if not hmac.compare_digest(nonce, expected_nonce):
-            raise SecurityError(
-                SecurityErrorCode.NONCE_REPLAY,
-                "OIDC nonce is invalid or already used",
-            )
-        expires_at = _numeric_date(claims, "exp")
-        binding_hash = oidc_nonce_digest(
-            issuer=self._users.token.issuer,
-            authorized_party=_required_text(claims.get("azp")),
-            nonce=nonce,
+        await self._consume_nonce(
+            claims,
+            policy=self._users.token,
+            expected_nonce=expected_nonce,
         )
-        try:
-            consumed = await self._nonces.consume(
-                nonce_hash=binding_hash,
-                expires_at=expires_at,
-            )
-        except SecurityError:
-            raise
-        except Exception:
+        return self._identity_from_access_token(token, claims)
+
+    async def verify_user_token_pair(
+        self,
+        *,
+        id_token: str,
+        access_token: str,
+        expected_nonce: str,
+        now: datetime,
+    ) -> VerifiedUserIdentity:
+        """Verify a callback ID/Access Token pair without exposing Claims."""
+        id_policy = self._require_id_token_policy()
+        if not id_token or not access_token or not expected_nonce:
             raise SecurityError(
-                SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE,
-                "OIDC nonce replay guard is unavailable",
-            ) from None
-        if not consumed:
-            raise SecurityError(
-                SecurityErrorCode.NONCE_REPLAY,
-                "OIDC nonce is invalid or already used",
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC callback token pair or nonce is missing",
             )
+        id_claims, id_algorithm = await self._decode_with_algorithm(
+            id_token,
+            id_policy,
+            now=now,
+        )
+        await self._consume_nonce(
+            id_claims,
+            policy=id_policy,
+            expected_nonce=expected_nonce,
+        )
+        access_claims = await self._decode(
+            access_token,
+            self._users.token,
+            now=now,
+        )
+        self._verify_token_pair_binding(
+            id_claims=id_claims,
+            access_claims=access_claims,
+            access_token=access_token,
+            id_algorithm=id_algorithm,
+        )
+        return self._identity_from_access_token(access_token, access_claims)
+
+    async def verify_user_refresh(
+        self,
+        *,
+        access_token: str,
+        previous_identity: VerifiedUserIdentity,
+        now: datetime,
+        id_token: str | None = None,
+    ) -> VerifiedUserIdentity:
+        """Verify a rotated Access Token and preserve session continuity.
+
+        Refresh does not consume the login nonce. If the provider returns a new
+        ID Token, it must omit nonce and bind to the rotated Access Token.
+        """
+        if not access_token:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refreshed Access Token is missing",
+            )
+        access_claims = await self._decode(
+            access_token,
+            self._users.token,
+            now=now,
+        )
+        if id_token is not None:
+            if not id_token:
+                raise SecurityError(
+                    SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                    "OIDC refreshed ID Token is missing",
+                )
+            id_claims, id_algorithm = await self._decode_with_algorithm(
+                id_token,
+                self._require_id_token_policy(),
+                now=now,
+            )
+            if "nonce" in id_claims:
+                raise SecurityError(
+                    SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                    "OIDC refreshed ID Token must not reuse the login nonce",
+                )
+            self._verify_token_pair_binding(
+                id_claims=id_claims,
+                access_claims=access_claims,
+                access_token=access_token,
+                id_algorithm=id_algorithm,
+            )
+        refreshed = self._identity_from_access_token(
+            access_token,
+            access_claims,
+        )
+        self._verify_refresh_continuity(
+            previous=previous_identity,
+            refreshed=refreshed,
+        )
+        return refreshed
+
+    def _identity_from_access_token(
+        self,
+        token: str,
+        claims: Mapping[str, object],
+    ) -> VerifiedUserIdentity:
         tenant_claim = _required_text(
             _claim_at(claims, self._users.tenant_claim)
         )
@@ -575,8 +704,122 @@ class OidcIdentityAdapter:
             session_id_hash=_sha256(session_id),
             token_hash=_sha256(token),
             issued_at=_numeric_date(claims, "iat"),
-            expires_at=expires_at,
+            expires_at=_numeric_date(claims, "exp"),
         )
+
+    def _require_id_token_policy(self) -> OidcAudiencePolicy:
+        policy = self._users.id_token
+        if policy is None:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC ID Token verification policy is unavailable",
+            )
+        return policy
+
+    async def _consume_nonce(
+        self,
+        claims: Mapping[str, object],
+        *,
+        policy: OidcAudiencePolicy,
+        expected_nonce: str,
+    ) -> None:
+        nonce = _required_text(claims.get("nonce"))
+        if not hmac.compare_digest(nonce, expected_nonce):
+            raise SecurityError(
+                SecurityErrorCode.NONCE_REPLAY,
+                "OIDC nonce is invalid or already used",
+            )
+        binding_hash = oidc_nonce_digest(
+            issuer=policy.issuer,
+            authorized_party=_required_text(claims.get("azp")),
+            nonce=nonce,
+        )
+        try:
+            consumed = await self._nonces.consume(
+                nonce_hash=binding_hash,
+                expires_at=_numeric_date(claims, "exp"),
+            )
+        except SecurityError:
+            raise
+        except Exception:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE,
+                "OIDC nonce replay guard is unavailable",
+            ) from None
+        if not consumed:
+            raise SecurityError(
+                SecurityErrorCode.NONCE_REPLAY,
+                "OIDC nonce is invalid or already used",
+            )
+
+    def _verify_token_pair_binding(
+        self,
+        *,
+        id_claims: Mapping[str, object],
+        access_claims: Mapping[str, object],
+        access_token: str,
+        id_algorithm: str,
+    ) -> None:
+        id_session = _required_text(
+            _claim_at(id_claims, self._users.session_claim)
+        )
+        access_session = _required_text(
+            _claim_at(access_claims, self._users.session_claim)
+        )
+        pairs = (
+            (
+                _required_text(id_claims.get("iss")),
+                _required_text(access_claims.get("iss")),
+            ),
+            (
+                _required_text(id_claims.get("sub")),
+                _required_text(access_claims.get("sub")),
+            ),
+            (
+                _required_text(id_claims.get("azp")),
+                _required_text(access_claims.get("azp")),
+            ),
+            (id_session, access_session),
+        )
+        if any(not hmac.compare_digest(left, right) for left, right in pairs):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC ID and Access Token identity binding is invalid",
+            )
+        presented_at_hash = _required_text(id_claims.get("at_hash"))
+        expected_at_hash = _oidc_at_hash(access_token, id_algorithm)
+        if not hmac.compare_digest(presented_at_hash, expected_at_hash):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC ID and Access Token hash binding is invalid",
+            )
+
+    @staticmethod
+    def _verify_refresh_continuity(
+        *,
+        previous: VerifiedUserIdentity,
+        refreshed: VerifiedUserIdentity,
+    ) -> None:
+        exact_pairs = (
+            (previous.issuer, refreshed.issuer),
+            (previous.subject_id, refreshed.subject_id),
+            (previous.authorized_party, refreshed.authorized_party),
+            (previous.tenant_id, refreshed.tenant_id),
+            (previous.session_id_hash, refreshed.session_id_hash),
+        )
+        if any(not hmac.compare_digest(left, right) for left, right in exact_pairs):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refreshed identity continuity is invalid",
+            )
+        if (
+            hmac.compare_digest(previous.token_hash, refreshed.token_hash)
+            or refreshed.issued_at <= previous.issued_at
+        ):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refreshed Access Token is not newer than the current identity",
+            )
 
     async def verify_workload_token(
         self,
@@ -624,6 +867,20 @@ class OidcIdentityAdapter:
         *,
         now: datetime,
     ) -> Mapping[str, object]:
+        claims, _ = await self._decode_with_algorithm(
+            token,
+            policy,
+            now=now,
+        )
+        return claims
+
+    async def _decode_with_algorithm(
+        self,
+        token: str,
+        policy: OidcAudiencePolicy,
+        *,
+        now: datetime,
+    ) -> tuple[Mapping[str, object], str]:
         verified_now = utc(now, "identity.now")
         try:
             header = jwt.get_unverified_header(token)
@@ -714,7 +971,7 @@ class OidcIdentityAdapter:
                 SecurityErrorCode.IDENTITY_EXPIRED,
                 "OIDC token is not active at verification time",
             )
-        return claims
+        return claims, algorithm
 
     async def _resolve_key(
         self,

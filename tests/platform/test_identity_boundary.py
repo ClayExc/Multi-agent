@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+from base64 import urlsafe_b64encode
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -14,6 +16,7 @@ from factories import (
     AGENT_VERSION,
     AUDIENCE,
     NOW,
+    OTHER_TENANT,
     PURPOSE,
     TENANT,
     make_fixture,
@@ -41,8 +44,10 @@ from flowpilot_security import (
 ISSUER = "https://identity.local/realms/flowpilot"
 USER_AUDIENCE = "flowpilot-api"
 USER_PARTY = "flowpilot-web"
+USER_ID_AUDIENCE = USER_PARTY
 WORKLOAD_PARTY = "flowpilot-worker"
 USER_KID = "user-signing-2026-08"
+USER_ID_KID = "user-id-signing-2026-08"
 WORKLOAD_KID = "workload-signing-2026-08"
 USER_NONCE = "nonce-7dd4d503a3ac4cb4"
 SUBJECT = "user-alice"
@@ -57,7 +62,12 @@ WORKLOAD_KEY = _rsa_key()
 ROTATED_KEY = _rsa_key()
 
 
-def _jwk(key: rsa.RSAPrivateKey, *, kid: str) -> dict[str, object]:
+def _jwk(
+    key: rsa.RSAPrivateKey,
+    *,
+    kid: str,
+    algorithm: str = "RS256",
+) -> dict[str, object]:
     result = jwt.algorithms.RSAAlgorithm.to_jwk(
         key.public_key(),
         as_dict=True,
@@ -66,7 +76,7 @@ def _jwk(key: rsa.RSAPrivateKey, *, kid: str) -> dict[str, object]:
     return {
         **result,
         "kid": kid,
-        "alg": "RS256",
+        "alg": algorithm,
         "use": "sig",
         "key_ops": ["verify"],
     }
@@ -124,7 +134,10 @@ def _user_policy() -> UserClaimPolicy:
             audience=USER_AUDIENCE,
             authorized_parties=frozenset({USER_PARTY}),
         ),
-        tenant_mapping={"external-alpha": TENANT},
+        tenant_mapping={
+            "external-alpha": TENANT,
+            "external-bravo": OTHER_TENANT,
+        },
         role_mapping={
             "flowpilot-requester": "requester",
             "vpn-users": "group:vpn-users",
@@ -134,6 +147,12 @@ def _user_policy() -> UserClaimPolicy:
             "tasks:read": "tasks:read",
         },
         assurance_mapping={"urn:flowpilot:loa:high": AssuranceLevel.HIGH},
+        id_token=OidcAudiencePolicy(
+            issuer=ISSUER,
+            audience=USER_ID_AUDIENCE,
+            authorized_parties=frozenset({USER_PARTY}),
+            allowed_algorithms=frozenset({"RS256", "RS384"}),
+        ),
     )
 
 
@@ -168,6 +187,11 @@ def _adapter(
     selected_jwks = jwks or FakeJwksSource(
         {
             USER_KID: _jwk(USER_KEY, kid=USER_KID),
+            USER_ID_KID: _jwk(
+                USER_KEY,
+                kid=USER_ID_KID,
+                algorithm="RS384",
+            ),
             WORKLOAD_KID: _jwk(WORKLOAD_KEY, kid=WORKLOAD_KID),
         }
     )
@@ -231,8 +255,46 @@ def _token(
     *,
     key: rsa.RSAPrivateKey = USER_KEY,
     kid: str = USER_KID,
+    algorithm: str = "RS256",
 ) -> str:
-    return jwt.encode(dict(claims), key, algorithm="RS256", headers={"kid": kid})
+    return jwt.encode(dict(claims), key, algorithm=algorithm, headers={"kid": kid})
+
+
+def _at_hash(token: str, *, algorithm: str = "RS384") -> str:
+    digest_factory = {"RS256": hashlib.sha256, "RS384": hashlib.sha384}[algorithm]
+    digest = digest_factory(token.encode("ascii")).digest()
+    return urlsafe_b64encode(digest[: len(digest) // 2]).rstrip(b"=").decode(
+        "ascii"
+    )
+
+
+def _base_id_claims(
+    access_token: str,
+    *,
+    include_nonce: bool = True,
+) -> dict[str, object]:
+    claims: dict[str, object] = {
+        "iss": ISSUER,
+        "aud": USER_ID_AUDIENCE,
+        "azp": USER_PARTY,
+        "sub": SUBJECT,
+        "iat": int((NOW - timedelta(minutes=1)).timestamp()),
+        "nbf": int((NOW - timedelta(minutes=1)).timestamp()),
+        "exp": int((NOW + timedelta(minutes=10)).timestamp()),
+        "sid": "keycloak-session-alpha",
+        "at_hash": _at_hash(access_token),
+    }
+    if include_nonce:
+        claims["nonce"] = USER_NONCE
+    return claims
+
+
+def _id_token(claims: Mapping[str, object]) -> str:
+    return _token(
+        claims,
+        kid=USER_ID_KID,
+        algorithm="RS384",
+    )
 
 
 @pytest.mark.asyncio
@@ -298,6 +360,365 @@ async def test_user_token_maps_to_revocable_trusted_context_without_raw_token() 
             now=NOW + timedelta(seconds=2),
         )
     assert raised.value.code is SecurityErrorCode.CONTEXT_NOT_ACTIVE
+
+
+@pytest.mark.asyncio
+async def test_callback_token_pair_uses_standard_id_and_access_semantics() -> None:
+    adapter, _, nonce_guard = _adapter()
+    access_claims = _base_user_claims()
+    access_claims.pop("nonce")
+    access_token = _token(access_claims)
+    id_token = _id_token(
+        {
+            **_base_id_claims(access_token),
+            "tenant_id": "external-bravo",
+            "realm_access": {"roles": ["realm-administrator"]},
+            "scope": "untrusted:id-token-scope",
+        }
+    )
+
+    identity = await adapter.verify_user_token_pair(
+        id_token=id_token,
+        access_token=access_token,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+
+    expected_hash = "sha256:" + hashlib.sha256(
+        access_token.encode("utf-8")
+    ).hexdigest()
+    assert identity.tenant_id == TENANT
+    assert identity.roles == frozenset({"requester", "group:vpn-users"})
+    assert identity.scopes == frozenset({"identity:read", "tasks:read"})
+    assert identity.token_hash == expected_hash
+    assert len(nonce_guard.calls) == 1
+    assert id_token not in repr(identity)
+    assert access_token not in repr(identity)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing_id",
+        "missing_access",
+        "token_swap",
+        "id_signature",
+        "id_issuer",
+        "id_audience",
+        "id_azp",
+        "access_signature",
+        "access_issuer",
+        "access_audience",
+        "access_azp",
+        "subject",
+        "session",
+        "at_hash",
+    ],
+)
+async def test_callback_token_pair_rejects_swap_and_binding_failures(
+    mutation: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    adapter, _, _ = _adapter()
+    access_claims = _base_user_claims()
+    access_claims.pop("nonce")
+    id_claims: dict[str, object]
+    access_key = USER_KEY
+    id_key = USER_KEY
+    if mutation == "access_issuer":
+        access_claims["iss"] = "https://attacker.invalid/realm"
+    elif mutation == "access_audience":
+        access_claims["aud"] = "attacker-api"
+    elif mutation == "access_azp":
+        access_claims["azp"] = "attacker-browser"
+    access_token = _token(access_claims)
+    id_claims = _base_id_claims(access_token)
+    if mutation == "id_issuer":
+        id_claims["iss"] = "https://attacker.invalid/realm"
+    elif mutation == "id_audience":
+        id_claims["aud"] = "attacker-browser"
+    elif mutation == "id_azp":
+        id_claims["azp"] = "attacker-browser"
+    elif mutation == "subject":
+        id_claims["sub"] = "user-mallory"
+    elif mutation == "session":
+        id_claims["sid"] = "keycloak-session-mallory"
+    elif mutation == "at_hash":
+        id_claims["at_hash"] = _at_hash("different-access-token")
+    if mutation == "access_signature":
+        access_key = ROTATED_KEY
+        access_token = _token(access_claims, key=access_key)
+        id_claims = _base_id_claims(access_token)
+    if mutation == "id_signature":
+        id_key = ROTATED_KEY
+    id_token = _token(
+        id_claims,
+        key=id_key,
+        kid=USER_ID_KID,
+        algorithm="RS384",
+    )
+    presented_id = id_token
+    presented_access = access_token
+    if mutation == "missing_id":
+        presented_id = ""
+    elif mutation == "missing_access":
+        presented_access = ""
+    elif mutation == "token_swap":
+        presented_id, presented_access = access_token, id_token
+
+    with pytest.raises(SecurityError) as rejected:
+        await adapter.verify_user_token_pair(
+            id_token=presented_id,
+            access_token=presented_access,
+            expected_nonce=USER_NONCE,
+            now=NOW,
+        )
+
+    assert rejected.value.code in {
+        SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+        SecurityErrorCode.NONCE_REPLAY,
+    }
+    combined = str(rejected.value) + repr(rejected.value) + caplog.text
+    assert id_token not in combined
+    assert access_token not in combined
+
+
+@pytest.mark.asyncio
+async def test_callback_nonce_is_wrong_or_single_use() -> None:
+    adapter, _, nonce_guard = _adapter()
+    access_claims = _base_user_claims()
+    access_claims.pop("nonce")
+    access_token = _token(access_claims)
+    id_token = _id_token(_base_id_claims(access_token))
+
+    with pytest.raises(SecurityError) as wrong:
+        await adapter.verify_user_token_pair(
+            id_token=id_token,
+            access_token=access_token,
+            expected_nonce="wrong-server-nonce",
+            now=NOW,
+        )
+    assert wrong.value.code is SecurityErrorCode.NONCE_REPLAY
+    assert nonce_guard.calls == []
+
+    await adapter.verify_user_token_pair(
+        id_token=id_token,
+        access_token=access_token,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    with pytest.raises(SecurityError) as replay:
+        await adapter.verify_user_token_pair(
+            id_token=id_token,
+            access_token=access_token,
+            expected_nonce=USER_NONCE,
+            now=NOW,
+        )
+    assert replay.value.code is SecurityErrorCode.NONCE_REPLAY
+    assert len(nonce_guard.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_refresh_rotates_access_identity_without_consuming_login_nonce() -> None:
+    adapter, _, nonce_guard = _adapter()
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    refreshed_claims = {
+        **initial_claims,
+        "iat": int((NOW + timedelta(seconds=1)).timestamp()),
+        "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+        "realm_access": {"roles": ["vpn-users"]},
+        "scope": "openid",
+        "acr": "urn:flowpilot:loa:high",
+    }
+    refreshed_access = _token(refreshed_claims)
+
+    refreshed = await adapter.verify_user_refresh(
+        access_token=refreshed_access,
+        previous_identity=initial,
+        now=NOW + timedelta(seconds=2),
+    )
+
+    assert refreshed.subject_id == initial.subject_id
+    assert refreshed.tenant_id == initial.tenant_id
+    assert refreshed.session_id_hash == initial.session_id_hash
+    assert refreshed.roles == frozenset({"group:vpn-users"})
+    assert refreshed.scopes == frozenset({"identity:read"})
+    assert refreshed.expires_at > initial.expires_at
+    assert refreshed.token_hash != initial.token_hash
+    assert len(nonce_guard.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_refresh_id_token_binds_access_and_does_not_reuse_nonce() -> None:
+    adapter, _, nonce_guard = _adapter()
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    refreshed_claims = {
+        **initial_claims,
+        "iat": int((NOW + timedelta(seconds=2)).timestamp()),
+        "nbf": int((NOW + timedelta(seconds=2)).timestamp()),
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    refreshed_access = _token(refreshed_claims)
+    refreshed_id = _id_token(
+        _base_id_claims(refreshed_access, include_nonce=False)
+    )
+
+    refreshed = await adapter.verify_user_refresh(
+        access_token=refreshed_access,
+        id_token=refreshed_id,
+        previous_identity=initial,
+        now=NOW + timedelta(seconds=3),
+    )
+
+    assert refreshed.token_hash != initial.token_hash
+    assert len(nonce_guard.calls) == 1
+
+    reused_nonce_id = _id_token(_base_id_claims(refreshed_access))
+    with pytest.raises(SecurityError) as nonce_reuse:
+        await adapter.verify_user_refresh(
+            access_token=refreshed_access,
+            id_token=reused_nonce_id,
+            previous_identity=initial,
+            now=NOW + timedelta(seconds=3),
+        )
+    assert nonce_reuse.value.code is SecurityErrorCode.IDENTITY_TOKEN_INVALID
+    assert len(nonce_guard.calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("sub", "user-mallory"),
+        ("tenant_id", "external-bravo"),
+        ("sid", "keycloak-session-mallory"),
+    ],
+)
+async def test_refresh_rejects_cross_identity_tenant_or_session(
+    field: str,
+    value: str,
+) -> None:
+    adapter, _, _ = _adapter()
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    refreshed_claims = {
+        **initial_claims,
+        field: value,
+        "iat": int((NOW + timedelta(seconds=1)).timestamp()),
+        "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    refreshed_access = _token(refreshed_claims)
+
+    with pytest.raises(SecurityError) as rejected:
+        await adapter.verify_user_refresh(
+            access_token=refreshed_access,
+            previous_identity=initial,
+            now=NOW + timedelta(seconds=2),
+        )
+
+    assert rejected.value.code is SecurityErrorCode.IDENTITY_TOKEN_INVALID
+    assert refreshed_access not in str(rejected.value)
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_current_and_historical_access_tokens() -> None:
+    adapter, _, _ = _adapter()
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    next_claims = {
+        **initial_claims,
+        "iat": int((NOW + timedelta(seconds=1)).timestamp()),
+        "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    next_access = _token(next_claims)
+    current = await adapter.verify_user_refresh(
+        access_token=next_access,
+        previous_identity=initial,
+        now=NOW + timedelta(seconds=2),
+    )
+
+    for historical in (next_access, initial_access):
+        with pytest.raises(SecurityError) as rejected:
+            await adapter.verify_user_refresh(
+                access_token=historical,
+                previous_identity=current,
+                now=NOW + timedelta(seconds=2),
+            )
+        assert rejected.value.code is SecurityErrorCode.IDENTITY_TOKEN_INVALID
+        assert historical not in str(rejected.value)
+
+
+@pytest.mark.asyncio
+async def test_refresh_id_token_rejects_wrong_at_hash_without_token_leakage(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    adapter, _, _ = _adapter()
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    refreshed_claims = {
+        **initial_claims,
+        "iat": int((NOW + timedelta(seconds=1)).timestamp()),
+        "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    refreshed_access = _token(refreshed_claims)
+    bad_id_claims = _base_id_claims(refreshed_access, include_nonce=False)
+    bad_id_claims["at_hash"] = _at_hash(initial_access)
+    refreshed_id = _id_token(bad_id_claims)
+
+    with pytest.raises(SecurityError) as rejected:
+        await adapter.verify_user_refresh(
+            access_token=refreshed_access,
+            id_token=refreshed_id,
+            previous_identity=initial,
+            now=NOW + timedelta(seconds=2),
+        )
+
+    combined = str(rejected.value) + repr(rejected.value) + caplog.text
+    assert rejected.value.code is SecurityErrorCode.IDENTITY_TOKEN_INVALID
+    assert refreshed_access not in combined
+    assert refreshed_id not in combined
 
 
 @pytest.mark.asyncio

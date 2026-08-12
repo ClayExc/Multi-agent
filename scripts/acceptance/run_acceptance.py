@@ -52,6 +52,10 @@ from packages.evaluation.m7_product import (  # noqa: E402
     M7_SUPPORTED_CASE_COUNT,
     M7EnterpriseKnowledgeExecutor,
 )
+from packages.evaluation.m8_identity import (  # noqa: E402
+    M8_SUPPORTED_CASE_COUNT,
+    M8IdentityTenancyExecutor,
+)
 from packages.evaluation.reporting import (  # noqa: E402
     AssertionOutcome,
     CaseResult,
@@ -96,6 +100,32 @@ SKIP_TAG_PREFIX = "skip:"
 
 class CollectionError(RuntimeError):
     """六类测试中某一类没有可用目标目录。"""
+
+
+def build_product_executors(
+) -> tuple[CaseExecutorRegistry, tuple[Any, ...]]:
+    """Build the unique fixed-denominator product executor registry."""
+
+    registered = (
+        M7EnterpriseKnowledgeExecutor(ROOT),
+        M8IdentityTenancyExecutor(ROOT),
+    )
+    return CaseExecutorRegistry(registered), registered
+
+
+def executor_registration(executors: tuple[Any, ...]) -> dict[str, Any]:
+    """Serialize every registered executor without changing case ownership."""
+
+    registrations = [executor.registration() for executor in executors]
+    return {
+        "schema": "flowpilot.product-executor-registry.v1",
+        "match_policy": "unique_exact_case_digest",
+        "executor_count": len(registrations),
+        "supported_case_count": sum(
+            int(item["supported_case_count"]) for item in registrations
+        ),
+        "executors": registrations,
+    }
 
 
 def collect_cases() -> list[dict[str, Any]]:
@@ -379,11 +409,12 @@ def main() -> int:
 
     print("== 2/4 候选确定性判定（156 逐候选） ==")
     validator = OfflineRepositoryValidator(ROOT)
-    m7_executor = M7EnterpriseKnowledgeExecutor(ROOT)
-    executors = CaseExecutorRegistry([m7_executor])
+    executors, registered_executors = build_product_executors()
+    supported_case_count = M7_SUPPORTED_CASE_COUNT + M8_SUPPORTED_CASE_COUNT
     print(
-        f"  已注册 M7 企业知识产品执行器: {M7_SUPPORTED_CASE_COUNT} 条；"
-        f"其余 {len(cases) - M7_SUPPORTED_CASE_COUNT} 条未实现 Case 保持显式失败"
+        f"  已注册 M7 企业知识产品执行器: {M7_SUPPORTED_CASE_COUNT} 条，"
+        f"M8 身份租户执行器: {M8_SUPPORTED_CASE_COUNT} 条；"
+        f"其余 {len(cases) - supported_case_count} 条未实现 Case 保持显式失败"
     )
     execution_evidence_root = output / "execution"
     execution_evidence_root.mkdir(parents=True, exist_ok=True)
@@ -455,7 +486,7 @@ def main() -> int:
     )
     executor_registry_path = eval_dir / "executor-registry.json"
     executor_registry_path.write_bytes(
-        stable_json_bytes(m7_executor.registration())
+        stable_json_bytes(executor_registration(registered_executors))
     )
     print(f"  判定清单: {verdicts_path}")
     if failures:

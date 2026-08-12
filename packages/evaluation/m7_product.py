@@ -32,8 +32,12 @@ from flowpilot_application.testing import (
 )
 from flowpilot_domain import (
     ActorType,
+    AssuranceLevel,
+    AuthenticationMethod,
+    AuthenticationRef,
     DataClassification,
     ReleaseRef,
+    SecurityContextRef,
     TaskCommand,
     ToolOperation,
     canonical_sha256,
@@ -44,6 +48,13 @@ from flowpilot_persistence import (
     MemoryDataUnitOfWorkFactory,
     MemoryRedisClient,
     RedisCoordinationAdapter,
+)
+from flowpilot_security import (
+    InMemorySecurityContextSource,
+    SecurityContextSource,
+    SecurityVerifier,
+    TrustedSecurityContext,
+    trusted_context_snapshot_hash,
 )
 from flowpilot_tool_contracts import (
     DeterministicGatewayClientFake,
@@ -58,6 +69,7 @@ from flowpilot_worker import (
     InMemoryExecutionQueue,
     KnowledgeGraphConfig,
     LocalProductRuntime,
+    RuntimeSecurityContextValidator,
     TrustedTenantInventory,
     build_knowledge_gateway_call,
     compose_local_product_runtime,
@@ -80,6 +92,11 @@ _FIXED_NOW = datetime(2026, 8, 9, 8, 0, tzinfo=UTC)
 _TENANT_ID = "tenant-a"
 _ACTOR_ID = "user-m7-evaluator"
 _PROVIDER_SESSION = "provider-session://opaque/m7-evaluation"
+_IDENTITY_ISSUER = "https://identity.evaluation.local/realms/flowpilot"
+_AUTHORIZED_PARTY = "flowpilot-evaluation"
+_CONTEXT_ROLES = frozenset({"employee", "knowledge-reader"})
+_CONTEXT_SCOPES = frozenset({"tasks:read", "tools:invoke"})
+_SOURCE_TOKEN_HASH = canonical_sha256({"credential": "m7-evaluation-fixture"})
 _SUPPORTED_ASSERTIONS = frozenset(
     {
         "assert.task.terminal_status.v1",
@@ -132,6 +149,17 @@ class _ThreadFactory:
 
 
 @dataclass(slots=True)
+class _CountingSecurityContextSource(SecurityContextSource):
+    backing: InMemorySecurityContextSource
+    trusted: TrustedSecurityContext
+    resolve_count: int = 0
+
+    async def resolve(self, context_ref: str) -> TrustedSecurityContext:
+        self.resolve_count += 1
+        return await self.backing.resolve(context_ref)
+
+
+@dataclass(slots=True)
 class _Harness:
     command: TaskCommand
     body: dict[str, Any]
@@ -142,6 +170,7 @@ class _Harness:
     runtime: FakeAgentRuntime
     artifacts: FakeResultArtifactPort
     checkpointer: InMemorySaver
+    security_contexts: _CountingSecurityContextSource
     product: LocalProductRuntime
     run_id: str
 
@@ -253,6 +282,12 @@ class M7EnterpriseKnowledgeExecutor:
             "request_content_durable_exposure_count": observation[
                 "request_content_durable_exposure_count"
             ],
+            "security_context_validation_count": observation[
+                "security_context_validation_count"
+            ],
+            "restart_replay_security_validation_delta": observation[
+                "restart_replay_security_validation_delta"
+            ],
             "assertion_results": dict(sorted(assertions.items())),
         }
         relative = Path("cases") / f"{case_value['case_id']}.json"
@@ -271,12 +306,34 @@ class M7EnterpriseKnowledgeExecutor:
             evidence_refs=(relative.as_posix(),),
         )
 
+    async def observe_product_scenario(
+        self,
+        case: Mapping[str, Any],
+        *,
+        scenario: str,
+    ) -> dict[str, Any]:
+        """Run a supported synthetic product profile without changing case pins."""
+
+        if scenario not in _SCENARIO_DOCUMENT_IDS:
+            raise ValueError("product observation scenario is not registered")
+        case_value = dict(case)
+        tags = case_value.get("tags")
+        if not isinstance(tags, list):
+            raise ValueError("product observation case tags must be a list")
+        case_value["tags"] = [
+            f"scenario:{scenario}"
+            if isinstance(item, str) and item.startswith("scenario:")
+            else item
+            for item in tags
+        ]
+        return await self._execute_product(case_value)
+
     async def _execute_product(self, case: dict[str, Any]) -> dict[str, Any]:
         scenario = _scenario(case)
         question = case.get("input")
         if not isinstance(question, str) or not question.strip():
             raise ValueError("M7 knowledge case input must be non-empty text")
-        harness = self._make_harness(case, scenario, question)
+        harness = await self._make_harness(case, scenario, question)
         accepted = await _post(harness.product.app, harness.body)
         replayed = await _post(harness.product.app, harness.body)
         outcome = await harness.product.worker.run_once()
@@ -295,6 +352,7 @@ class M7EnterpriseKnowledgeExecutor:
         state = outcome.graph_outcome.state
         model_before = len(harness.runtime.calls)
         tool_before = harness.gateway.logical_execution_count
+        security_validation_before = harness.security_contexts.resolve_count
         restarted_runtime = self._runtime_for(scenario)
         restarted = self._compose_product(
             command=harness.command,
@@ -305,6 +363,7 @@ class M7EnterpriseKnowledgeExecutor:
             runtime=restarted_runtime,
             artifacts=harness.artifacts,
             checkpointer=harness.checkpointer,
+            security_contexts=harness.security_contexts,
             run_id=harness.run_id,
         )
         restart_replay = await _post(restarted.app, harness.body)
@@ -377,13 +436,21 @@ class M7EnterpriseKnowledgeExecutor:
             "cross_tenant_success_count": cross_tenant,
             "provider_session_exposure_count": durable.count(_PROVIDER_SESSION),
             "request_content_durable_exposure_count": durable.count(question),
+            "security_context_validation_count": (
+                harness.security_contexts.resolve_count
+            ),
+            "restart_replay_security_validation_delta": (
+                harness.security_contexts.resolve_count
+                - security_validation_before
+            ),
         }
 
-    def _make_harness(
+    async def _make_harness(
         self, case: Mapping[str, Any], scenario: str, question: str
     ) -> _Harness:
         suffix = hashlib.sha256(str(case["case_id"]).encode()).hexdigest()[:16]
-        command, body = _command(suffix)
+        trusted = _trusted_identity_snapshot(suffix)
+        command, body = _command(suffix, trusted)
         resolved = _resolved_request(command, question)
         config = KnowledgeGraphConfig()
         run_id = f"run_m7eval{suffix}"
@@ -408,6 +475,12 @@ class M7EnterpriseKnowledgeExecutor:
         database = MemoryDatabase()
         queue = InMemoryExecutionQueue()
         checkpointer = InMemorySaver()
+        backing_security_contexts = InMemorySecurityContextSource()
+        await backing_security_contexts.store(trusted)
+        security_contexts = _CountingSecurityContextSource(
+            backing=backing_security_contexts,
+            trusted=trusted,
+        )
         product = self._compose_product(
             command=command,
             resolved=resolved,
@@ -417,6 +490,7 @@ class M7EnterpriseKnowledgeExecutor:
             runtime=runtime,
             artifacts=artifacts,
             checkpointer=checkpointer,
+            security_contexts=security_contexts,
             run_id=run_id,
         )
         return _Harness(
@@ -429,6 +503,7 @@ class M7EnterpriseKnowledgeExecutor:
             runtime=runtime,
             artifacts=artifacts,
             checkpointer=checkpointer,
+            security_contexts=security_contexts,
             product=product,
             run_id=run_id,
         )
@@ -444,6 +519,7 @@ class M7EnterpriseKnowledgeExecutor:
         runtime: FakeAgentRuntime,
         artifacts: FakeResultArtifactPort,
         checkpointer: InMemorySaver,
+        security_contexts: _CountingSecurityContextSource,
         run_id: str,
     ) -> LocalProductRuntime:
         config = KnowledgeGraphConfig()
@@ -457,7 +533,9 @@ class M7EnterpriseKnowledgeExecutor:
             coordination=RedisCoordinationAdapter(MemoryRedisClient()),
             tenants=TrustedTenantInventory((_TENANT_ID,)),
             queue=queue,
-            request_security=StaticRequestSecurity(_identity(command)),
+            request_security=StaticRequestSecurity(
+                _identity(command, security_contexts.trusted)
+            ),
             task_initialization=_task_initialization(config),
             thread_id_factory=_ThreadFactory(suffix),
             request_resolver=FakeRequestReferenceResolver(
@@ -466,6 +544,11 @@ class M7EnterpriseKnowledgeExecutor:
             result_artifacts=artifacts,
             gateway=gateway,
             agent_runtime=runtime,
+            security_contexts=RuntimeSecurityContextValidator(
+                contexts=security_contexts,
+                verifier=SecurityVerifier(),
+                clock=lambda: _FIXED_NOW,
+            ),
             control_checkpointer=checkpointer,
             graph_config=config,
             clock=lambda: _FIXED_NOW,
@@ -645,35 +728,67 @@ def _scenario(case: Mapping[str, Any]) -> str:
     return scenarios[0]
 
 
-def _command(suffix: str) -> tuple[TaskCommand, dict[str, Any]]:
+def _trusted_identity_snapshot(suffix: str) -> TrustedSecurityContext:
+    authentication = AuthenticationRef(
+        method=AuthenticationMethod.OIDC,
+        assurance_level=AssuranceLevel.SUBSTANTIAL,
+        session_id_hash=canonical_sha256({"session": suffix}),
+    )
+    context_id = f"secctx_m7eval{suffix}"
+    context_ref = f"security-context://{_TENANT_ID}/m7eval{suffix}"
+    expires_at = _FIXED_NOW + timedelta(days=1)
+    context_hash = trusted_context_snapshot_hash(
+        context_id=context_id,
+        context_ref=context_ref,
+        tenant_id=_TENANT_ID,
+        subject_id=_ACTOR_ID,
+        subject_type=ActorType.USER,
+        issuer=_IDENTITY_ISSUER,
+        authorized_party=_AUTHORIZED_PARTY,
+        roles=_CONTEXT_ROLES,
+        scopes=_CONTEXT_SCOPES,
+        authentication=authentication,
+        purpose="it_support",
+        data_classification_ceiling=DataClassification.CONFIDENTIAL,
+        issued_at=_FIXED_NOW,
+        expires_at=expires_at,
+        source_token_hash=_SOURCE_TOKEN_HASH,
+    )
+    return TrustedSecurityContext(
+        context=SecurityContextRef(
+            context_id=context_id,
+            context_ref=context_ref,
+            context_hash=context_hash,
+            tenant_id=_TENANT_ID,
+            subject_id=_ACTOR_ID,
+            subject_type=ActorType.USER,
+            purpose="it_support",
+            authentication=authentication,
+            data_classification_ceiling=DataClassification.CONFIDENTIAL,
+            issued_at=_FIXED_NOW,
+            expires_at=expires_at,
+        ),
+        active=True,
+        roles=_CONTEXT_ROLES,
+        scopes=_CONTEXT_SCOPES,
+        issuer=_IDENTITY_ISSUER,
+        authorized_party=_AUTHORIZED_PARTY,
+        identity_token_hash=_SOURCE_TOKEN_HASH,
+    )
+
+
+def _command(
+    suffix: str,
+    trusted: TrustedSecurityContext,
+) -> tuple[TaskCommand, dict[str, Any]]:
     issued = _FIXED_NOW.isoformat().replace("+00:00", "Z")
-    expires = (_FIXED_NOW + timedelta(days=1)).isoformat().replace("+00:00", "Z")
     body: dict[str, Any] = {
         "command_id": f"cmd_m7eval{suffix}",
         "command_type": "task.create.v1",
         "tenant_id": _TENANT_ID,
         "task_id": f"task_m7eval{suffix}",
         "actor": {"type": "user", "id": _ACTOR_ID},
-        "security_context": {
-            "context_id": f"secctx_m7eval{suffix}",
-            "context_ref": f"security-context://{_TENANT_ID}/m7eval{suffix}",
-            "context_hash": canonical_sha256(
-                {"tenant_id": _TENANT_ID, "suffix": suffix}
-            ),
-            "tenant_id": _TENANT_ID,
-            "subject_id": _ACTOR_ID,
-            "subject_type": "user",
-            "purpose": "it_support",
-            "authentication": {
-                "method": "oidc",
-                "assurance_level": "substantial",
-                "session_id_hash": canonical_sha256({"session": suffix}),
-            },
-            "delegation_id": None,
-            "data_classification_ceiling": "confidential",
-            "issued_at": issued,
-            "expires_at": expires,
-        },
+        "security_context": trusted.context.to_mapping(),
         "expected_task_version": None,
         "idempotency_key": canonical_sha256({"idempotency": suffix}),
         "command_digest": "sha256:" + "0" * 64,
@@ -743,7 +858,10 @@ def _observation(resolved: ResolvedRequestReference) -> RequestObservation:
     )
 
 
-def _identity(command: TaskCommand) -> TrustedRequestIdentity:
+def _identity(
+    command: TaskCommand,
+    trusted: TrustedSecurityContext,
+) -> TrustedRequestIdentity:
     return TrustedRequestIdentity(
         tenant_id=command.tenant_id,
         subject_id=command.actor.id,
@@ -752,6 +870,9 @@ def _identity(command: TaskCommand) -> TrustedRequestIdentity:
         security_context_id=command.security_context.context_id,
         security_context_ref=command.security_context.context_ref,
         security_context_hash=command.security_context.context_hash,
+        security_context=trusted.context,
+        roles=trusted.roles,
+        scopes=trusted.scopes,
     )
 
 

@@ -66,6 +66,8 @@ def test_supported_case_runs_real_product_and_binds_evidence(tmp_path: Path) -> 
     assert evidence["cross_tenant_success_count"] == 0
     assert evidence["provider_session_exposure_count"] == 0
     assert evidence["request_content_durable_exposure_count"] == 0
+    assert evidence["security_context_validation_count"] > 0
+    assert evidence["restart_replay_security_validation_delta"] == 0
 
 
 @pytest.mark.parametrize(

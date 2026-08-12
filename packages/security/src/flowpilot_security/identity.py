@@ -64,6 +64,27 @@ def oidc_nonce_digest(
     return _sha256(issuer + "\x1f" + authorized_party + "\x1f" + nonce)
 
 
+def _refresh_session_identity_digest(
+    *,
+    issuer: str,
+    subject_id: str,
+    tenant_id: str,
+    authorized_party: str,
+    session_id_hash: str,
+) -> str:
+    return _sha256(
+        "\x1f".join(
+            (
+                issuer,
+                subject_id,
+                tenant_id,
+                authorized_party,
+                session_id_hash,
+            )
+        )
+    )
+
+
 def _oidc_at_hash(access_token: str, algorithm: str) -> str:
     digest_factory = _AT_HASH_ALGORITHMS.get(algorithm[-3:])
     if digest_factory is None:
@@ -278,6 +299,31 @@ class WorkloadClaimPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class RefreshLineageState:
+    """Credential-free refresh lineage persisted by an authoritative session store."""
+
+    session_identity_hash: str
+    access_token_hash: str
+    access_token_id_hash: str
+    issued_at: datetime
+    generation: int
+
+    def __post_init__(self) -> None:
+        require_sha256_digest(
+            self.session_identity_hash,
+            "lineage.session_identity_hash",
+        )
+        require_sha256_digest(self.access_token_hash, "lineage.access_token_hash")
+        require_sha256_digest(
+            self.access_token_id_hash,
+            "lineage.access_token_id_hash",
+        )
+        if self.generation < 1:
+            raise ValueError("refresh lineage generation must be positive")
+        object.__setattr__(self, "issued_at", utc(self.issued_at, "lineage.issued_at"))
+
+
+@dataclass(frozen=True, slots=True)
 class VerifiedUserIdentity:
     issuer: str
     subject_id: str
@@ -290,6 +336,7 @@ class VerifiedUserIdentity:
     token_hash: str
     issued_at: datetime
     expires_at: datetime
+    refresh_lineage: RefreshLineageState | None = None
 
     def __post_init__(self) -> None:
         if not all(
@@ -311,6 +358,22 @@ class VerifiedUserIdentity:
             raise ValueError("verified identity must expire after issuance")
         object.__setattr__(self, "issued_at", issued)
         object.__setattr__(self, "expires_at", expires)
+        lineage = self.refresh_lineage
+        if lineage is not None and (
+            not hmac.compare_digest(
+                lineage.session_identity_hash,
+                _refresh_session_identity_digest(
+                    issuer=self.issuer,
+                    subject_id=self.subject_id,
+                    tenant_id=self.tenant_id,
+                    authorized_party=self.authorized_party,
+                    session_id_hash=self.session_id_hash,
+                ),
+            )
+            or not hmac.compare_digest(lineage.access_token_hash, self.token_hash)
+            or lineage.issued_at != issued
+        ):
+            raise ValueError("refresh lineage must bind the verified identity")
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,6 +417,25 @@ class NonceReplayGuardPort(Protocol):
     """
 
     async def consume(self, *, nonce_hash: str, expires_at: datetime) -> bool: ...
+
+
+class RefreshLineageGuardPort(Protocol):
+    """Authoritative atomic guard for one OIDC session's Access Token lineage.
+
+    Implementations must persist only the supplied hashes and timestamps. Both
+    operations must atomically reject duplicates and leave state unchanged on
+    rejection or failure. ``compare_and_swap`` must additionally reject a
+    previously seen replacement token hash or token-ID hash.
+    """
+
+    async def establish(self, *, initial: RefreshLineageState) -> bool: ...
+
+    async def compare_and_swap(
+        self,
+        *,
+        expected: RefreshLineageState,
+        replacement: RefreshLineageState,
+    ) -> bool: ...
 
 
 class WorkloadTokenVerifierPort(Protocol):
@@ -530,11 +612,13 @@ class OidcIdentityAdapter:
         nonces: NonceReplayGuardPort,
         users: UserClaimPolicy,
         workloads: WorkloadClaimPolicy,
+        refresh_lineage: RefreshLineageGuardPort | None = None,
     ) -> None:
         self._jwks = jwks
         self._nonces = nonces
         self._users = users
         self._workloads = workloads
+        self._refresh_lineage = refresh_lineage
         self._registrations = {
             (item.issuer, item.authorized_party, item.subject_id): item
             for item in workloads.registrations
@@ -602,7 +686,14 @@ class OidcIdentityAdapter:
             access_token=access_token,
             id_algorithm=id_algorithm,
         )
-        return self._identity_from_access_token(access_token, access_claims)
+        identity = self._identity_from_access_token(access_token, access_claims)
+        initial = self._refresh_lineage_state(
+            identity=identity,
+            claims=access_claims,
+            generation=1,
+        )
+        await self._establish_refresh_lineage(initial)
+        return replace(identity, refresh_lineage=initial)
 
     async def verify_user_refresh(
         self,
@@ -653,11 +744,27 @@ class OidcIdentityAdapter:
             access_token,
             access_claims,
         )
+        previous_lineage = previous_identity.refresh_lineage
+        if previous_lineage is None:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC current identity has no authoritative refresh lineage",
+            )
+        replacement = self._refresh_lineage_state(
+            identity=refreshed,
+            claims=access_claims,
+            generation=previous_lineage.generation + 1,
+        )
         self._verify_refresh_continuity(
             previous=previous_identity,
             refreshed=refreshed,
+            replacement=replacement,
         )
-        return refreshed
+        await self._advance_refresh_lineage(
+            expected=previous_lineage,
+            replacement=replacement,
+        )
+        return replace(refreshed, refresh_lineage=replacement)
 
     def _identity_from_access_token(
         self,
@@ -706,6 +813,75 @@ class OidcIdentityAdapter:
             issued_at=_numeric_date(claims, "iat"),
             expires_at=_numeric_date(claims, "exp"),
         )
+
+    @staticmethod
+    def _refresh_lineage_state(
+        *,
+        identity: VerifiedUserIdentity,
+        claims: Mapping[str, object],
+        generation: int,
+    ) -> RefreshLineageState:
+        token_id = _required_text(claims.get("jti"))
+        return RefreshLineageState(
+            session_identity_hash=_refresh_session_identity_digest(
+                issuer=identity.issuer,
+                subject_id=identity.subject_id,
+                tenant_id=identity.tenant_id,
+                authorized_party=identity.authorized_party,
+                session_id_hash=identity.session_id_hash,
+            ),
+            access_token_hash=identity.token_hash,
+            access_token_id_hash=_sha256(token_id),
+            issued_at=identity.issued_at,
+            generation=generation,
+        )
+
+    def _require_refresh_lineage_guard(self) -> RefreshLineageGuardPort:
+        guard = self._refresh_lineage
+        if guard is None:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE,
+                "OIDC refresh lineage guard is unavailable",
+            )
+        return guard
+
+    async def _establish_refresh_lineage(self, initial: RefreshLineageState) -> None:
+        guard = self._require_refresh_lineage_guard()
+        try:
+            established = await guard.establish(initial=initial)
+        except Exception as exc:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE,
+                "OIDC refresh lineage guard is unavailable",
+            ) from exc
+        if not established:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refresh lineage could not be established",
+            )
+
+    async def _advance_refresh_lineage(
+        self,
+        *,
+        expected: RefreshLineageState,
+        replacement: RefreshLineageState,
+    ) -> None:
+        guard = self._require_refresh_lineage_guard()
+        try:
+            advanced = await guard.compare_and_swap(
+                expected=expected,
+                replacement=replacement,
+            )
+        except Exception as exc:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE,
+                "OIDC refresh lineage guard is unavailable",
+            ) from exc
+        if not advanced:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refresh lineage compare-and-swap was rejected",
+            )
 
     def _require_id_token_policy(self) -> OidcAudiencePolicy:
         policy = self._users.id_token
@@ -799,6 +975,7 @@ class OidcIdentityAdapter:
         *,
         previous: VerifiedUserIdentity,
         refreshed: VerifiedUserIdentity,
+        replacement: RefreshLineageState,
     ) -> None:
         exact_pairs = (
             (previous.issuer, refreshed.issuer),
@@ -814,11 +991,20 @@ class OidcIdentityAdapter:
             )
         if (
             hmac.compare_digest(previous.token_hash, refreshed.token_hash)
-            or refreshed.issued_at <= previous.issued_at
+            or refreshed.issued_at < previous.issued_at
         ):
             raise SecurityError(
                 SecurityErrorCode.IDENTITY_TOKEN_INVALID,
-                "OIDC refreshed Access Token is not newer than the current identity",
+                "OIDC refreshed Access Token is not a valid successor",
+            )
+        previous_lineage = previous.refresh_lineage
+        if previous_lineage is None or hmac.compare_digest(
+            previous_lineage.access_token_id_hash,
+            replacement.access_token_id_hash,
+        ):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refreshed Access Token identifier is not new",
             )
 
     async def verify_workload_token(

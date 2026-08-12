@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from base64 import urlsafe_b64encode
 from collections.abc import Mapping
@@ -28,6 +29,7 @@ from flowpilot_security import (
     InMemorySecurityContextSource,
     OidcAudiencePolicy,
     OidcIdentityAdapter,
+    RefreshLineageState,
     SecurityContextReference,
     SecurityError,
     SecurityErrorCode,
@@ -127,6 +129,61 @@ class FakeNonceGuard:
         return True
 
 
+class FakeRefreshLineageGuard:
+    def __init__(self) -> None:
+        self.states: dict[str, RefreshLineageState] = {}
+        self.seen_token_hashes: set[str] = set()
+        self.seen_token_id_hashes: set[str] = set()
+        self.calls: list[tuple[str, int, int]] = []
+        self.available = True
+        self._lock = asyncio.Lock()
+
+    async def establish(self, *, initial: RefreshLineageState) -> bool:
+        if not self.available:
+            raise RuntimeError("simulated private lineage failure")
+        async with self._lock:
+            self.calls.append(("establish", 0, initial.generation))
+            if (
+                initial.generation != 1
+                or initial.session_identity_hash in self.states
+                or initial.access_token_hash in self.seen_token_hashes
+                or initial.access_token_id_hash in self.seen_token_id_hashes
+            ):
+                return False
+            self.states[initial.session_identity_hash] = initial
+            self.seen_token_hashes.add(initial.access_token_hash)
+            self.seen_token_id_hashes.add(initial.access_token_id_hash)
+            return True
+
+    async def compare_and_swap(
+        self,
+        *,
+        expected: RefreshLineageState,
+        replacement: RefreshLineageState,
+    ) -> bool:
+        if not self.available:
+            raise RuntimeError("simulated private lineage failure")
+        async with self._lock:
+            self.calls.append(
+                ("compare_and_swap", expected.generation, replacement.generation)
+            )
+            current = self.states.get(expected.session_identity_hash)
+            if (
+                current != expected
+                or replacement.session_identity_hash
+                != expected.session_identity_hash
+                or replacement.generation != expected.generation + 1
+                or replacement.issued_at < expected.issued_at
+                or replacement.access_token_hash in self.seen_token_hashes
+                or replacement.access_token_id_hash in self.seen_token_id_hashes
+            ):
+                return False
+            self.states[expected.session_identity_hash] = replacement
+            self.seen_token_hashes.add(replacement.access_token_hash)
+            self.seen_token_id_hashes.add(replacement.access_token_id_hash)
+            return True
+
+
 def _user_policy() -> UserClaimPolicy:
     return UserClaimPolicy(
         token=OidcAudiencePolicy(
@@ -183,6 +240,7 @@ def _adapter(
     *,
     jwks: FakeJwksSource | None = None,
     nonces: FakeNonceGuard | None = None,
+    refresh_lineage: FakeRefreshLineageGuard | None = None,
 ) -> tuple[OidcIdentityAdapter, FakeJwksSource, FakeNonceGuard]:
     selected_jwks = jwks or FakeJwksSource(
         {
@@ -206,12 +264,14 @@ def _adapter(
             }
         )
     )
+    selected_refresh_lineage = refresh_lineage or FakeRefreshLineageGuard()
     return (
         OidcIdentityAdapter(
             jwks=selected_jwks,
             nonces=selected_nonces,
             users=_user_policy(),
             workloads=_workload_policy(),
+            refresh_lineage=selected_refresh_lineage,
         ),
         selected_jwks,
         selected_nonces,
@@ -235,6 +295,7 @@ def _base_user_claims() -> dict[str, object]:
         "scope": "openid tasks:read",
         "acr": "urn:flowpilot:loa:high",
         "sid": "keycloak-session-alpha",
+        "jti": "access-token-initial",
     }
 
 
@@ -329,6 +390,7 @@ async def test_user_token_maps_to_revocable_trusted_context_without_raw_token() 
     assert identity.roles == frozenset({"requester", "group:vpn-users"})
     assert identity.scopes == frozenset({"identity:read", "tasks:read"})
     assert identity.token_hash.startswith("sha256:")
+    assert identity.refresh_lineage is None
     assert trusted.context.tenant_id == TENANT
     assert trusted.context.subject_id == SUBJECT
     assert trusted.context.purpose == PURPOSE
@@ -364,7 +426,8 @@ async def test_user_token_maps_to_revocable_trusted_context_without_raw_token() 
 
 @pytest.mark.asyncio
 async def test_callback_token_pair_uses_standard_id_and_access_semantics() -> None:
-    adapter, _, nonce_guard = _adapter()
+    lineage_guard = FakeRefreshLineageGuard()
+    adapter, _, nonce_guard = _adapter(refresh_lineage=lineage_guard)
     access_claims = _base_user_claims()
     access_claims.pop("nonce")
     access_token = _token(access_claims)
@@ -391,9 +454,16 @@ async def test_callback_token_pair_uses_standard_id_and_access_semantics() -> No
     assert identity.roles == frozenset({"requester", "group:vpn-users"})
     assert identity.scopes == frozenset({"identity:read", "tasks:read"})
     assert identity.token_hash == expected_hash
+    assert identity.refresh_lineage is not None
+    assert identity.refresh_lineage.generation == 1
+    assert (
+        lineage_guard.states[identity.refresh_lineage.session_identity_hash]
+        == identity.refresh_lineage
+    )
     assert len(nonce_guard.calls) == 1
     assert id_token not in repr(identity)
     assert access_token not in repr(identity)
+    assert "access-token-initial" not in repr(identity)
 
 
 @pytest.mark.asyncio
@@ -414,6 +484,7 @@ async def test_callback_token_pair_uses_standard_id_and_access_semantics() -> No
         "subject",
         "session",
         "at_hash",
+        "missing_jti",
     ],
 )
 async def test_callback_token_pair_rejects_swap_and_binding_failures(
@@ -432,6 +503,8 @@ async def test_callback_token_pair_rejects_swap_and_binding_failures(
         access_claims["aud"] = "attacker-api"
     elif mutation == "access_azp":
         access_claims["azp"] = "attacker-browser"
+    elif mutation == "missing_jti":
+        access_claims.pop("jti")
     access_token = _token(access_claims)
     id_claims = _base_id_claims(access_token)
     if mutation == "id_issuer":
@@ -476,6 +549,7 @@ async def test_callback_token_pair_rejects_swap_and_binding_failures(
         )
 
     assert rejected.value.code in {
+        SecurityErrorCode.IDENTITY_CLAIMS_INVALID,
         SecurityErrorCode.IDENTITY_TOKEN_INVALID,
         SecurityErrorCode.NONCE_REPLAY,
     }
@@ -521,7 +595,8 @@ async def test_callback_nonce_is_wrong_or_single_use() -> None:
 
 @pytest.mark.asyncio
 async def test_refresh_rotates_access_identity_without_consuming_login_nonce() -> None:
-    adapter, _, nonce_guard = _adapter()
+    lineage_guard = FakeRefreshLineageGuard()
+    adapter, _, nonce_guard = _adapter(refresh_lineage=lineage_guard)
     initial_claims = _base_user_claims()
     initial_claims.pop("nonce")
     initial_access = _token(initial_claims)
@@ -533,8 +608,7 @@ async def test_refresh_rotates_access_identity_without_consuming_login_nonce() -
     )
     refreshed_claims = {
         **initial_claims,
-        "iat": int((NOW + timedelta(seconds=1)).timestamp()),
-        "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
+        "jti": "access-token-refresh-same-second",
         "exp": int((NOW + timedelta(minutes=20)).timestamp()),
         "realm_access": {"roles": ["vpn-users"]},
         "scope": "openid",
@@ -555,6 +629,13 @@ async def test_refresh_rotates_access_identity_without_consuming_login_nonce() -
     assert refreshed.scopes == frozenset({"identity:read"})
     assert refreshed.expires_at > initial.expires_at
     assert refreshed.token_hash != initial.token_hash
+    assert refreshed.issued_at == initial.issued_at
+    assert refreshed.refresh_lineage is not None
+    assert refreshed.refresh_lineage.generation == 2
+    assert (
+        lineage_guard.states[refreshed.refresh_lineage.session_identity_hash]
+        == refreshed.refresh_lineage
+    )
     assert len(nonce_guard.calls) == 1
 
 
@@ -572,6 +653,7 @@ async def test_refresh_id_token_binds_access_and_does_not_reuse_nonce() -> None:
     )
     refreshed_claims = {
         **initial_claims,
+        "jti": "access-token-refresh-with-id",
         "iat": int((NOW + timedelta(seconds=2)).timestamp()),
         "nbf": int((NOW + timedelta(seconds=2)).timestamp()),
         "exp": int((NOW + timedelta(minutes=20)).timestamp()),
@@ -628,6 +710,7 @@ async def test_refresh_rejects_cross_identity_tenant_or_session(
     )
     refreshed_claims = {
         **initial_claims,
+        "jti": "access-token-refresh-cross-identity",
         field: value,
         "iat": int((NOW + timedelta(seconds=1)).timestamp()),
         "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
@@ -648,7 +731,8 @@ async def test_refresh_rejects_cross_identity_tenant_or_session(
 
 @pytest.mark.asyncio
 async def test_refresh_rejects_current_and_historical_access_tokens() -> None:
-    adapter, _, _ = _adapter()
+    lineage_guard = FakeRefreshLineageGuard()
+    adapter, _, _ = _adapter(refresh_lineage=lineage_guard)
     initial_claims = _base_user_claims()
     initial_claims.pop("nonce")
     initial_access = _token(initial_claims)
@@ -660,8 +744,7 @@ async def test_refresh_rejects_current_and_historical_access_tokens() -> None:
     )
     next_claims = {
         **initial_claims,
-        "iat": int((NOW + timedelta(seconds=1)).timestamp()),
-        "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
+        "jti": "access-token-refresh-current",
         "exp": int((NOW + timedelta(minutes=20)).timestamp()),
     }
     next_access = _token(next_claims)
@@ -670,6 +753,10 @@ async def test_refresh_rejects_current_and_historical_access_tokens() -> None:
         previous_identity=initial,
         now=NOW + timedelta(seconds=2),
     )
+    assert current.issued_at == initial.issued_at
+    assert current.refresh_lineage is not None
+    lineage_key = current.refresh_lineage.session_identity_hash
+    authoritative = lineage_guard.states[lineage_key]
 
     for historical in (next_access, initial_access):
         with pytest.raises(SecurityError) as rejected:
@@ -680,6 +767,204 @@ async def test_refresh_rejects_current_and_historical_access_tokens() -> None:
             )
         assert rejected.value.code is SecurityErrorCode.IDENTITY_TOKEN_INVALID
         assert historical not in str(rejected.value)
+        assert lineage_guard.states[lineage_key] == authoritative
+
+
+@pytest.mark.asyncio
+async def test_concurrent_same_second_refresh_advances_lineage_once() -> None:
+    lineage_guard = FakeRefreshLineageGuard()
+    adapter, _, _ = _adapter(refresh_lineage=lineage_guard)
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    first_claims = {
+        **initial_claims,
+        "jti": "access-token-concurrent-first",
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    second_claims = {
+        **initial_claims,
+        "jti": "access-token-concurrent-second",
+        "exp": int((NOW + timedelta(minutes=21)).timestamp()),
+    }
+    first_access = _token(first_claims)
+    second_access = _token(second_claims)
+
+    results = await asyncio.gather(
+        adapter.verify_user_refresh(
+            access_token=first_access,
+            previous_identity=initial,
+            now=NOW + timedelta(seconds=1),
+        ),
+        adapter.verify_user_refresh(
+            access_token=second_access,
+            previous_identity=initial,
+            now=NOW + timedelta(seconds=1),
+        ),
+        return_exceptions=True,
+    )
+
+    successes = [item for item in results if isinstance(item, VerifiedUserIdentity)]
+    failures = [item for item in results if isinstance(item, SecurityError)]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert failures[0].code is SecurityErrorCode.IDENTITY_TOKEN_INVALID
+    winner = successes[0]
+    assert winner.refresh_lineage is not None
+    assert winner.refresh_lineage.generation == 2
+    assert (
+        lineage_guard.states[winner.refresh_lineage.session_identity_hash]
+        == winner.refresh_lineage
+    )
+    combined = str(failures[0]) + repr(failures[0])
+    assert first_access not in combined
+    assert second_access not in combined
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "old_generation",
+        "wrong_current_hash",
+        "reused_jti",
+        "missing_jti",
+        "iat_rollback",
+    ],
+)
+async def test_refresh_lineage_cas_rejects_stale_or_replayed_inputs_without_advance(
+    mutation: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lineage_guard = FakeRefreshLineageGuard()
+    adapter, _, _ = _adapter(refresh_lineage=lineage_guard)
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    initial = await adapter.verify_user_token_pair(
+        id_token=_id_token(_base_id_claims(initial_access)),
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    current_claims = {
+        **initial_claims,
+        "jti": "access-token-lineage-current",
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    current_access = _token(current_claims)
+    current = await adapter.verify_user_refresh(
+        access_token=current_access,
+        previous_identity=initial,
+        now=NOW + timedelta(seconds=1),
+    )
+    assert current.refresh_lineage is not None
+    lineage_key = current.refresh_lineage.session_identity_hash
+    authoritative = lineage_guard.states[lineage_key]
+    previous = current
+    candidate_claims = {
+        **current_claims,
+        "jti": "access-token-lineage-candidate",
+        "exp": int((NOW + timedelta(minutes=30)).timestamp()),
+    }
+    if mutation == "old_generation":
+        stale = replace(current.refresh_lineage, generation=1)
+        previous = replace(current, refresh_lineage=stale)
+    elif mutation == "wrong_current_hash":
+        wrong_hash = "sha256:" + "0" * 64
+        wrong = replace(current.refresh_lineage, access_token_hash=wrong_hash)
+        previous = replace(current, token_hash=wrong_hash, refresh_lineage=wrong)
+    elif mutation == "reused_jti":
+        candidate_claims["jti"] = current_claims["jti"]
+    elif mutation == "missing_jti":
+        candidate_claims.pop("jti")
+    elif mutation == "iat_rollback":
+        candidate_claims["iat"] = int((NOW - timedelta(minutes=2)).timestamp())
+        candidate_claims["nbf"] = int((NOW - timedelta(minutes=2)).timestamp())
+    candidate_access = _token(candidate_claims)
+
+    with pytest.raises(SecurityError) as rejected:
+        await adapter.verify_user_refresh(
+            access_token=candidate_access,
+            previous_identity=previous,
+            now=NOW + timedelta(seconds=2),
+        )
+
+    combined = str(rejected.value) + repr(rejected.value) + caplog.text
+    assert rejected.value.code in {
+        SecurityErrorCode.IDENTITY_CLAIMS_INVALID,
+        SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+    }
+    assert lineage_guard.states[lineage_key] == authoritative
+    assert candidate_access not in combined
+    assert current_access not in combined
+
+
+@pytest.mark.asyncio
+async def test_refresh_lineage_guard_failure_is_closed_and_does_not_leak_tokens(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    callback_guard = FakeRefreshLineageGuard()
+    callback_guard.available = False
+    callback_adapter, _, _ = _adapter(refresh_lineage=callback_guard)
+    initial_claims = _base_user_claims()
+    initial_claims.pop("nonce")
+    initial_access = _token(initial_claims)
+    id_token = _id_token(_base_id_claims(initial_access))
+
+    with pytest.raises(SecurityError) as callback_rejected:
+        await callback_adapter.verify_user_token_pair(
+            id_token=id_token,
+            access_token=initial_access,
+            expected_nonce=USER_NONCE,
+            now=NOW,
+        )
+    assert callback_rejected.value.code is SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE
+    assert callback_guard.states == {}
+
+    refresh_guard = FakeRefreshLineageGuard()
+    refresh_adapter, _, _ = _adapter(refresh_lineage=refresh_guard)
+    initial = await refresh_adapter.verify_user_token_pair(
+        id_token=id_token,
+        access_token=initial_access,
+        expected_nonce=USER_NONCE,
+        now=NOW,
+    )
+    assert initial.refresh_lineage is not None
+    lineage_key = initial.refresh_lineage.session_identity_hash
+    authoritative = refresh_guard.states[lineage_key]
+    refresh_guard.available = False
+    refreshed_claims = {
+        **initial_claims,
+        "jti": "access-token-lineage-unavailable",
+        "exp": int((NOW + timedelta(minutes=20)).timestamp()),
+    }
+    refreshed_access = _token(refreshed_claims)
+
+    with pytest.raises(SecurityError) as refresh_rejected:
+        await refresh_adapter.verify_user_refresh(
+            access_token=refreshed_access,
+            previous_identity=initial,
+            now=NOW + timedelta(seconds=1),
+        )
+    combined = (
+        str(callback_rejected.value)
+        + repr(callback_rejected.value)
+        + str(refresh_rejected.value)
+        + repr(refresh_rejected.value)
+        + caplog.text
+    )
+    assert refresh_rejected.value.code is SecurityErrorCode.IDENTITY_SOURCE_UNAVAILABLE
+    assert refresh_guard.states[lineage_key] == authoritative
+    assert id_token not in combined
+    assert initial_access not in combined
+    assert refreshed_access not in combined
 
 
 @pytest.mark.asyncio
@@ -698,6 +983,7 @@ async def test_refresh_id_token_rejects_wrong_at_hash_without_token_leakage(
     )
     refreshed_claims = {
         **initial_claims,
+        "jti": "access-token-refresh-bad-at-hash",
         "iat": int((NOW + timedelta(seconds=1)).timestamp()),
         "nbf": int((NOW + timedelta(seconds=1)).timestamp()),
         "exp": int((NOW + timedelta(minutes=20)).timestamp()),
@@ -1131,6 +1417,15 @@ def test_identity_configuration_rejects_symmetric_algorithms_and_incomplete_regi
 
 
 def test_verified_identity_types_never_accept_raw_credential_evidence() -> None:
+    with pytest.raises(ValueError, match="sha256"):
+        RefreshLineageState(
+            session_identity_hash="raw-session-identity",
+            access_token_hash="raw-access-token",
+            access_token_id_hash="raw-jti",
+            issued_at=NOW,
+            generation=1,
+        )
+
     with pytest.raises(ValueError, match="sha256"):
         VerifiedUserIdentity(
             issuer=ISSUER,

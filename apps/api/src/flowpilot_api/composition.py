@@ -18,7 +18,7 @@ from flowpilot_application import (
 )
 
 from .app import create_app
-from .oidc import OidcBffService
+from .oidc import OidcApiSecurityBundle, OidcBffService
 from .security import RequestSecurityPort
 from .stream import InMemoryEventStream
 
@@ -31,12 +31,13 @@ def create_product_app(
     execution: ExecutionPort,
     task_initialization: TaskInitializationConfig,
     thread_id_factory: ThreadIdFactory,
-    request_security: RequestSecurityPort,
+    request_security: RequestSecurityPort | None = None,
     approval_decisions: ApprovalDecisionService | None = None,
     event_stream: InMemoryEventStream | None = None,
     event_stream_config: TaskEventStreamConfig | None = None,
     clock: Callable[[], datetime] | None = None,
     oidc_bff: OidcBffService | None = None,
+    oidc_security: OidcApiSecurityBundle | None = None,
 ) -> FastAPI:
     """Create the fully port-bound local-product API.
 
@@ -44,6 +45,16 @@ def create_product_app(
     Worker, queue, database, Redis, MCP and identity implementations remain
     outside this package and must be supplied by their owning adapters.
     """
+
+    if oidc_security is not None:
+        if request_security is not None or oidc_bff is not None:
+            raise ValueError(
+                "OIDC security bundle cannot be mixed with separate adapters"
+            )
+        request_security = oidc_security.request_security
+        oidc_bff = oidc_security.bff
+    if request_security is None:
+        raise ValueError("product request security must be configured")
 
     services = compose_core_application(
         command_unit_of_work=command_unit_of_work,

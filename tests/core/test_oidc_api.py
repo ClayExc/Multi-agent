@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import httpx
 import pytest
 from flowpilot_api import (
+    ApiError,
     InMemoryEventStream,
     InMemoryOidcSessionStore,
     OidcApiSecurityBundle,
@@ -25,6 +26,7 @@ from flowpilot_api import (
 from flowpilot_domain import AssuranceLevel, DataClassification
 from flowpilot_security import (
     InMemorySecurityContextSource,
+    RefreshLineageState,
     SecurityError,
     SecurityErrorCode,
     TrustedContextMapper,
@@ -34,6 +36,8 @@ from flowpilot_security import (
 
 NOW = datetime(2026, 8, 11, 8, 0, tzinfo=UTC)
 USER_TOKEN = "header.payload.signature-sensitive"
+ID_TOKEN = "id.header.payload.signature-sensitive"
+ROTATED_USER_TOKEN = "rotated.header.payload.signature-sensitive"
 REFRESH_TOKEN = "refresh-sensitive-value"
 ROTATED_REFRESH_TOKEN = "rotated-refresh-sensitive-value"
 
@@ -98,7 +102,8 @@ class FakeOidcProvider:
             }
         )
         return OidcCodeExchange(
-            user_token=USER_TOKEN,
+            id_token=ID_TOKEN,
+            access_token=USER_TOKEN,
             refresh_token=REFRESH_TOKEN,
         )
 
@@ -106,14 +111,12 @@ class FakeOidcProvider:
         self,
         *,
         refresh_token: str,
-        now: datetime,
     ) -> OidcRefreshResult:
-        assert now == NOW
         self.refresh_calls.append(refresh_token)
         if self.refresh_failure is not None:
             raise self.refresh_failure
         return OidcRefreshResult(
-            identity=_identity(token_hash_char="d"),
+            access_token=ROTATED_USER_TOKEN,
             refresh_token=ROTATED_REFRESH_TOKEN,
         )
 
@@ -123,20 +126,37 @@ class FakeOidcProvider:
 
 class FakeUserTokenVerifier:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, datetime]] = []
+        self.calls: list[tuple[str, str, str, datetime]] = []
+        self.refresh_calls: list[
+            tuple[str, str | None, VerifiedUserIdentity, datetime]
+        ] = []
         self.failure: SecurityError | None = None
 
-    async def verify_user_token(
+    async def verify_user_token_pair(
         self,
-        token: str,
         *,
+        id_token: str,
+        access_token: str,
         expected_nonce: str,
         now: datetime,
     ) -> VerifiedUserIdentity:
-        self.calls.append((token, expected_nonce, now))
+        self.calls.append((id_token, access_token, expected_nonce, now))
         if self.failure is not None:
             raise self.failure
         return _identity()
+
+    async def verify_user_refresh(
+        self,
+        *,
+        access_token: str,
+        previous_identity: VerifiedUserIdentity,
+        now: datetime,
+        id_token: str | None = None,
+    ) -> VerifiedUserIdentity:
+        self.refresh_calls.append((access_token, id_token, previous_identity, now))
+        if self.failure is not None:
+            raise self.failure
+        return _identity(token_hash_char="d")
 
 
 class SecretFactory:
@@ -270,6 +290,7 @@ def test_login_callback_uses_state_nonce_pkce_and_secure_opaque_cookies() -> Non
             )
             assert harness.verifier.calls == [
                 (
+                    ID_TOKEN,
                     USER_TOKEN,
                     harness.provider.authorization["nonce"],
                     NOW,
@@ -622,9 +643,130 @@ def test_revoked_trusted_context_fails_closed_even_if_cookie_remains() -> None:
 
 
 def test_auth_models_and_reprs_never_project_raw_tokens() -> None:
-    exchange = OidcCodeExchange(USER_TOKEN, REFRESH_TOKEN)
-    refreshed = OidcRefreshResult(_identity(), ROTATED_REFRESH_TOKEN)
+    exchange = OidcCodeExchange(ID_TOKEN, USER_TOKEN, REFRESH_TOKEN)
+    refreshed = OidcRefreshResult(ROTATED_USER_TOKEN, ROTATED_REFRESH_TOKEN)
     combined = repr(exchange) + repr(refreshed)
+    assert ID_TOKEN not in combined
     assert USER_TOKEN not in combined
+    assert ROTATED_USER_TOKEN not in combined
     assert REFRESH_TOKEN not in combined
     assert ROTATED_REFRESH_TOKEN not in combined
+
+
+def _lineage(
+    *,
+    generation: int,
+    token: str,
+    token_id: str,
+    issued_at: datetime = NOW,
+) -> RefreshLineageState:
+    return RefreshLineageState(
+        session_identity_hash="sha256:" + "a" * 64,
+        access_token_hash="sha256:" + token * 64,
+        access_token_id_hash="sha256:" + token_id * 64,
+        issued_at=issued_at,
+        generation=generation,
+    )
+
+
+def test_local_refresh_lineage_guard_is_atomic_and_rejects_history() -> None:
+    store = InMemoryOidcSessionStore(clock=lambda: NOW)
+    initial = _lineage(generation=1, token="b", token_id="c")
+    same_second = _lineage(generation=2, token="d", token_id="e")
+
+    async def scenario() -> None:
+        assert await store.establish(initial=initial)
+        assert not await store.establish(initial=initial)
+        results = await asyncio.gather(
+            store.compare_and_swap(expected=initial, replacement=same_second),
+            store.compare_and_swap(expected=initial, replacement=same_second),
+        )
+        assert sorted(results) == [False, True]
+        historical = _lineage(generation=3, token="b", token_id="f")
+        reused_jti = _lineage(generation=3, token="f", token_id="c")
+        rollback = _lineage(
+            generation=3,
+            token="f",
+            token_id="a",
+            issued_at=NOW - timedelta(seconds=1),
+        )
+        assert not await store.compare_and_swap(
+            expected=same_second,
+            replacement=historical,
+        )
+        assert not await store.compare_and_swap(
+            expected=same_second,
+            replacement=reused_jti,
+        )
+        assert not await store.compare_and_swap(
+            expected=same_second,
+            replacement=rollback,
+        )
+
+    _run(scenario)
+
+
+def test_concurrent_refresh_claims_provider_once_and_loser_cannot_cleanup_winner(
+) -> None:
+    harness = _harness()
+    app = create_app(
+        oidc_bff=harness.bundle.bff,
+        request_security=harness.bundle.request_security,
+    )
+
+    async def scenario() -> None:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="https://flowpilot.test",
+        ) as client:
+            cookie, _callback = await _login(client, harness)
+        outcomes = await asyncio.gather(
+            harness.bundle.bff.refresh(cookie),
+            harness.bundle.bff.refresh(cookie),
+            return_exceptions=True,
+        )
+        successes = [item for item in outcomes if not isinstance(item, Exception)]
+        failures = [item for item in outcomes if isinstance(item, ApiError)]
+        assert len(successes) == len(failures) == 1
+        assert failures[0].status_code == 401
+        assert harness.provider.refresh_calls == [REFRESH_TOKEN]
+        winner = successes[0]
+        assert not isinstance(winner, Exception)
+        binding = await harness.sessions.resolve_binding(winner.session_cookie)
+        assert binding is not None
+        assert harness.provider.revoke_calls == []
+
+    _run(scenario)
+
+
+def test_refresh_verifier_failure_revokes_old_and_rotated_tokens_without_retry(
+) -> None:
+    harness = _harness()
+    app = create_app(
+        oidc_bff=harness.bundle.bff,
+        request_security=harness.bundle.request_security,
+    )
+
+    async def scenario() -> None:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="https://flowpilot.test",
+        ) as client:
+            old_cookie, _callback = await _login(client, harness)
+            harness.verifier.failure = SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "rotated token sensitive failure",
+            )
+            response = await client.post("/v1/auth/refresh")
+            assert response.status_code == 401
+            assert "sensitive" not in response.text
+            assert await harness.sessions.resolve_session(old_cookie) is None
+        assert harness.provider.refresh_calls == [REFRESH_TOKEN]
+        assert harness.provider.revoke_calls == [
+            REFRESH_TOKEN,
+            ROTATED_REFRESH_TOKEN,
+        ]
+
+    _run(scenario)

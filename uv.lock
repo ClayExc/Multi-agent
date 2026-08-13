@@ -720,6 +720,7 @@ dependencies = [
     { name = "flowpilot-application" },
     { name = "flowpilot-domain" },
     { name = "flowpilot-security" },
+    { name = "httpx" },
     { name = "pydantic" },
 ]
 
@@ -729,6 +730,7 @@ requires-dist = [
     { name = "flowpilot-application", editable = "packages/application" },
     { name = "flowpilot-domain", editable = "packages/domain" },
     { name = "flowpilot-security", editable = "packages/security" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "pydantic", specifier = ">=2.10,<3" },
 ]
 

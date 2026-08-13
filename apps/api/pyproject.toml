@@ -8,6 +8,7 @@ dependencies = [
     "flowpilot-application",
     "flowpilot-domain",
     "flowpilot-security",
+    "httpx>=0.28,<1",
     "pydantic>=2.10,<3",
 ]
 

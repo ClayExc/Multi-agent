@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextlib
 import hashlib
@@ -14,12 +15,15 @@ from urllib.parse import urlsplit
 
 from flowpilot_domain import SecurityContextRef
 from flowpilot_security import (
+    RefreshLineageGuardPort,
+    RefreshLineageState,
     RevocableSecurityContextSource,
     SecurityContextReference,
     SecurityError,
     SecurityVerifier,
     TrustedContextMapper,
     TrustedSecurityContext,
+    UserTokenPairVerifierPort,
     VerifiedUserIdentity,
     oidc_nonce_digest,
 )
@@ -91,28 +95,39 @@ class OidcBffConfig:
 
 @dataclass(frozen=True, slots=True, repr=False)
 class OidcCodeExchange:
-    user_token: str
+    id_token: str
+    access_token: str
     refresh_token: str
 
     def __post_init__(self) -> None:
-        if not self.user_token or not self.refresh_token:
+        if not self.id_token or not self.access_token or not self.refresh_token:
             raise ValueError("OIDC code exchange tokens must not be empty")
 
     def __repr__(self) -> str:
-        return "OidcCodeExchange(user_token=<redacted>, refresh_token=<redacted>)"
+        return (
+            "OidcCodeExchange(id_token=<redacted>, access_token=<redacted>, "
+            "refresh_token=<redacted>)"
+        )
 
 
 @dataclass(frozen=True, slots=True, repr=False)
 class OidcRefreshResult:
-    identity: VerifiedUserIdentity
+    access_token: str
     refresh_token: str
+    id_token: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.refresh_token:
-            raise ValueError("OIDC refresh token must not be empty")
+        if not self.access_token or not self.refresh_token:
+            raise ValueError("OIDC refreshed tokens must not be empty")
+        if self.id_token == "":
+            raise ValueError("OIDC refreshed ID token must not be empty")
 
     def __repr__(self) -> str:
-        return "OidcRefreshResult(identity=<trusted>, refresh_token=<redacted>)"
+        return (
+            "OidcRefreshResult(access_token=<redacted>, "
+            f"id_token={'<redacted>' if self.id_token is not None else 'None'}, "
+            "refresh_token=<redacted>)"
+        )
 
 
 class OidcProviderPort(Protocol):
@@ -139,20 +154,9 @@ class OidcProviderPort(Protocol):
         self,
         *,
         refresh_token: str,
-        now: datetime,
     ) -> OidcRefreshResult: ...
 
     async def revoke(self, *, refresh_token: str) -> None: ...
-
-
-class UserTokenVerifierPort(Protocol):
-    async def verify_user_token(
-        self,
-        token: str,
-        *,
-        expected_nonce: str,
-        now: datetime,
-    ) -> VerifiedUserIdentity: ...
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -222,7 +226,12 @@ class OidcSessionStorePort(Protocol):
 
     async def resolve_session(self, session_id: str) -> OidcBrowserSession | None: ...
 
-    async def rotate_session(
+    async def claim_session_refresh(
+        self,
+        session_id: str,
+    ) -> OidcBrowserSession | None: ...
+
+    async def complete_session_refresh(
         self,
         old_session_id: str,
         new_session_id: str,
@@ -244,14 +253,19 @@ class OidcSessionStorePort(Protocol):
     async def consume(self, *, nonce_hash: str, expires_at: datetime) -> bool: ...
 
 
-class InMemoryOidcSessionStore:
-    """Minimal server-side store and nonce guard for deterministic local use."""
+class InMemoryOidcSessionStore(RefreshLineageGuardPort):
+    """Lock-protected local session, nonce, and hashed refresh-lineage store."""
 
     def __init__(self, *, clock: Callable[[], datetime]) -> None:
         self._clock = clock
+        self._lock = asyncio.Lock()
         self._logins: dict[str, OidcLoginTransaction] = {}
         self._nonces: dict[str, datetime] = {}
         self._sessions: dict[str, OidcBrowserSession] = {}
+        self._refreshing: dict[str, OidcBrowserSession] = {}
+        self._lineages: dict[str, RefreshLineageState] = {}
+        self._seen_access_tokens: set[str] = set()
+        self._seen_access_token_ids: set[str] = set()
 
     async def create_login(
         self,
@@ -260,44 +274,52 @@ class InMemoryOidcSessionStore:
         *,
         nonce_hash: str,
     ) -> None:
-        if flow_id in self._logins or nonce_hash in self._nonces:
-            raise ApiError(
-                ApiErrorCode.AUTH_FLOW_INVALID,
-                "OIDC login transaction already exists",
-                status_code=409,
-            )
-        self._logins[flow_id] = transaction
-        self._nonces[nonce_hash] = transaction.expires_at
+        async with self._lock:
+            if flow_id in self._logins or nonce_hash in self._nonces:
+                raise ApiError(
+                    ApiErrorCode.AUTH_FLOW_INVALID,
+                    "OIDC login transaction already exists",
+                    status_code=409,
+                )
+            self._logins[flow_id] = transaction
+            self._nonces[nonce_hash] = transaction.expires_at
 
     async def consume_login(self, flow_id: str) -> OidcLoginTransaction | None:
-        transaction = self._logins.pop(flow_id, None)
-        if transaction is None or self._now() >= transaction.expires_at:
-            return None
-        return transaction
+        async with self._lock:
+            transaction = self._logins.pop(flow_id, None)
+            if transaction is None or self._now() >= transaction.expires_at:
+                return None
+            return transaction
 
     async def consume(self, *, nonce_hash: str, expires_at: datetime) -> bool:
         _utc(expires_at, "OIDC token expiry")
-        nonce_expiry = self._nonces.pop(nonce_hash, None)
-        return nonce_expiry is not None and self._now() < nonce_expiry
+        async with self._lock:
+            nonce_expiry = self._nonces.pop(nonce_hash, None)
+            return nonce_expiry is not None and self._now() < nonce_expiry
 
     async def store_session(
         self,
         session_id: str,
         session: OidcBrowserSession,
     ) -> None:
-        if session_id in self._sessions:
-            raise ApiError(
-                ApiErrorCode.AUTH_FLOW_INVALID,
-                "browser session identifier already exists",
-                status_code=409,
-            )
-        self._sessions[session_id] = session
+        async with self._lock:
+            if session_id in self._sessions or session_id in self._refreshing:
+                raise ApiError(
+                    ApiErrorCode.AUTH_FLOW_INVALID,
+                    "browser session identifier already exists",
+                    status_code=409,
+                )
+            self._sessions[session_id] = session
 
     async def resolve_session(self, session_id: str) -> OidcBrowserSession | None:
-        session = self._sessions.get(session_id)
-        if session is None or self._now() >= session.expires_at:
-            return None
-        return session
+        async with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                return None
+            if self._now() >= session.expires_at:
+                del self._sessions[session_id]
+                return None
+            return session
 
     async def resolve_binding(self, session_id: str) -> BrowserSessionBinding | None:
         session = await self.resolve_session(session_id)
@@ -310,7 +332,20 @@ class InMemoryOidcSessionStore:
             expires_at=session.expires_at,
         )
 
-    async def rotate_session(
+    async def claim_session_refresh(
+        self,
+        session_id: str,
+    ) -> OidcBrowserSession | None:
+        async with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None or self._now() >= session.expires_at:
+                self._sessions.pop(session_id, None)
+                return None
+            del self._sessions[session_id]
+            self._refreshing[session_id] = session
+            return session
+
+    async def complete_session_refresh(
         self,
         old_session_id: str,
         new_session_id: str,
@@ -318,18 +353,64 @@ class InMemoryOidcSessionStore:
         expected: OidcBrowserSession,
         replacement: OidcBrowserSession,
     ) -> bool:
-        current = self._sessions.get(old_session_id)
-        if current is not expected or new_session_id in self._sessions:
-            return False
-        del self._sessions[old_session_id]
-        self._sessions[new_session_id] = replacement
-        return True
+        async with self._lock:
+            current = self._refreshing.get(old_session_id)
+            if (
+                current is not expected
+                or new_session_id in self._sessions
+                or new_session_id in self._refreshing
+            ):
+                return False
+            del self._refreshing[old_session_id]
+            self._sessions[new_session_id] = replacement
+            return True
 
     async def invalidate_session(
         self,
         session_id: str,
     ) -> OidcBrowserSession | None:
-        return self._sessions.pop(session_id, None)
+        async with self._lock:
+            return self._sessions.pop(session_id, None) or self._refreshing.pop(
+                session_id,
+                None,
+            )
+
+    async def establish(self, *, initial: RefreshLineageState) -> bool:
+        async with self._lock:
+            if (
+                initial.generation != 1
+                or initial.session_identity_hash in self._lineages
+                or initial.access_token_hash in self._seen_access_tokens
+                or initial.access_token_id_hash in self._seen_access_token_ids
+            ):
+                return False
+            self._lineages[initial.session_identity_hash] = initial
+            self._seen_access_tokens.add(initial.access_token_hash)
+            self._seen_access_token_ids.add(initial.access_token_id_hash)
+            return True
+
+    async def compare_and_swap(
+        self,
+        *,
+        expected: RefreshLineageState,
+        replacement: RefreshLineageState,
+    ) -> bool:
+        async with self._lock:
+            current = self._lineages.get(expected.session_identity_hash)
+            if (
+                current != expected
+                or replacement.session_identity_hash
+                != expected.session_identity_hash
+                or replacement.generation != expected.generation + 1
+                or replacement.issued_at < expected.issued_at
+                or replacement.access_token_hash in self._seen_access_tokens
+                or replacement.access_token_id_hash in self._seen_access_token_ids
+            ):
+                return False
+            self._lineages[expected.session_identity_hash] = replacement
+            self._seen_access_tokens.add(replacement.access_token_hash)
+            self._seen_access_token_ids.add(replacement.access_token_id_hash)
+            return True
 
     def _now(self) -> datetime:
         return _utc(self._clock(), "OIDC session store clock")
@@ -354,7 +435,7 @@ class OidcBffService:
         self,
         *,
         provider: OidcProviderPort,
-        token_verifier: UserTokenVerifierPort,
+        token_verifier: UserTokenPairVerifierPort,
         context_mapper: TrustedContextMapper,
         contexts: RevocableSecurityContextSource,
         sessions: OidcSessionStorePort,
@@ -450,8 +531,9 @@ class OidcBffService:
                 pkce_verifier=transaction.pkce_verifier,
                 redirect_uri=self._config.redirect_uri,
             )
-            identity = await self._token_verifier.verify_user_token(
-                exchange.user_token,
+            identity = await self._token_verifier.verify_user_token_pair(
+                id_token=exchange.id_token,
+                access_token=exchange.access_token,
                 expected_nonce=transaction.nonce,
                 now=self._now(),
             )
@@ -479,21 +561,27 @@ class OidcBffService:
             ) from None
 
     async def refresh(self, session_cookie: str | None) -> OidcSessionStart:
-        session = await self._resolve_session(session_cookie)
+        cookie = self._required_cookie(session_cookie)
+        session = await self._claim_refresh(cookie)
         refreshed: OidcRefreshResult | None = None
         try:
             refreshed = await self._provider.refresh(
                 refresh_token=session.refresh_token,
+            )
+            identity = await self._token_verifier.verify_user_refresh(
+                access_token=refreshed.access_token,
+                id_token=refreshed.id_token,
+                previous_identity=session.identity,
                 now=self._now(),
             )
-            self._assert_configured_identity(refreshed.identity)
-            self._assert_refresh_identity(session.identity, refreshed.identity)
+            self._assert_configured_identity(identity)
+            self._assert_refresh_identity(session.identity, identity)
             replacement, trusted = self._build_session_record(
-                identity=refreshed.identity,
+                identity=identity,
                 refresh_token=refreshed.refresh_token,
             )
-            old_cookie = self._required_cookie(session_cookie)
             new_cookie = "sess_" + self._secret("session")
+            start = self._session_start(new_cookie, replacement)
             await self._contexts.store(trusted)
             try:
                 await self._contexts.revoke(
@@ -501,8 +589,8 @@ class OidcBffService:
                     revoked_at=self._now(),
                     reason_code="OIDC_SESSION_REFRESHED",
                 )
-                rotated = await self._sessions.rotate_session(
-                    old_cookie,
+                rotated = await self._sessions.complete_session_refresh(
+                    cookie,
                     new_cookie,
                     expected=session,
                     replacement=replacement,
@@ -523,15 +611,15 @@ class OidcBffService:
                     "browser session was already refreshed or invalidated",
                     status_code=401,
                 )
-            return self._session_start(new_cookie, replacement)
+            return start
         except ApiError:
-            await self._cleanup_refresh_failure(session_cookie, refreshed)
+            await self._cleanup_refresh_failure(cookie, refreshed)
             raise
         except SecurityError as error:
-            await self._cleanup_refresh_failure(session_cookie, refreshed)
+            await self._cleanup_refresh_failure(cookie, refreshed)
             raise security_error_to_api(error) from None
         except Exception:
-            await self._cleanup_refresh_failure(session_cookie, refreshed)
+            await self._cleanup_refresh_failure(cookie, refreshed)
             raise ApiError(
                 ApiErrorCode.DEPENDENCY_UNAVAILABLE,
                 "OIDC refresh service is unavailable",
@@ -554,9 +642,8 @@ class OidcBffService:
             )
             if session is None:
                 return None
-            await self._contexts.revoke(
+            await self._revoke_context_safely(
                 session.security_context.context_ref,
-                revoked_at=self._now(),
                 reason_code="OIDC_SESSION_INVALIDATED",
             )
             await self._revoke_token_safely(session.refresh_token)
@@ -652,6 +739,24 @@ class OidcBffService:
             )
         return session
 
+    async def _claim_refresh(self, cookie: str) -> OidcBrowserSession:
+        try:
+            session = await self._sessions.claim_session_refresh(cookie)
+        except Exception:
+            raise ApiError(
+                ApiErrorCode.DEPENDENCY_UNAVAILABLE,
+                "browser session store is unavailable",
+                status_code=503,
+                retryable=True,
+            ) from None
+        if session is None:
+            raise ApiError(
+                ApiErrorCode.AUTHENTICATION_INVALID,
+                "browser session was already refreshed or invalidated",
+                status_code=401,
+            )
+        return session
+
     async def _consume_login(
         self,
         flow_id: str,
@@ -674,7 +779,7 @@ class OidcBffService:
 
     async def _cleanup_refresh_failure(
         self,
-        session_cookie: str | None,
+        session_cookie: str,
         refreshed: OidcRefreshResult | None,
     ) -> None:
         await self._invalidate_safely(session_cookie)
@@ -720,7 +825,6 @@ class OidcBffService:
             or previous.subject_id != refreshed.subject_id
             or previous.tenant_id != refreshed.tenant_id
             or previous.authorized_party != refreshed.authorized_party
-            or previous.assurance_level is not refreshed.assurance_level
             or previous.session_id_hash != refreshed.session_id_hash
         ):
             raise ApiError(
@@ -817,7 +921,7 @@ class OidcApiSecurityBundle:
 def compose_oidc_api_security(
     *,
     provider: OidcProviderPort,
-    token_verifier: UserTokenVerifierPort,
+    token_verifier: UserTokenPairVerifierPort,
     context_mapper: TrustedContextMapper,
     contexts: RevocableSecurityContextSource,
     sessions: OidcSessionStorePort,

@@ -1,0 +1,94 @@
+{
+  "schema": "flowpilot.wp088.integration-proof.v1",
+  "chain_id": "CHAIN-M8-IDENTITY-TENANCY-01",
+  "step_id": "M8-05N-S7-INTEGRATION-FINAL",
+  "work_package": "WP-088",
+  "attempt_id": "WP-088-a1-r2",
+  "session_role": "S7-INTEGRATION",
+  "input_head": "977cf2c60aa1b4c80375fee2547a66ebca542f9b",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "scope": {
+    "s7_only": true,
+    "product_changed": false,
+    "contract_changed": false,
+    "lock_changed": false,
+    "migration_changed": false,
+    "release_approved": false,
+    "m9_started": false
+  },
+  "static_baseline": {
+    "contract_tree": "8eab44bfe8436d7d5ba9f4be4854af8e207adb52",
+    "migration_tree": "8383eda91972210ff16fb770679a48a9793e457a",
+    "uv_lock_blob": "b7ee086351c373d249eb38cd09dbf0fc4546819b",
+    "uv_lock_sha256": "69cfb9afa8ba3581b286daa0b36ac2678e65b7b878b269cf25404d47085bc2eb",
+    "realm_sha256": "ec6587c1c81410bd6387fbdeb525d0dc948095b63065f25de8d3b371ce32afdb",
+    "upstream_handoff_sha256": "2814f1b3b980c14d613650c474e7185378bb540f1c793229d1c62ed1375ba4b1",
+    "migration_order": ["0001", "0002", "0003", "0004"],
+    "scope_violations": 0
+  },
+  "end_to_end_live": {
+    "source": "real Keycloak 26 plus production create_local_keycloak_app",
+    "code_pkce_callbacks": 1,
+    "opaque_cookie_sessions": 1,
+    "same_second_refreshes": 1,
+    "concurrent_refresh_successes": 1,
+    "concurrent_refresh_rejections": 1,
+    "logout_successes": 1,
+    "revoked_session_rejections": 1,
+    "cross_tenant_successful_reads": 0,
+    "model_calls": 0,
+    "tool_calls": 0
+  },
+  "signed_token_live_crypto": {
+    "source": "real Keycloak JWT, real JWKS, production OidcIdentityAdapter",
+    "valid_pairs": 1,
+    "wrong_nonce_rejections": 1,
+    "nonce_replay_rejections": 1,
+    "token_swap_rejections": 1,
+    "wrong_audience_rejections": 1,
+    "tenant_mapping_rejections": 1,
+    "role_mapping_rejections": 1,
+    "raw_token_output_count": 0
+  },
+  "deterministic_api_negatives": {
+    "classification": "deterministic, not live",
+    "source": "WP-087 S3/S4 API and MCP evidence",
+    "fixed_denominator": {"declared": 156, "pass": 30, "fail": 126, "skip": 0, "quarantine": 0, "gate": "FAIL"}
+  },
+  "postgresql_rls": {
+    "status": "REUSED",
+    "source": "WP-084",
+    "basis": "migration and persistence Git trees unchanged",
+    "cross_tenant_successful_reads": 0,
+    "cross_tenant_successful_writes": 0,
+    "pool_context_residuals": 0
+  },
+  "durable_recovery": {
+    "security_context_validator": "RuntimeSecurityContextValidator with PostgresSecurityContextSource",
+    "redis_loss_observed": true,
+    "generation": "1->2",
+    "checkpoint_sequence": "3->6",
+    "old_worker_successful_writes": 0,
+    "stale_cas_successful_writes": 0,
+    "terminal_node_reruns": 0,
+    "terminal_checkpoint_writes": 0,
+    "cross_tenant_successful_reads": 0
+  },
+  "gates": {
+    "targeted_pytest": "230 passed",
+    "contract": "20 schemas, 35 cases, 43 semantic cases, 52 features",
+    "ruff": "PASS",
+    "mypy_strict": "3 source files PASS",
+    "uv_lock_check": "PASS",
+    "pip_audit": "0 known vulnerabilities",
+    "secret_scan": "0",
+    "diff_check": "PASS"
+  },
+  "cleanup": {"containers": 0, "volumes": 0, "networks": 0, "temporary_secret_files": 0},
+  "subagents": {
+    "count": 2,
+    "mode": "read-only",
+    "tasks": ["live boundary review", "static gate and evidence review"]
+  },
+  "outcome": "PASS_HANDOFF"
+}

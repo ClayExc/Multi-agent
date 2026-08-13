@@ -59,13 +59,16 @@ from flowpilot_persistence import (
     PersistenceError,
     PersistenceErrorCode,
     PostgresDataUnitOfWorkFactory,
+    PostgresSecurityContextSource,
     RedisCoordinationAdapter,
 )
+from flowpilot_security import SecurityVerifier, TrustedSecurityContext
 from flowpilot_worker import (
     DurableGraphFactory,
     InMemoryExecutionQueue,
     PersistenceCheckpointAdapter,
     RuntimeExecutionAdapter,
+    RuntimeSecurityContextValidator,
     TrustedTenantInventory,
     build_durable_runtime,
 )
@@ -227,7 +230,10 @@ def _case_instance(case_id: str) -> dict[str, Any]:
     )
 
 
-def _command_fixture(suffix: str) -> TaskCommand:
+def _command_fixture(
+    suffix: str,
+    trusted: TrustedSecurityContext | None = None,
+) -> TaskCommand:
     value = _case_instance("task_command.create.valid")
     value["command_id"] = f"cmd_durable{suffix}"
     value["task_id"] = f"task_durable{suffix}"
@@ -235,9 +241,78 @@ def _command_fixture(suffix: str) -> TaskCommand:
         "sha256:" + hashlib.sha256(f"idempotency:{suffix}".encode()).hexdigest()
     )
     value["command_digest"] = "sha256:" + "0" * 64
+    if trusted is not None:
+        value["security_context"] = trusted.context.to_mapping()
     unsigned = TaskCommand.from_mapping(value)
     value["command_digest"] = unsigned.recompute_digest()
     return TaskCommand.from_mapping(value)
+
+
+def _trusted_context_fixture(suffix: str) -> TrustedSecurityContext:
+    """Build the complete trusted snapshot consumed by the production validator."""
+
+    from flowpilot_domain import (
+        ActorType,
+        AssuranceLevel,
+        AuthenticationMethod,
+        AuthenticationRef,
+        SecurityContextRef,
+        canonical_sha256,
+    )
+    from flowpilot_security import trusted_context_snapshot_hash
+
+    issued_at = FIXED_NOW - timedelta(minutes=30)
+    expires_at = FIXED_NOW + timedelta(minutes=30)
+    authentication = AuthenticationRef(
+        method=AuthenticationMethod.OIDC,
+        assurance_level=AssuranceLevel.SUBSTANTIAL,
+        session_id_hash=canonical_sha256({"session": f"durable-{suffix}"}),
+    )
+    context_id = f"secctx_durable{suffix}"
+    context_ref = f"security-context://{TENANT_A}/user-123/{suffix}"
+    issuer = "https://identity.flowpilot.test/realms/integration"
+    authorized_party = "flowpilot-worker"
+    roles = frozenset({"requester"})
+    scopes = frozenset({"tasks:read", "tasks:execute"})
+    token_hash = canonical_sha256({"token": f"durable-{suffix}"})
+    context_hash = trusted_context_snapshot_hash(
+        context_id=context_id,
+        context_ref=context_ref,
+        tenant_id=TENANT_A,
+        subject_id="user-123",
+        subject_type=ActorType.USER,
+        issuer=issuer,
+        authorized_party=authorized_party,
+        roles=roles,
+        scopes=scopes,
+        authentication=authentication,
+        purpose="it_support",
+        data_classification_ceiling=DataClassification.CONFIDENTIAL,
+        issued_at=issued_at,
+        expires_at=expires_at,
+        source_token_hash=token_hash,
+    )
+    return TrustedSecurityContext(
+        context=SecurityContextRef(
+            context_id=context_id,
+            context_ref=context_ref,
+            context_hash=context_hash,
+            tenant_id=TENANT_A,
+            subject_id="user-123",
+            subject_type=ActorType.USER,
+            purpose="it_support",
+            authentication=authentication,
+            data_classification_ceiling=DataClassification.CONFIDENTIAL,
+            issued_at=issued_at,
+            expires_at=expires_at,
+        ),
+        active=True,
+        roles=roles,
+        scopes=scopes,
+        issuer=issuer,
+        authorized_party=authorized_party,
+        identity_token_hash=token_hash,
+    )
 
 
 def _runnable_task(command: TaskCommand, suffix: str) -> Task:
@@ -489,7 +564,8 @@ async def _rls_cross_tenant_reads(database_url: str, task: Task) -> int:
 
 async def _run(database_url: str, redis_url: str) -> RecoveryResult:
     suffix = uuid4().hex[:12]
-    command = _command_fixture(suffix)
+    trusted_context = _trusted_context_fixture(suffix)
+    command = _command_fixture(suffix, trusted_context)
     task = _runnable_task(command, suffix)
 
     async def connection_factory() -> AsyncPostgresConnection:
@@ -500,8 +576,22 @@ async def _run(database_url: str, redis_url: str) -> RecoveryResult:
         await connection.execute("SET ROLE flowpilot_worker")
         return PsycopgConnection(connection)
 
+    async def api_connection_factory() -> AsyncPostgresConnection:
+        connection = await psycopg.AsyncConnection.connect(
+            database_url,
+            row_factory=dict_row,
+        )
+        await connection.execute("SET ROLE flowpilot_api")
+        return PsycopgConnection(connection)
+
     unit_of_work = PostgresDataUnitOfWorkFactory(connection_factory)
     unit_of_work_port = cast(DataUnitOfWorkFactory, unit_of_work)
+    await PostgresSecurityContextSource(api_connection_factory).store(trusted_context)
+    security_contexts = RuntimeSecurityContextValidator(
+        contexts=PostgresSecurityContextSource(connection_factory),
+        verifier=SecurityVerifier(),
+        clock=lambda: FIXED_NOW,
+    )
     await _seed_task_and_outbox(database_url, unit_of_work, task)
 
     raw_redis: Redis = Redis.from_url(redis_url, decode_responses=False)
@@ -548,6 +638,7 @@ async def _run(database_url: str, redis_url: str) -> RecoveryResult:
         coordination_rebuilder=rebuilder,
         tenants=tenants,
         graph_factory=graph_factory,
+        security_contexts=security_contexts,
         control_checkpointer=object(),
         clock=lambda: FIXED_NOW,
         run_id_factory=lambda: f"run_before_restart_{suffix}",
@@ -577,6 +668,7 @@ async def _run(database_url: str, redis_url: str) -> RecoveryResult:
         coordination_rebuilder=rebuilder,
         tenants=tenants,
         graph_factory=graph_factory,
+        security_contexts=security_contexts,
         control_checkpointer=object(),
         clock=lambda: FIXED_NOW,
         run_id_factory=lambda: f"run_after_restart_{suffix}",
@@ -681,6 +773,7 @@ async def _run(database_url: str, redis_url: str) -> RecoveryResult:
         coordination_rebuilder=rebuilder,
         tenants=tenants,
         graph_factory=graph_factory,
+        security_contexts=security_contexts,
         control_checkpointer=object(),
         clock=lambda: FIXED_NOW,
         run_id_factory=lambda: f"run_terminal_replay_{suffix}",

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import hmac
 from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,6 +29,7 @@ from flowpilot_domain import (
 )
 from flowpilot_security import (
     InMemorySecurityContextSource,
+    RefreshLineageState,
     SecurityError,
     SecurityErrorCode,
     TrustedContextMapper,
@@ -48,11 +52,99 @@ from tests.acceptance.platform_security.blackbox import (
 
 ROOT = Path(__file__).resolve().parents[3]
 OPAQUE_USER_CANARY = "header.payload.m8-sensitive"
+OPAQUE_ID_CANARY = "id.m8-sensitive."
 OPAQUE_REFRESH_CANARY = "refresh-m8-sensitive"
+OPAQUE_ROTATED_USER_CANARY = "header.payload.m8-rotated"
+OPAQUE_ROTATED_REFRESH_CANARY = "refresh-m8-rotated"
 CODE_CANARY = "code-m8-sensitive"
+_INITIAL_TOKEN_ID = "m8-initial-token-id"
+_ROTATED_TOKEN_ID = "m8-rotated-token-id"
 
 
-def _identity() -> VerifiedUserIdentity:
+def _digest(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
+
+
+def _id_token_for(access_token: str) -> str:
+    return OPAQUE_ID_CANARY + hashlib.sha256(access_token.encode()).hexdigest()
+
+
+def _session_identity_hash() -> str:
+    return _digest(
+        "\x1f".join(
+            (
+                "https://idp.example/realms/flowpilot",
+                "user-m8-blackbox",
+                "tenant-a",
+                "flowpilot-web",
+                "sha256:" + "b" * 64,
+            )
+        )
+    )
+
+
+class _RefreshLineageGuard:
+    """Atomic deterministic guard with no raw credential persistence."""
+
+    def __init__(self) -> None:
+        self.states: dict[str, RefreshLineageState] = {}
+        self.seen_access_hashes: set[str] = set()
+        self.seen_token_id_hashes: set[str] = set()
+        self._lock = asyncio.Lock()
+
+    async def establish(self, *, initial: RefreshLineageState) -> bool:
+        async with self._lock:
+            if (
+                initial.generation != 1
+                or initial.session_identity_hash in self.states
+                or initial.access_token_hash in self.seen_access_hashes
+                or initial.access_token_id_hash in self.seen_token_id_hashes
+            ):
+                return False
+            self.states[initial.session_identity_hash] = initial
+            self.seen_access_hashes.add(initial.access_token_hash)
+            self.seen_token_id_hashes.add(initial.access_token_id_hash)
+            return True
+
+    async def compare_and_swap(
+        self,
+        *,
+        expected: RefreshLineageState,
+        replacement: RefreshLineageState,
+    ) -> bool:
+        async with self._lock:
+            current = self.states.get(expected.session_identity_hash)
+            if (
+                current != expected
+                or replacement.session_identity_hash
+                != expected.session_identity_hash
+                or replacement.generation != expected.generation + 1
+                or replacement.issued_at < expected.issued_at
+                or replacement.access_token_hash in self.seen_access_hashes
+                or replacement.access_token_id_hash in self.seen_token_id_hashes
+            ):
+                return False
+            self.states[expected.session_identity_hash] = replacement
+            self.seen_access_hashes.add(replacement.access_token_hash)
+            self.seen_token_id_hashes.add(replacement.access_token_id_hash)
+            return True
+
+
+def _identity(
+    *,
+    access_token: str = OPAQUE_USER_CANARY,
+    token_id: str = _INITIAL_TOKEN_ID,
+    generation: int = 1,
+    issued_at: datetime | None = None,
+) -> VerifiedUserIdentity:
+    effective_issued_at = issued_at or NOW - timedelta(minutes=1)
+    lineage = RefreshLineageState(
+        session_identity_hash=_session_identity_hash(),
+        access_token_hash=_digest(access_token),
+        access_token_id_hash=_digest(token_id),
+        issued_at=effective_issued_at,
+        generation=generation,
+    )
     return VerifiedUserIdentity(
         issuer="https://idp.example/realms/flowpilot",
         subject_id="user-m8-blackbox",
@@ -62,13 +154,17 @@ def _identity() -> VerifiedUserIdentity:
         scopes=frozenset({"tasks:read", "tasks:write"}),
         assurance_level=AssuranceLevel.SUBSTANTIAL,
         session_id_hash="sha256:" + "b" * 64,
-        token_hash="sha256:" + "c" * 64,
-        issued_at=NOW - timedelta(minutes=1),
+        token_hash=_digest(access_token),
+        issued_at=effective_issued_at,
         expires_at=NOW + timedelta(hours=1),
+        refresh_lineage=lineage,
     )
 
 
 class _Provider:
+    def __init__(self) -> None:
+        self.authorized_nonce: str | None = None
+
     async def authorization_url(
         self,
         *,
@@ -77,6 +173,7 @@ class _Provider:
         pkce_challenge: str,
         redirect_uri: str,
     ) -> str:
+        self.authorized_nonce = nonce
         return "https://idp.example/authorize?" + urlencode(
             {
                 "state": state,
@@ -94,36 +191,134 @@ class _Provider:
         redirect_uri: str,
     ) -> OidcCodeExchange:
         del code, pkce_verifier, redirect_uri
-        return OidcCodeExchange(OPAQUE_USER_CANARY, OPAQUE_REFRESH_CANARY)
+        return OidcCodeExchange(
+            id_token=_id_token_for(OPAQUE_USER_CANARY),
+            access_token=OPAQUE_USER_CANARY,
+            refresh_token=OPAQUE_REFRESH_CANARY,
+        )
 
     async def refresh(
         self,
         *,
         refresh_token: str,
-        now: datetime,
     ) -> OidcRefreshResult:
-        del refresh_token, now
-        return OidcRefreshResult(_identity(), OPAQUE_REFRESH_CANARY + "-rotated")
+        if not hmac.compare_digest(refresh_token, OPAQUE_REFRESH_CANARY):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "refresh lineage is invalid",
+            )
+        return OidcRefreshResult(
+            access_token=OPAQUE_ROTATED_USER_CANARY,
+            refresh_token=OPAQUE_ROTATED_REFRESH_CANARY,
+        )
 
     async def revoke(self, *, refresh_token: str) -> None:
         del refresh_token
 
 
 class _Verifier:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        provider: _Provider,
+        lineage: _RefreshLineageGuard,
+    ) -> None:
+        self.provider = provider
+        self.lineage = lineage
+        self.consumed_nonces: set[str] = set()
         self.failure: SecurityError | None = None
 
-    async def verify_user_token(
+    async def verify_user_token_pair(
         self,
-        token: str,
         *,
+        id_token: str,
+        access_token: str,
         expected_nonce: str,
         now: datetime,
     ) -> VerifiedUserIdentity:
-        del token, expected_nonce, now
+        if (
+            self.provider.authorized_nonce is None
+            or not hmac.compare_digest(
+                expected_nonce,
+                self.provider.authorized_nonce,
+            )
+            or expected_nonce in self.consumed_nonces
+        ):
+            raise SecurityError(
+                SecurityErrorCode.NONCE_REPLAY,
+                "OIDC nonce is invalid or reused",
+            )
+        if (
+            not hmac.compare_digest(access_token, OPAQUE_USER_CANARY)
+            or not hmac.compare_digest(id_token, _id_token_for(access_token))
+        ):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC token pair binding is invalid",
+            )
+        if now != NOW:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC verification clock is invalid",
+            )
+        self.consumed_nonces.add(expected_nonce)
         if self.failure is not None:
             raise self.failure
-        return _identity()
+        identity = _identity(access_token=access_token)
+        initial = identity.refresh_lineage
+        if initial is None or not await self.lineage.establish(initial=initial):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refresh lineage could not be established",
+            )
+        return identity
+
+    async def verify_user_refresh(
+        self,
+        *,
+        access_token: str,
+        previous_identity: VerifiedUserIdentity,
+        now: datetime,
+        id_token: str | None = None,
+    ) -> VerifiedUserIdentity:
+        previous = previous_identity.refresh_lineage
+        if (
+            id_token is not None
+            or previous is None
+            or not hmac.compare_digest(
+                access_token,
+                OPAQUE_ROTATED_USER_CANARY,
+            )
+            or not hmac.compare_digest(
+                previous.access_token_hash,
+                _digest(OPAQUE_USER_CANARY),
+            )
+        ):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refresh continuity is invalid",
+            )
+        refreshed = _identity(
+            access_token=access_token,
+            token_id=_ROTATED_TOKEN_ID,
+            generation=previous.generation + 1,
+            issued_at=now,
+        )
+        replacement = refreshed.refresh_lineage
+        if replacement is None:
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC replacement lineage is missing",
+            )
+        if not await self.lineage.compare_and_swap(
+            expected=previous,
+            replacement=replacement,
+        ):
+            raise SecurityError(
+                SecurityErrorCode.IDENTITY_TOKEN_INVALID,
+                "OIDC refresh lineage is stale or reused",
+            )
+        return refreshed
 
 
 class _Secrets:
@@ -136,11 +331,13 @@ class _Secrets:
 
 
 def _oidc_app() -> tuple[object, _Verifier]:
-    verifier = _Verifier()
+    provider = _Provider()
+    lineage = _RefreshLineageGuard()
+    verifier = _Verifier(provider=provider, lineage=lineage)
     contexts = InMemorySecurityContextSource()
     opaque_randomness = {"random_" + "token": _Secrets()}
     bundle = compose_oidc_api_security(
-        provider=_Provider(),
+        provider=provider,
         token_verifier=verifier,
         context_mapper=TrustedContextMapper(
             TrustedContextMappingPolicy(
@@ -200,7 +397,7 @@ async def test_oidc_wrong_audience_or_expiry_fails_before_session(
 @pytest.mark.asyncio
 async def test_oidc_session_revocation_and_forged_browser_authority_fails_closed(
 ) -> None:
-    app, _verifier = _oidc_app()
+    app, verifier = _oidc_app()
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="https://flowpilot.test",
@@ -221,6 +418,11 @@ async def test_oidc_session_revocation_and_forged_browser_authority_fails_closed
         denied = await client.post("/v1/auth/refresh")
 
     assert callback.status_code == 303
+    assert len(verifier.consumed_nonces) == 1
+    lineage = verifier.lineage.states[_session_identity_hash()]
+    assert lineage.generation == 1
+    assert lineage.access_token_hash == _digest(OPAQUE_USER_CANARY)
+    assert lineage.access_token_id_hash == _digest(_INITIAL_TOKEN_ID)
     assert forged.status_code == 403
     assert forged.json()["error"]["code"] == "API_AUTHORIZATION_DENIED"
     assert invalidated.status_code == 204

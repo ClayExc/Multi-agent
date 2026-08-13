@@ -451,6 +451,18 @@ def _assert_user_claims(
     if not isinstance(access_token, str) or not isinstance(refresh_token, str):
         raise VerificationError("user token response omitted required tokens")
     claims = _decode_claims(access_token)
+    subject = claims.get("sub")
+    if not isinstance(subject, str) or not subject:
+        raise VerificationError("user access token omitted canonical subject")
+    access_acr = claims.get("acr")
+    if not isinstance(access_acr, str) or access_acr not in {"0", "1", "2", "3"}:
+        raise VerificationError("user access token has unsupported acr")
+    id_token = token_response.get("id_token")
+    if not isinstance(id_token, str):
+        raise VerificationError("user token response omitted id token")
+    id_acr = _decode_claims(id_token).get("acr")
+    if not isinstance(id_acr, str) or id_acr not in {"0", "1", "2", "3"}:
+        raise VerificationError("user id token has unsupported acr")
     if claims.get("tenant_id") != tenant_id:
         raise VerificationError("user token tenant claim is invalid")
     if claims.get("azp") != WEB_CLIENT_ID:
@@ -780,7 +792,7 @@ def main() -> None:
         f"realm={REALM} clients={len(EXPECTED_CLIENTS)} "
         f"users={len(EXPECTED_USERS)} fingerprint={fingerprint} "
         "user_flows=2 service_flows=2 refresh_rotation=1 revocations=2 "
-        "negative_cases=13"
+        "negative_cases=13 access_sub_nonempty=1 access_id_acr_supported=1"
     )
 
 

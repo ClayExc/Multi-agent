@@ -81,6 +81,30 @@ def test_web_and_api_clients_fail_closed() -> None:
     assert api["fullScopeAllowed"] is False
 
 
+def test_identity_scope_uses_canonical_subject_and_acr_mappers() -> None:
+    scopes = {scope["name"]: scope for scope in REALM["clientScopes"]}
+    identity = scopes["flowpilot-identity"]
+    mappers = {mapper["name"]: mapper for mapper in identity["protocolMappers"]}
+
+    subject = mappers["subject"]
+    assert subject["protocol"] == "openid-connect"
+    assert subject["protocolMapper"] == "oidc-sub-mapper"
+    assert subject["config"] == {
+        "access.token.claim": "true",
+        "introspection.token.claim": "true",
+    }
+
+    acr = mappers["acr-loa-level"]
+    assert acr["protocol"] == "openid-connect"
+    assert acr["protocolMapper"] == "oidc-acr-mapper"
+    assert acr["config"] == {
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true",
+        "introspection.token.claim": "true",
+    }
+
+
 def test_service_clients_use_distinct_secret_audience_and_kind() -> None:
     clients = _clients()
     expectations = {

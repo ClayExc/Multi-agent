@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：ACTIVE
+- 状态：ACCEPTED_M8
 - Attempt：WP-081-a1
 - Owner：S6-DATA
 - Reviewer：S3-PLATFORM、S4-QUALITY

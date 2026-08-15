@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S4-QUALITY
-WORK_PACKAGE=WP-086 / WP-087
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-EVAL-002
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
 - 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待 M8 API/Keycloak 后实现 Web，再执行身份租户黑盒验收。
-- 激活条件：WP-086 或 WP-087 对应 Join Head 与 Attempt。
+- 当前工作：M8 Web 身份体验和黑盒验收已完成；等待 M9 注册。
+- 激活条件：新的 Work Package、Join Head 与 Attempt。
 
 ## 使命
 

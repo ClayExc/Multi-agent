@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=WP-085
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-001,FP-SEC-007,FP-OPS-001
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
 - 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待 WP-083/084 Join 后启动身份传播与恢复重验。
-- 激活条件：M8 Join-2 精确 Head、Attempt、范围与退出条件。
+- 当前工作：M8 Runtime 身份传播与恢复重验已验收；等待 M9 注册。
+- 激活条件：新的 Work Package、精确 Head、Attempt、范围与退出条件。
 
 ## 使命
 

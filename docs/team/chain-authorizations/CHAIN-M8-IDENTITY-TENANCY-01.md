@@ -4,7 +4,7 @@
 
 ```text
 CHAIN_ID=CHAIN-M8-IDENTITY-TENANCY-01
-STATUS=ACTIVE
+STATUS=COMPLETE
 AUTHORITY=S1-ARCH
 EXECUTION_MODE=PARALLEL_JOIN_ORDERED
 RISK_CLASS=R2
@@ -23,6 +23,14 @@ FINAL_GATE=S7-INTEGRATION->S1-ARCH->USER
 用户已批准启动 M8。范围只包含本地身份、租户与恢复重验；不启动 M9，不连接真实企业
 IdP，不执行付费 Provider 调用，不改变公共 ContractSet。整体继续保持
 `RELEASED=false`、`FROZEN=false`。
+
+## 完成记录
+
+M8 已按 WP-080～WP-088 完成。S7 最终候选为
+`75aef77253c55e80e023b70e6f773e8947841ffa`，真实 Keycloak/JWKS、生产 BFF、
+PostgreSQL/Redis 恢复、跨租户拒绝和资源清理均通过。固定分母仍为 30 条通过、
+126 条失败，M9 未启动。S1 final 记录见
+[`WP-088-A1-S1-FINAL-REVIEW.md`](../../review/WP-088-A1-S1-FINAL-REVIEW.md)。
 
 ## 执行图
 

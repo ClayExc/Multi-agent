@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=WP-081 / WP-084
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-OPS-001
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：ACTIVE
-- 当前工作：先完成 WP-081 Keycloak；Join-1 后再进入 WP-084 Context Store/RLS。
-- 激活条件：WP-081 已满足；WP-084 等待 Join-1。
+- 契约状态：DEPENDENCY_WAIT
+- 当前工作：M8 Keycloak、Context Store、RLS 与 Realm Mapper 已验收。
+- 激活条件：M9 的新 Work Package 与精确基线。
 
 ## 使命
 

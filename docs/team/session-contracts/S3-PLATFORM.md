@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S3-PLATFORM
-WORK_PACKAGE=WP-082
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-001,FP-SEC-007
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：ACTIVE
-- 当前工作：M8 JWT/JWKS、ContextSource、工作负载与 Gateway 身份边界。
-- 激活条件：已满足；以 M8 Activation Head 开始 WP-082-a1。
+- 契约状态：DEPENDENCY_WAIT
+- 当前工作：M8 JWT/JWKS、ContextSource、工作负载与 Gateway 身份边界已验收。
+- 激活条件：M9 的新 Work Package 与精确基线。
 
 ## 使命
 

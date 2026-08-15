@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=WP-083
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-001,FP-SEC-007
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,domain-packs/it-service/**,tests/core/**,WP-011授权共享文件
 ```
 
 - 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待 WP-081/082 Join 后实现 API/BFF OIDC 与依赖锁。
-- 激活条件：M8 Join-1 精确 Head、Attempt、范围与退出条件。
+- 当前工作：M8 API/BFF OIDC 与依赖闭包已验收；等待 M9 注册。
+- 激活条件：新的 Work Package、精确 Head、Attempt、范围与退出条件。
 
 ## 使命
 

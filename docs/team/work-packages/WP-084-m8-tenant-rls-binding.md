@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M8
 - Attempt：WP-084-a1
 - Owner：S6-DATA
 - Reviewer：S4-QUALITY、S1-ARCH

@@ -2,14 +2,14 @@
 
 ## 当前阶段
 
-- 里程碑：M7 本地产品链
-- 阶段状态：`M7_CANDIDATE_MERGED_RELEASE_BLOCKED`
+- 里程碑：M8 本地身份与租户
+- 阶段状态：`M8_VERIFIED_CANDIDATE_RELEASE_BLOCKED`
 - 架构责任：`S1-ARCH`
-- 已接受基线：M0～M7 工程候选与 P2 持久化恢复
-- 当前链：`CHAIN-M8-IDENTITY-TENANCY-01`
-- 当前工作包：WP-081 与 WP-082 并行
-- 批准来源：用户已批准启动 M8
-- 发布状态：未发布、未 frozen；M8 active，M9～M20 未激活
+- 已接受基线：M0～M8 工程候选与 P2 持久化恢复
+- 当前链：无
+- 当前工作包：无
+- 批准来源：M8 已完成 S7/S1 final；M9 等待用户启动
+- 发布状态：未发布、未 frozen；M9～M20 未激活
 
 ## 工作包状态
 
@@ -30,14 +30,14 @@
 | [WP-036](./WP-036-control-plane-reconciliation.md) | S1-ARCH | DONE | M0～M6/P2 | 事实源、工程质量入口、CI 与 M7 拆包收口 |
 | [WP-037](./WP-037-principal-subagent-contract.md) | S1-ARCH | DONE | M7 final | DELTA 热启动、领域主 Agent 自主调用子 Agent 与复用优先契约 |
 | [WP-080](./WP-080-m8-identity-contract-gate.md) | S1-ARCH | DONE | WP-037 | M8 OIDC、双主体、SecurityContext 与租户/RLS 信任边界 |
-| [WP-081](./WP-081-m8-local-keycloak.md) | S6-DATA | ACTIVE | WP-080 | 本地 Keycloak Realm、双租户与服务 Client |
-| [WP-082](./WP-082-m8-trusted-identity-boundary.md) | S3-PLATFORM | ACTIVE | WP-080 | JWT/JWKS、ContextSource、工作负载与 Gateway 身份边界 |
-| [WP-083](./WP-083-m8-api-oidc-intake.md) | S5-CORE | BLOCKED | WP-081/082 | API/BFF 登录会话与可信 Command Intake |
-| [WP-084](./WP-084-m8-tenant-rls-binding.md) | S6-DATA | BLOCKED | WP-081/082 | Context Store、事务租户绑定与 RLS 恢复 |
-| [WP-085](./WP-085-m8-runtime-tenant-propagation.md) | S2-RUNTIME | BLOCKED | WP-083/084 | Worker/Graph 身份传播与恢复重验 |
-| [WP-086](./WP-086-m8-web-login-experience.md) | S4-QUALITY | BLOCKED | WP-081/083 | Web 登录、会话失效与重新认证体验 |
-| [WP-087](./WP-087-m8-security-acceptance.md) | S4-QUALITY | BLOCKED | WP-081～086 | 身份租户黑盒和固定 Case 执行器 |
-| [WP-088](./WP-088-m8-integration-verification.md) | S7-INTEGRATION | BLOCKED | WP-087 | M8 空环境组合与证据复算 |
+| [WP-081](./WP-081-m8-local-keycloak.md) | S6-DATA | ACCEPTED_M8 | WP-080 | 本地 Keycloak Realm、双租户与服务 Client |
+| [WP-082](./WP-082-m8-trusted-identity-boundary.md) | S3-PLATFORM | ACCEPTED_M8 | WP-080 | JWT/JWKS、ContextSource、工作负载与 Gateway 身份边界 |
+| [WP-083](./WP-083-m8-api-oidc-intake.md) | S5-CORE | ACCEPTED_M8 | WP-081/082 | API/BFF 登录会话与可信 Command Intake |
+| [WP-084](./WP-084-m8-tenant-rls-binding.md) | S6-DATA | ACCEPTED_M8 | WP-081/082 | Context Store、事务租户绑定与 RLS 恢复 |
+| [WP-085](./WP-085-m8-runtime-tenant-propagation.md) | S2-RUNTIME | ACCEPTED_M8 | WP-083/084 | Worker/Graph 身份传播与恢复重验 |
+| [WP-086](./WP-086-m8-web-login-experience.md) | S4-QUALITY | ACCEPTED_M8 | WP-081/083 | Web 登录、会话失效与重新认证体验 |
+| [WP-087](./WP-087-m8-security-acceptance.md) | S4-QUALITY | ACCEPTED_M8 | WP-081～086 | 身份租户黑盒和固定 Case 执行器 |
+| [WP-088](./WP-088-m8-integration-verification.md) | S7-INTEGRATION | ACCEPTED_M8 | WP-087 | M8 空环境组合与证据复算 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 | [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | MERGED_M7_CANDIDATE | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |
@@ -61,9 +61,9 @@ WP-070 Provider/SDK Adapter
   -> S1 final/user gate
 ```
 
-WP-070～WP-073、S7 组合复现、S1 final、用户门禁和主分支复验均已完成。固定
-156 条结果为 24 通过、132 明确失败、0 跳过、0 隔离，因此候选已合入但发布 Gate
-保持失败。M8 当前只激活 S3/S6 两个主 Agent；其余角色等待 Join，不接收普通进度。
+WP-070～WP-073 与 WP-080～WP-088、S7 组合复现和 S1 final 均已完成。固定
+156 条结果为 30 通过、126 明确失败、0 跳过、0 隔离，因此发布 Gate 继续失败。
+当前没有激活的开发 Agent；M9 等待用户启动。
 
 历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
 启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行

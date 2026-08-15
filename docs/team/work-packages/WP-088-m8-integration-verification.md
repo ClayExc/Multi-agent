@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M8
 - Attempt：WP-088-a1
 - Owner：S7-INTEGRATION
 - Reviewer：S1-ARCH

@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M8
 - Attempt：WP-085-a1
 - Owner：S2-RUNTIME
 - Reviewer：S4-QUALITY、S1-ARCH

@@ -3,24 +3,25 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M0_M7_LOCAL_PRODUCT_CANDIDATE
-STATUS=M8_IDENTITY_TENANCY_ACTIVE
-S7_HEAD=e222411824b45c9fed5fd96c6c4fc39c7dfdc09b
+SNAPSHOT=M0_M8_IDENTITY_TENANCY_CANDIDATE
+STATUS=M8_VERIFIED_M9_NOT_ACTIVATED
+S7_HEAD=75aef77253c55e80e023b70e6f773e8947841ffa
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
-NEXT_MILESTONE=M8
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M8-IDENTITY-TENANCY-01
+NEXT_MILESTONE=M9
+ACTIVE_DEVELOPMENT_CHAIN=none
 RELEASED=false
 FROZEN=false
 ```
 
-FlowPilot 已将 M0～M7 工程候选合入主分支：公共契约与当前 15 成员 Python Workspace、
+FlowPilot 已完成 M0～M8 工程候选：公共契约与当前 15 成员 Python Workspace、
 安全 MCP 平台、PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio、
 历史知识检索样例与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
 功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。M7 进一步加入 Provider/SDK
-Adapter、知识问答产品组合、真实 API/SSE Web 模式、集中凭据扫描和首批产品执行器。
+Adapter、知识问答产品组合、真实 API/SSE Web 模式、集中凭据扫描和首批产品执行器；
+M8 接入本地 Keycloak、可信身份、Cookie-only 会话、租户传播、RLS 与恢复重验。
 
-整体仍不是发布版本。M7 固定分母中只有 24 条知识问答 Case 具备产品执行器，另外
-132 条明确返回 `EXECUTOR_NOT_REGISTERED`；在线 Provider Smoke 和 Judge 人工校准也
+整体仍不是发布版本。固定分母中已有 24 条知识问答和 6 条租户隔离 Case 具备产品
+执行器，另外 126 条明确返回 `EXECUTOR_NOT_REGISTERED`；在线 Provider Smoke 和 Judge 人工校准也
 没有完成。`make acceptance` 会保留全部 156 条结果并返回失败，不能把候选合入解释为
 `RELEASED` 或整体 `FROZEN`。真实企业 Connector 已明确排除在 M7～M20 外，
 不把“尚未接企业系统”列为本地演示产品的发布阻断。
@@ -41,6 +42,7 @@ Adapter、知识问答产品组合、真实 API/SSE Web 模式、集中凭据扫
 | M5 | Fixture Web 与新员工设备/权限复合申请 | 产品交互和第二场景代码已合入，尚未接成真实本地产品 |
 | M6 | 120+36 语料、Hash 冻结、Judge 校准工具、`make acceptance` 与 Ruff 收口 | 产品执行器缺失，Judge 仍为占位校准，不能报告成功率 |
 | M7 | LiteLLM/Agents SDK Adapter、API/Worker/Graph/Data 组合、Web API/SSE、Studio 权威恢复、集中凭据扫描与 24 条知识问答执行器 | 开发候选已合入；132 条 Case 未注册、在线 Provider 未验证、没有一键产品启动入口 |
+| M8 | 本地 Keycloak、OIDC/JWKS、Cookie-only 会话、双主体身份、可信 SecurityContext、租户传播、RLS 与真实恢复验证 | 本地候选已验收；不包含生产 IdP/HA，126 条后续 Case 未注册 |
 
 ## 3. P2 已合并能力
 
@@ -98,6 +100,19 @@ M7 使用 `S2/S5/S6/S4/S7` 主链，并在发现凭据扫描缺口时按注册�
 - [`WP-073-a1-release-HANDOFF.md`](../../tests/integration/evidence/WP-073-a1-release-HANDOFF.md)
 - [`WP-073-a1-release-VERIFICATION.json`](../../tests/integration/evidence/WP-073-a1-release-VERIFICATION.json)
 
+### M8 本地身份与租户候选
+
+M8 已完成 Keycloak、身份验证、API/BFF、RLS、Runtime 传播、Web 登录体验和组合验证。
+真实本地环境证明 Code+PKCE、同秒刷新、并发刷新、注销撤销、Token/JWKS 负例、Worker
+恢复与跨租户拒绝；模型和工具调用均为 0。固定分母新增 6 条租户隔离执行器。
+
+权威证据：
+
+- [`WP-087-a1-HANDOFF.md`](../../tests/acceptance/m8/evidence/WP-087-a1-HANDOFF.md)
+- [`WP-087-a1-PROOF.json`](../../tests/acceptance/m8/evidence/WP-087-a1-PROOF.json)
+- [`WP-088-a1-HANDOFF.md`](../../tests/integration/evidence/WP-088-a1-HANDOFF.md)
+- [`WP-088-a1-PROOF.json`](../../tests/integration/evidence/WP-088-a1-PROOF.json)
+
 ## 4. 关键架构边界
 
 1. LangGraph 是唯一跨业务节点状态机；Task 是外部投影。
@@ -151,12 +166,12 @@ make studio-smoke
 | 能力 | 当前状态 | 计划验收 |
 |---|---|---|
 | Provider 与产品运行链 | M7 Adapter、产品组合、Web API/SSE 与 24 条知识执行器已合入；在线供应端未验证 | 后续里程碑补一键产品入口，并在明确授权后运行 DeepSeek V4 Flash Smoke |
-| 身份、租户与 RLS | 契约和隔离机制已有测试 | M8 接入本地 Keycloak 和可信 SecurityContext |
+| 身份、租户与 RLS | M8 本地 Keycloak、可信 SecurityContext、租户传播、RLS 与恢复组合已验收 | 后续只做本地产品整合；生产 IdP/HA 不在本路线 |
 | 策略、DLP 与审计 | MCP/Policy/Security 骨架已合入 | M9 完成本地 Rego、Capability、DLP 和可查询审计 |
 | 知识检索 | 合成知识、ACL 和引用候选已合入 | M10 完成本地导入、混合检索、生命周期与稳定引用 |
 | Context | 硬预算、摘要和 Handoff 过滤已有机制 | M11～M13 分别完成短期记忆、长期记忆和用户画像 |
 | 业务场景 | 历史知识样例与新员工候选已有代码 | M14～M18 完成五条 Web 可操作业务链 |
-| 120+36 | 156 条固定分母已运行；24 通过、132 因无执行器明确失败 | M8～M18 随能力增量注册执行器，M19 完成五链报告与 Judge 校准 |
+| 120+36 | 156 条固定分母已运行；30 通过、126 因无执行器明确失败 | M9～M18 随能力增量注册执行器，M19 完成五链报告与 Judge 校准 |
 | `make acceptance` | 可生成完整 Bundle 和 39 项 Hash 闭包；当前 Gate 为 fail | M19 产出可复现且满足发布门槛的产品报告 |
 | 安全多模态 | 隔离与 Observation 契约已有设计项 | M20 完成隔离、扫描、脱敏、注入检测和只读 Agent |
 | 全仓 Ruff | M6 收口时为零 Finding | 后续增量保持零新增 Finding |
@@ -166,7 +181,7 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M7 候选已经合入，M8 已启动；M9～M20 仍为批准规划：
+M8 候选已经完成验收；M9～M20 仍为批准规划，尚未启动：
 
 ```text
 M7 真实 Provider 与本地运行链
@@ -186,9 +201,8 @@ M7 真实 Provider 与本地运行链
                                           M20 安全多模态
 ```
 
-M7 的 WP-070～WP-073 已完成并进入主分支。固定分母 Gate 继续保持失败，直到后续
-里程碑为其余业务与安全 Case 提供产品执行器。M8 当前按
-`CHAIN-M8-IDENTITY-TENANCY-01` 运行，首批并行实现 Keycloak 基座和可信身份边界；
+M7 的 WP-070～WP-073 和 M8 的 WP-080～WP-088 已完成。固定分母 Gate 继续保持失败，
+直到后续里程碑为其余业务与安全 Case 提供产品执行器。当前没有运行中的开发链，
 不得自动启动 M9。
 
 M8 启动前的 WP-037 工程契约已完成：S1～S7 作为领域主 Agent，默认使用 `DELTA`

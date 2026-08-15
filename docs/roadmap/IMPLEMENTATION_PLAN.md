@@ -3,17 +3,18 @@
 ## 1. 路线状态
 
 ~~~text
-CURRENT_BASELINE=M0-M7_CANDIDATE_MERGED
-NEXT_MILESTONE=M8
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M8-IDENTITY-TENANCY-01
-PLAN_STATUS=M8-ACTIVE-IDENTITY-TENANCY
+CURRENT_BASELINE=M0-M8_CANDIDATE
+NEXT_MILESTONE=M9
+ACTIVE_DEVELOPMENT_CHAIN=none
+PLAN_STATUS=M8-VERIFIED-M9-NOT-ACTIVATED
 RELEASED=false
 FROZEN=false
 ~~~
 
-M0～M7 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
-Adapter 和评测工具链合入主分支。M7 已形成首条知识问答产品候选，但缺少一键启动
-入口、在线 Provider 验证和其余 132 条产品执行器，尚未达到发布状态。
+M0～M8 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
+Adapter、本地身份租户和评测工具链合入当前工程候选。M8 结束后固定 156 条 Case
+已有 30 条产品执行器，另 126 条明确失败；一键产品入口、在线 Provider 验证和后续
+业务执行器仍未完成。
 
 M7～M20 的目标是完成一个可在本机完整演示、能够说明企业级边界的智能工单
 平台。产品使用本地身份、策略、知识、工具和数据，不连接真实企业网络，不接入
@@ -118,8 +119,8 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 
 ## 6. M8：本地身份与租户
 
-状态：`ACTIVE`。首批并行工作为 WP-081 本地 Keycloak 与 WP-082 可信身份边界；
-后续在 S1 Join 后按 API/RLS、Runtime/Web、黑盒验收和 S7 组合验证推进。
+状态：`VERIFIED_CANDIDATE / RELEASE_BLOCKED`。WP-080～WP-088 已完成，S7 组合验证
+和 S1 final 复算通过；M9 尚未启动。
 
 目标：用户身份、工作负载身份和租户上下文由可信边界生成，不由浏览器或模型自报。
 
@@ -132,6 +133,16 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 - 从可信声明构造 SecurityContext，绑定 tenant、role、scope、purpose 和数据分级上限。
 - 将租户上下文传递到 API、Graph、MCP Gateway 与 PostgreSQL RLS。
 - 提供跨租户、伪造角色、错 audience、过期 Token 和上下文篡改负例。
+
+已验收结果：
+
+- 生产 BFF 与真实 Keycloak/JWKS 完成 Code+PKCE、opaque Cookie、同秒刷新、并发
+  刷新一成一拒、注销和撤销。
+- 用户身份与工作负载身份分离；SecurityContext 由可信声明生成，并在 API、Runtime、
+  MCP Gateway 与 PostgreSQL 事务边界重验。
+- 真实 PostgreSQL/Redis 恢复中 generation 1→2、checkpoint 3→6；旧 Worker、陈旧
+  CAS、终态重跑和跨租户成功读取均为 0。
+- M8 为固定分母新增 6 条租户隔离执行器，累计 30 条通过、126 条因未注册执行器失败。
 
 退出条件：
 
@@ -160,8 +171,8 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 
 ### M9 工程效率侧线：Context Build 与测试选择
 
-M8 继续使用现有 DELTA 热启动协议，不在执行中的身份租户链里替换启动和门禁机制。
-M9 再把目前依赖提示词执行的热启动升级为可验证的软硬约束组合：
+M8 沿用 DELTA 热启动协议，没有在身份租户链中替换启动和门禁机制。M9 再把目前
+依赖提示词执行的热启动升级为可验证的软硬约束组合：
 
 - 生成机器可读的仓库地图，记录路径 Owner、包依赖、公共 Port、文件 Hash、测试映射和
   最近一次可信 Join Head；领域 Agent 默认只接收工作包、直接依赖和相关契约增量。

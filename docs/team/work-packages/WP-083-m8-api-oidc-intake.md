@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M8
 - Attempt：WP-083-a1
 - Owner：S5-CORE
 - Reviewer：S3-PLATFORM、S4-QUALITY

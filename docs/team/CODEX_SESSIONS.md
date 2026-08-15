@@ -50,13 +50,13 @@ flowchart LR
 
 | 会话 | 中文显示名 | 定位 | 独占产物 | 当前状态 |
 |---|---|---|---|---|
-| S1-ARCH | 架构验收师 | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | M8 ACTIVE / JOIN OWNER |
-| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | DEPENDENCY_WAIT / WP-085 |
-| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | ACTIVE / WP-082 |
-| S4-QUALITY | 质量体验师 | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | DEPENDENCY_WAIT / WP-086/087 |
-| S5-CORE | 领域核心师 | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | DEPENDENCY_WAIT / WP-083 |
-| S6-DATA | 数据可靠性师 | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | ACTIVE / WP-081 |
-| S7-INTEGRATION | 集成验证师 | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | DEPENDENCY_WAIT / WP-088 |
+| S1-ARCH | 架构验收师 | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | DEPENDENCY_WAIT / M9 未启动 |
+| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | DEPENDENCY_WAIT / M9 未启动 |
+| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | DEPENDENCY_WAIT / M9 未启动 |
+| S4-QUALITY | 质量体验师 | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | DEPENDENCY_WAIT / M9 未启动 |
+| S5-CORE | 领域核心师 | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | DEPENDENCY_WAIT / M9 未启动 |
+| S6-DATA | 数据可靠性师 | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | DEPENDENCY_WAIT / M9 未启动 |
+| S7-INTEGRATION | 集成验证师 | 独立集成验证 | 组合矩阵、依赖闭包、证据复算、集成复现工具 | DEPENDENCY_WAIT / M9 未启动 |
 
 路径所有权以根目录 `AGENTS.md` 为唯一总规则；Session Contract 和 Work Package 只能进一步收紧。
 
@@ -94,8 +94,8 @@ CANCELLED 由用户或 S1 明确终止
 
 ContractSet 摘要
 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`
-仍是当前实现基线。M0～M7 工程候选与 P2 持久化恢复已进入主分支；M8 身份租户链
-已激活，M9～M20 尚未激活。发布级 `frozen` 仍等待其余产品执行器、Evidence、
+仍是当前实现基线。M0～M8 工程候选与 P2 持久化恢复已完成；当前没有运行中的开发链，
+M9～M20 尚未激活。发布级 `frozen` 仍等待其余产品执行器、Evidence、
 Judge 校准和 Traceability 提升。
 
 当前状态只在 [`PROJECT_HANDOFF.md`](../roadmap/PROJECT_HANDOFF.md) 和

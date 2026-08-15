@@ -13,3 +13,10 @@ obligation。PEP 采用默认拒绝策略：
 策略决策通过可信来源 Port 加载。`ResolvedPolicyDecision` 携带已存储的
 RFC 8785 输入原像，因此可以重新计算声明的 `input_hash`，而不是将任意 JSON
 中的该字段直接视为可信值。
+
+M9 的 `VersionedPolicyControlPlane` 在公共 v1 对象之外管理 Rego Bundle：Bundle
+代码和数据共同计算摘要，发布与回滚采用线性版本比较，只有经过
+`PolicyBundleVerifierPort` 验证的活动 Bundle 能进入缓存和评估。回滚必须使用新的
+策略版本，因此不会让旧决定或旧审批重新生效。OPA 适配器只返回封闭的规则结果；
+tenant、SecurityContext、Agent、动作、资源、用途、分级、风险、环境指纹、Bundle
+摘要和有效期由宿主构造并通过 `input_hash` 绑定。OPA 不持有 Task、审批或执行状态。

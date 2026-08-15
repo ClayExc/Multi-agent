@@ -1,0 +1,79 @@
+{
+  "schema_version": "flowpilot.wp094-proof.v1",
+  "chain_id": "CHAIN-M9T-ENGINEERING-CONTROL-01",
+  "step_id": "M9T-04-S7-INTEGRATION",
+  "attempt_id": "WP-094-a1",
+  "feature_id": "FP-OPS-002",
+  "session_role": "S7-INTEGRATION",
+  "input_head": "80eba3066bc7dfe3ed91985343881b89d280ac17",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "upstream": {
+    "handoff_sha256": "86f0ef5757bd3cea2a414cc9070c8a22330b523fc2094d59be8159c2f8c21f77",
+    "proof_sha256": "d512cffd08bf6d6bd3f94028e23694e2a08fcbf00e684c847c3a337f827a150c",
+    "proof_internal_sha256": "66a06074e062bc421797030bbdff44556f80761175fb98444b63369e57730cdd"
+  },
+  "independent_recalculation": {
+    "declared_cases": 28,
+    "unique_cases": 28,
+    "passed": 28,
+    "failed": 0,
+    "skipped": 0,
+    "mutation_cases": 12,
+    "mutation_omissions": 0,
+    "cache_fail_closed_cases": 9,
+    "report_fail_closed_cases": 3,
+    "initial_read_files": 6,
+    "repository_files": 88,
+    "initial_read_bytes": 307,
+    "repository_bytes": 67820,
+    "ratio_basis_points": 45,
+    "threshold_basis_points": 2000
+  },
+  "determinism": {
+    "clean_temporary_git_clones": 2,
+    "byte_identical_outputs": ["repository-map", "context-capsule", "test-plan"],
+    "mismatches": 0
+  },
+  "protection": {
+    "contract_tree": "8eab44bfe8436d7d5ba9f4be4854af8e207adb52",
+    "migration_tree": "8383eda91972210ff16fb770679a48a9793e457a",
+    "apps_tree": "020db6b94a2e6317b672b748e595468ba16a1309",
+    "engineering_control_tree": "188aeb7222fba7ab44e797e23ee8696eb93293b9",
+    "uv_lock_blob": "4f95ab10d47bf3f98c61472e7842313e927d850f",
+    "uv_lock_sha256": "2f1e4c5f18e7752938f739d66dd3ada8d233bc3d1b2d2b413d8246a671b7b8e9",
+    "pyproject_blob": "4f834dfef1063140a37d1bbc7b7ddf8c2bc4d784",
+    "pyproject_sha256": "d72a9ec000e254c71d705ce497d245ff16e5f0ac8c584489c59ac50a09c8477f",
+    "product_path_violations": 0,
+    "protected_tree_changes": 0,
+    "workspace_lock_complete": true
+  },
+  "gates": {
+    "core_engineering_control": "56 passed",
+    "acceptance_engineering_control": "6 passed",
+    "integration_and_secret": "5 passed",
+    "contract": "20 schemas, 35 cases, 43 semantic cases, 52 features",
+    "ruff": "PASS",
+    "mypy": "13 production + 4 acceptance + 2 S7 source files PASS",
+    "uv_lock_check": "PASS",
+    "pip_audit": "0 known vulnerabilities",
+    "secret_scan": "0 findings",
+    "diff_check": "PASS"
+  },
+  "diagnostics": [{
+    "command": "combined pytest across core and acceptance namespaces",
+    "result": "FAIL",
+    "classification": "invocation namespace collision",
+    "resolution": "repository-supported suites executed separately and passed"
+  }, {
+    "command": "strict mypy including inherited core test fixtures",
+    "result": "FAIL",
+    "classification": "unsupported aggregate root exposed inherited fixture typing",
+    "resolution": "production, acceptance and S7 strict roots executed separately and passed"
+  }],
+  "claims": {
+    "feature_state_promoted": false,
+    "release_approved": false,
+    "original_m9_started": false
+  },
+  "gate": "PASS_HANDOFF"
+}

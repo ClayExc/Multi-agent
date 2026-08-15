@@ -2,14 +2,14 @@
 
 ## 当前阶段
 
-- 里程碑：M8 本地身份与租户
-- 阶段状态：`M8_VERIFIED_CANDIDATE_RELEASE_BLOCKED`
+- 里程碑：M9T 工程控制面
+- 阶段状态：`M9T_ACTIVE_M9_PRODUCT_PAUSED`
 - 架构责任：`S1-ARCH`
 - 已接受基线：M0～M8 工程候选与 P2 持久化恢复
-- 当前链：无
-- 当前工作包：无
-- 批准来源：M8 已完成 S7/S1 final；M9 等待用户启动
-- 发布状态：未发布、未 frozen；M9～M20 未激活
+- 当前链：`CHAIN-M9T-ENGINEERING-CONTROL-01`
+- 当前工作包：WP-091
+- 批准来源：用户已批准先启动 M9 技术侧链
+- 发布状态：未发布、未 frozen；原 M9 与 M10～M20 未激活
 
 ## 工作包状态
 
@@ -38,6 +38,11 @@
 | [WP-086](./WP-086-m8-web-login-experience.md) | S4-QUALITY | ACCEPTED_M8 | WP-081/083 | Web 登录、会话失效与重新认证体验 |
 | [WP-087](./WP-087-m8-security-acceptance.md) | S4-QUALITY | ACCEPTED_M8 | WP-081～086 | 身份租户黑盒和固定 Case 执行器 |
 | [WP-088](./WP-088-m8-integration-verification.md) | S7-INTEGRATION | ACCEPTED_M8 | WP-087 | M8 空环境组合与证据复算 |
+| [WP-090](./WP-090-m9t-engineering-control-gate.md) | S1-ARCH | DONE | M8 final | M9T 架构、Feature、注册与工作包门禁 |
+| [WP-091](./WP-091-m9t-repository-map-capsule.md) | S5-CORE | ACTIVE | WP-090 | 确定性仓库地图与 Delta Context Capsule |
+| [WP-092](./WP-092-m9t-test-selection-evidence-cache.md) | S5-CORE | BLOCKED | WP-091 | 测试选择、Evidence Cache 与 Attempt 报告 |
+| [WP-093](./WP-093-m9t-engineering-control-acceptance.md) | S4-QUALITY | BLOCKED | WP-092 | 黑盒、变异矩阵、效率与安全验收 |
+| [WP-094](./WP-094-m9t-engineering-control-integration.md) | S7-INTEGRATION | BLOCKED | WP-093 | 组合复算与最终证据 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 | [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | MERGED_M7_CANDIDATE | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |
@@ -63,7 +68,7 @@ WP-070 Provider/SDK Adapter
 
 WP-070～WP-073 与 WP-080～WP-088、S7 组合复现和 S1 final 均已完成。固定
 156 条结果为 30 通过、126 明确失败、0 跳过、0 隔离，因此发布 Gate 继续失败。
-当前没有激活的开发 Agent；M9 等待用户启动。
+当前只激活 S5 的 WP-091；原 M9 产品治理不在本链范围内。
 
 历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
 启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行

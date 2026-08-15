@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S7-INTEGRATION
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-OPS-001,FP-EVAL-002
+WORK_PACKAGE=WP-094
+FEATURE_IDS=FP-OPS-002
 WRITE_SCOPE=scripts/integration/**,tests/integration/**,artifacts/integration/**,WP-040授权共享文件
 EXECUTION_MODE=<READ_ONLY_PARALLEL|ORDERED|PARALLEL>
 ```
 
 - 契约状态：DEPENDENCY_WAIT
-- 当前工作：M8 空环境组合验证已通过；等待下一次垂直候选汇合。
+- 当前工作：等待 WP-093 后执行 M9T 组合、保护树与最终证据复算。
 - 初始模式：`READ_ONLY_PARALLEL`；只有后续垂直候选汇合且取得独立 Worktree、
   Attempt 和 S1 授权后才进入写模式。
 

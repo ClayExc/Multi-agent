@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S1-ARCH
-WORK_PACKAGE=none
+WORK_PACKAGE=WP-090 / M9T-JOIN
 FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-OPS-001,FP-EVAL-002
 WRITE_SCOPE=README.md,STRUCTURE.md,WORKFLOW.md,AGENTS.md,contracts/**,docs/architecture/**,docs/acceptance/**,docs/decisions/**,docs/roadmap/**,docs/review/**,docs/team/**
 ```
 
-- 契约状态：DEPENDENCY_WAIT
-- 当前工作：M8 final 已完成；等待用户启动 M9。
+- 契约状态：ACTIVE
+- 当前工作：M9T 工程控制面、Join 与最终裁决；原 M9 产品治理暂停。
 
 ## 使命
 
@@ -71,7 +71,7 @@ S1 不可以：
 - 维护 M0～M8/P2 架构事实与当前 `1cad07bd…` 契约候选。
 - M7、M8 工作包、动态安全返修、S7 组合复现和 S1 final 已经收口。
 - 保留 OpenAI/Claude Agents SDK 为正式 Runtime Adapter 技术栈。
-- 当前没有运行中的开发链；M9～M20 未激活，M7 在线 Provider Smoke 仍未执行。
+- M9T 工程控制面已激活；原 M9～M20 未激活，M7 在线 Provider Smoke 仍未执行。
 
 ## 完成定义
 

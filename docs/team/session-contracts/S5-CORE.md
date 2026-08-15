@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-001,FP-SEC-007
-WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,domain-packs/it-service/**,tests/core/**,WP-011授权共享文件
+WORK_PACKAGE=WP-091 / WP-092
+FEATURE_IDS=FP-OPS-002
+WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,pyproject.toml,uv.lock,Makefile,.gitignore
 ```
 
-- 契约状态：DEPENDENCY_WAIT
-- 当前工作：M8 API/BFF OIDC 与依赖闭包已验收；等待 M9 注册。
-- 激活条件：新的 Work Package、精确 Head、Attempt、范围与退出条件。
+- 契约状态：ACTIVE
+- 当前工作：先完成仓库地图和 Context Capsule，再热继续测试选择与 Evidence Cache。
+- 激活条件：M9T Activation Head、WP-091-a1 与独立 Worktree。
 
 ## 使命
 

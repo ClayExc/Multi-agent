@@ -4,11 +4,11 @@
 
 ```text
 SNAPSHOT=M0_M8_IDENTITY_TENANCY_CANDIDATE
-STATUS=M8_VERIFIED_M9_NOT_ACTIVATED
+STATUS=M9T_ENGINEERING_CONTROL_ACTIVE
 S7_HEAD=75aef77253c55e80e023b70e6f773e8947841ffa
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
-NEXT_MILESTONE=M9
-ACTIVE_DEVELOPMENT_CHAIN=none
+NEXT_MILESTONE=M9T_ENGINEERING_CONTROL
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9T-ENGINEERING-CONTROL-01
 RELEASED=false
 FROZEN=false
 ```
@@ -181,7 +181,7 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M8 候选已经完成验收；M9～M20 仍为批准规划，尚未启动：
+M8 候选已经完成验收。当前先执行 M9T 工程控制面；原 M9～M20 尚未启动：
 
 ```text
 M7 真实 Provider 与本地运行链
@@ -202,8 +202,8 @@ M7 真实 Provider 与本地运行链
 ```
 
 M7 的 WP-070～WP-073 和 M8 的 WP-080～WP-088 已完成。固定分母 Gate 继续保持失败，
-直到后续里程碑为其余业务与安全 Case 提供产品执行器。当前没有运行中的开发链，
-不得自动启动 M9。
+直到后续里程碑为其余业务与安全 Case 提供产品执行器。M9T 当前按 WP-090～WP-094
+推进，只改工程控制面，不自动启动原 M9 产品治理。
 
 M8 启动前的 WP-037 工程契约已完成：S1～S7 作为领域主 Agent，默认使用 `DELTA`
 热启动，并可在有效工作包内自主调用临时子 Agent。子任务使用最小 Context Capsule、

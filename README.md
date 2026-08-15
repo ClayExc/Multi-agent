@@ -31,6 +31,9 @@ SecurityContext、工作负载身份、租户传播与 PostgreSQL RLS。真实 K
 同秒刷新、并发刷新、注销撤销、Worker 恢复和跨租户拒绝均已通过本地组合验证。
 这仍是本地工程候选，不等于生产身份系统或企业级部署已经完成。
 
+当前先执行 M9T 工程效率侧线：为 Codex 开发链增加确定性仓库地图、Delta Context
+Capsule、测试选择和 Evidence Cache。原 M9 的策略、DLP、Capability 与审计尚未启动。
+
 ## M0～M8 做了什么
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
@@ -113,6 +116,7 @@ flowchart LR
 | [Agent 注册与最小调度协议](./docs/team/AGENT_REGISTRY_PROTOCOL.md) | 按能力、范围、风险和可用性选择最少执行者，减少固定七会话通信成本 |
 | [增量上下文启动协议](./docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md) | 用 Git Base→Target 差异替代新 Attempt 的无条件全量重读 |
 | [主 Agent 与子 Agent 协议](./docs/team/PRINCIPAL_SUBAGENT_PROTOCOL.md) | 领域主 Agent 的自主分派、Context Capsule、单写者、复用优先和责任回收规则 |
+| [工程控制面](./docs/architecture/ENGINEERING_CONTROL_PLANE.md) | M9T 仓库地图、Delta Context Capsule、测试选择、Evidence Cache 与效率报告边界 |
 | [P2 持久化恢复工作包](./docs/team/work-packages/WP-P2-durable-runtime.md) | Flow Lite `g1` 的批准范围、恢复不变量、测试和注册制执行边界 |
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
@@ -187,6 +191,7 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 |---|---|
 | M7（候选已合入） | LiteLLM 与 OpenAI/Claude Agents SDK Adapter；API、Worker、LangGraph、数据、只读 MCP 与 Web/SSE 组合；24 条知识问答执行器 |
 | M8（候选已验收） | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS；真实本地组合门禁通过 |
+| M9T（开发中） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
 | M9 | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
 | M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
 | M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |

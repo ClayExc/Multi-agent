@@ -4,9 +4,9 @@
 
 ~~~text
 CURRENT_BASELINE=M0-M8_CANDIDATE
-NEXT_MILESTONE=M9
-ACTIVE_DEVELOPMENT_CHAIN=none
-PLAN_STATUS=M8-VERIFIED-M9-NOT-ACTIVATED
+NEXT_MILESTONE=M9T_ENGINEERING_CONTROL
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9T-ENGINEERING-CONTROL-01
+PLAN_STATUS=M9T-ACTIVE-M9-PRODUCT-PAUSED
 RELEASED=false
 FROZEN=false
 ~~~
@@ -120,7 +120,7 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 ## 6. M8：本地身份与租户
 
 状态：`VERIFIED_CANDIDATE / RELEASE_BLOCKED`。WP-080～WP-088 已完成，S7 组合验证
-和 S1 final 复算通过；M9 尚未启动。
+和 S1 final 复算通过。
 
 目标：用户身份、工作负载身份和租户上下文由可信边界生成，不由浏览器或模型自报。
 
@@ -169,7 +169,7 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 - Trace、Audit、Security Event 均不含明文密钥或隐藏思维链。
 - 拒绝路径在账本占位和上游调用前停止。
 
-### M9 工程效率侧线：Context Build 与测试选择
+### M9T 工程效率侧线：Context Build 与测试选择
 
 M8 沿用 DELTA 热启动协议，没有在身份租户链中替换启动和门禁机制。M9 再把目前
 依赖提示词执行的热启动升级为可验证的软硬约束组合：
@@ -190,7 +190,8 @@ M8 沿用 DELTA 热启动协议，没有在身份租户链中替换启动和门�
 硬约束不能成为质量盲区。跨包故障、契约变化和 P0/P1 调查必须保留带审计记录的范围
 扩展通道；优化验收同时比较缺陷发现率和安全回归，不以 Token 降低单独判定成功。
 
-该侧线当前为 `PLANNED_M9_NOT_ACTIVATED`，不改变 M8 工作包、输入 Head、门禁或退出条件。
+该侧线当前为 `ACTIVE`，使用 `CHAIN-M9T-ENGINEERING-CONTROL-01` 和 WP-090～WP-094。
+原 M9 产品治理在 M9T 用户门禁前保持暂停。
 
 ## 8. M10：本地知识平台
 

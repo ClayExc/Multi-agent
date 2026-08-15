@@ -30,10 +30,11 @@ Contract 和当前 Work Package 引用。长期任务的新 Attempt 默认按
 
 ## 2. 当前事实
 
-- M0～M8 工程候选已完成；M8 已通过 S7 组合验证和 S1 final，M9～M20 未激活。
+- M0～M8 工程候选已完成；M9T 工程控制面侧链已激活，原 M9 产品治理和 M10～M20
+  未激活。
 - M7 有 24 条知识问答产品执行器，M8 新增 6 条租户隔离执行器；固定 156 条 Case
   当前为 30 条通过、126 条明确失败，因此 `RELEASED=false`、`FROZEN=false`。
-- 当前没有运行中的开发链。现状以
+- 当前只运行 WP-091（S5）。现状以
   [`PROJECT_HANDOFF.md`](docs/roadmap/PROJECT_HANDOFF.md) 和机器追踪清单为准。
 - `DESIGNED / IMPLEMENTED / VERIFIED / RELEASED` 只按
   [`ACCEPTANCE.md`](docs/acceptance/ACCEPTANCE.md) 提升。
@@ -48,7 +49,7 @@ Contract 和当前 Work Package 引用。长期任务的新 Attempt 默认按
 | S2 | `apps/worker/**`、`packages/graph/**`、`packages/agent-runtime/**`、`packages/model-gateway/**`、`packages/context/**`、`tests/runtime/**` |
 | S3 | `apps/mcp-gateway/**`、`packages/tool-contracts/**`、`packages/policy/**`、`packages/security/**`、`mcp-servers/**`、`tests/platform/**` |
 | S4 | `web/**`、`packages/retrieval/**`、`packages/observability/**`、`packages/evaluation/**`、`evals/**`、`tests/acceptance/**`、`tests/experience/**`、`artifacts/acceptance/**` 生成器 |
-| S5 | `apps/api/**`、`packages/domain/**`、`packages/application/**`、`domain-packs/it-service/**`、`tests/core/**` |
+| S5 | `apps/api/**`、`packages/domain/**`、`packages/application/**`、`packages/engineering-control/**`、`scripts/engineering/**`、`domain-packs/it-service/**`、`tests/core/**` |
 | S6 | `packages/persistence/**`、`migrations/**`、`infra/**`、`tests/data/**` |
 | S7 | `scripts/integration/**`、`tests/integration/**`、`artifacts/integration/**` 生成器 |
 

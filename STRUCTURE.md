@@ -47,7 +47,8 @@ flowpilot/
 │   ├── persistence/                  # PostgreSQL、RLS、Repository、Outbox
 │   ├── security/                     # SecurityContext、DLP、注入与附件安全
 │   ├── observability/                # OTel、结构化日志、审计事件
-│   └── evaluation/                   # 数据集、Runner、规则和 Judge
+│   ├── evaluation/                   # 数据集、Runner、规则和 Judge
+│   └── engineering-control/          # 仓库地图、Context Capsule、测试选择与证据缓存
 │
 ├── domain-packs/                     # 领域配置与领域测试
 │   └── it-service/
@@ -135,6 +136,8 @@ flowpilot/
 │
 ├── migrations/                       # 数据库迁移和 RLS 策略
 ├── scripts/                          # 可复现的开发、种子、验收与 S7 集成复现脚本
+│   ├── engineering/                  # flowpilot-eng 工程控制面入口
+│   └── integration/                  # S7 组合复现入口
 ├── artifacts/                        # 本地验收证据，默认不提交敏感内容
 │   ├── acceptance/
 │   └── integration/                  # S7 组合验证生成物，默认不提交
@@ -214,6 +217,12 @@ flowchart TD
 ### `packages/tool-contracts`
 
 定义工具输入、输出、稳定错误码、`action_digest` 和 `idempotency_key`。工具契约改变必须产生版本差异；不兼容变更要求新版本和重新审批。
+
+### `packages/engineering-control`
+
+只服务仓库开发链，提供仓库地图、Delta Context Capsule、测试选择、Evidence Cache 和
+Attempt 报告。它不被 API、Worker、Graph 或 MCP Gateway 导入，不保存文件正文、Prompt、
+Token、PII 或隐藏推理；工具失效时回退到 FULL/RELEASE 门禁。
 
 ### `apps/mcp-gateway`
 

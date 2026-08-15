@@ -15,7 +15,8 @@
 
 在 WP-091 同一 S5 Worktree 上增加测试选择、证据缓存和 Attempt 报告。继续使用
 `packages/engineering-control/**`、`scripts/engineering/**`、
-`tests/core/engineering_control/**`；若增加稳定 CLI 入口，可由 S5 单写 `Makefile`。
+`tests/core/engineering_control/**`、`tests/core/evidence/WP-092-a1-HANDOFF.md`；若增加
+稳定 CLI 入口，可由 S5 单写 `Makefile`。
 
 ## 必须行为
 

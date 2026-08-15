@@ -18,6 +18,8 @@ Lock、Contract 与既有门禁没有回退。允许修改：
 
 - `scripts/integration/verify_engineering_control.py`
 - `tests/integration/engineering_control/**`
+- `tests/integration/evidence/WP-094-a1-HANDOFF.md`
+- `tests/integration/evidence/WP-094-a1-PROOF.json`
 - `artifacts/integration/**` 生成器
 
 ## 完成定义

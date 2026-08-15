@@ -46,7 +46,7 @@ ATTEMPT_ID=WP-091-a1
 SESSION_ROLE=S5-CORE
 WORKTREE=E:\workspace\Multi-agent-m9t-s5
 BRANCH=codex/s5/wp-091-engineering-map
-WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,pyproject.toml,uv.lock,.gitignore
+WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,tests/core/evidence/WP-091-a1-HANDOFF.md,pyproject.toml,uv.lock,.gitignore
 MODE=IMPLEMENTATION
 NEXT_STEP=M9T-02-S5-SELECT-CACHE
 ```
@@ -60,7 +60,7 @@ ATTEMPT_ID=WP-092-a1
 SESSION_ROLE=S5-CORE
 WORKTREE=E:\workspace\Multi-agent-m9t-s5
 BRANCH=codex/s5/wp-091-engineering-map
-WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,Makefile
+WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,tests/core/evidence/WP-092-a1-HANDOFF.md,Makefile
 MODE=HOT_CONTINUE
 NEXT_ROLE=S4-QUALITY
 ```
@@ -88,7 +88,7 @@ ATTEMPT_ID=WP-094-a1
 SESSION_ROLE=S7-INTEGRATION
 WORKTREE=E:\workspace\Multi-agent-m9t-s7
 BRANCH=codex/s7/wp-094-engineering-integration
-WRITE_SCOPE=scripts/integration/verify_engineering_control.py,tests/integration/engineering_control/**,artifacts/integration/**
+WRITE_SCOPE=scripts/integration/verify_engineering_control.py,tests/integration/engineering_control/**,tests/integration/evidence/WP-094-a1-HANDOFF.md,tests/integration/evidence/WP-094-a1-PROOF.json,artifacts/integration/**
 MODE=FINAL_GATE
 NEXT_ROLE=S1-ARCH
 USER_GATE_REQUIRED=yes

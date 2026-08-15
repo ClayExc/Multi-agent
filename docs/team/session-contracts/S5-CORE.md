@@ -6,7 +6,7 @@
 SESSION_ROLE=S5-CORE
 WORK_PACKAGE=WP-091 / WP-092
 FEATURE_IDS=FP-OPS-002
-WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,pyproject.toml,uv.lock,Makefile,.gitignore
+WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,tests/core/evidence/WP-091-a1-HANDOFF.md,tests/core/evidence/WP-092-a1-HANDOFF.md,pyproject.toml,uv.lock,Makefile,.gitignore
 ```
 
 - 契约状态：ACTIVE

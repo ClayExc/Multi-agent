@@ -19,6 +19,7 @@
 - `packages/engineering-control/**`
 - `scripts/engineering/**`
 - `tests/core/engineering_control/**`
+- `tests/core/evidence/WP-091-a1-HANDOFF.md`
 - `pyproject.toml`、`uv.lock`、`.gitignore`
 
 仓库地图必须排除 Git、虚拟环境、IDE、缓存、coverage 和生成证据；解析路径 Owner、
@@ -36,3 +37,5 @@ Workspace 依赖、公共入口、测试映射和保护树。Capsule 必须支�
 ## 非目标
 
 不实现测试选择、证据缓存、OS 级读取拦截或产品 Runtime Context。
+
+交接：`tests/core/evidence/WP-091-a1-HANDOFF.md`。

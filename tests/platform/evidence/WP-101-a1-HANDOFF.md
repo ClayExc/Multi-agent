@@ -74,9 +74,13 @@
 
 - 测试选择：使用工程控制面生成
   `.flowpilot-engineering/m9/wp101-test-selection.json` 与
-  `.flowpilot-engineering/m9/wp101-attempt-report.json`；选择信号为 package/security
-  change，执行定向 Policy、完整 Platform、一次共享 Security、Contract、Ruff、Mypy
-  和 Secret Scan。按链授权未执行 Compose、全仓或 Release。
+  `.flowpilot-engineering/m9/wp101-attempt-report.json`。选择信号为 package change、
+  public signature change 和 security change；工具保守返回 `tier=RELEASE`、
+  `fallback_required=true`，计划包含 full/contract/security/acceptance。当前链的显式授权
+  要求“定向与 Platform/Security、最多一次共享门禁、不跑 Compose/全仓/Release”，因此
+  未执行选择器中的 full/acceptance，而执行了定向 Policy、完整 Platform、一次共享
+  Security、Contract、Ruff、Mypy 和 Secret Scan。该偏差保留在 Attempt Report，不把
+  未执行计划标为 PASS。
 - Capsule 初始文件：6 个，规范化摘要复算与声明完全相同。
 - Capsule 范围扩展：
   - `unresolved_dependency`：读取 `packages/engineering-control/**` 直接相关实现，以正确

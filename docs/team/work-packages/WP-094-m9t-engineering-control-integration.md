@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M9T
 - Attempt：WP-094-a1
 - Owner：S7-INTEGRATION
 - Reviewer：S1-ARCH

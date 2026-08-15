@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-001,FP-SEC-002,FP-SEC-007,FP-OPS-001
+WORK_PACKAGE=WP-105 / WP-106
+FEATURE_IDS=FP-DATA-001,FP-MCP-006,FP-OBS-002,FP-OBS-003,FP-OPS-001
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
 - 契约状态：DEPENDENCY_WAIT
-- 当前工作：M8 Keycloak、Context Store、RLS 与 Realm Mapper 已验收。
-- 激活条件：M9 的新 Work Package 与精确基线。
+- 当前工作：等待治理 API Port 后实现追加式审计数据，再热继续本地 OPA/Secret Infra。
+- 激活条件：WP-104 clean Handoff、精确 Head 与 WP-105 Attempt。
 
 ## 使命
 

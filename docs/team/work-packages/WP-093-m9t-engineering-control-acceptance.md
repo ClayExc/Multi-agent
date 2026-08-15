@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M9T
 - Attempt：WP-093-a1
 - Owner：S4-QUALITY
 - Reviewer：S1-ARCH

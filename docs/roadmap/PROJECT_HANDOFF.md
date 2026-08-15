@@ -3,22 +3,23 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M0_M8_IDENTITY_TENANCY_CANDIDATE
-STATUS=M9T_ENGINEERING_CONTROL_ACTIVE
-S7_HEAD=75aef77253c55e80e023b70e6f773e8947841ffa
+SNAPSHOT=M0_M8_M9T_CANDIDATE
+STATUS=M9_LOCAL_GOVERNANCE_ACTIVE
+S7_HEAD=b7ab61248793456db4e011b3e03a50421b98f963
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
-NEXT_MILESTONE=M9T_ENGINEERING_CONTROL
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9T-ENGINEERING-CONTROL-01
+NEXT_MILESTONE=M9_LOCAL_GOVERNANCE
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9-GOVERNANCE-01
 RELEASED=false
 FROZEN=false
 ```
 
-FlowPilot 已完成 M0～M8 工程候选：公共契约与当前 15 成员 Python Workspace、
+FlowPilot 已完成 M0～M8 工程候选：公共契约与当前 16 成员 Python Workspace、
 安全 MCP 平台、PostgreSQL/RLS/Inbox/Outbox/Lease/Checkpoint、LangGraph Studio、
 历史知识检索样例与安全写入、Context/Handoff、新员工复合申请、Fixture Web，以及 120 条
 功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。M7 进一步加入 Provider/SDK
 Adapter、知识问答产品组合、真实 API/SSE Web 模式、集中凭据扫描和首批产品执行器；
-M8 接入本地 Keycloak、可信身份、Cookie-only 会话、租户传播、RLS 与恢复重验。
+M8 接入本地 Keycloak、可信身份、Cookie-only 会话、租户传播、RLS 与恢复重验；
+M9T 增加仓库地图、Delta Context Capsule、测试选择、Evidence Cache 和 Attempt 报告。
 
 整体仍不是发布版本。固定分母中已有 24 条知识问答和 6 条租户隔离 Case 具备产品
 执行器，另外 126 条明确返回 `EXECUTOR_NOT_REGISTERED`；在线 Provider Smoke 和 Judge 人工校准也
@@ -33,7 +34,7 @@ M8 接入本地 Keycloak、可信身份、Cookie-only 会话、租户传播、RL
 
 | 增量 | 能力 | 可宣称边界 |
 |---|---|---|
-| M0 | 当前 15 成员 Python Workspace、Domain/Application/API/Runtime/Persistence 骨架 | 工程与端口基线，不等于完整业务产品 |
+| M0 | 当前 16 成员 Python Workspace、Domain/Application/API/Runtime/Persistence 骨架 | 工程与端口基线，不等于完整业务产品 |
 | M1 Platform | MCP Gateway、Policy、Security、审批绑定、账本与回读骨架 | 安全平台切片，不等于真实企业工具已接入 |
 | M2 Studio | Worker 同源 LangGraph、Interrupt/Resume、Handoff、重试与安全投影 | 可视化调试入口，不连接生产凭据或事实源 |
 | P1 | 信息补全、知识检索、租户/ACL 过滤、引用回答与稳定结果引用；VPN 为历史 Fixture | 确定性只读闭环，不包含工单写入 |
@@ -181,7 +182,8 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M8 候选已经完成验收。当前先执行 M9T 工程控制面；原 M9～M20 尚未启动：
+M8 候选与 M9T 工程控制面已经完成验收。当前执行 M9 本地治理链；M10～M20
+尚未启动：
 
 ```text
 M7 真实 Provider 与本地运行链
@@ -201,9 +203,9 @@ M7 真实 Provider 与本地运行链
                                           M20 安全多模态
 ```
 
-M7 的 WP-070～WP-073 和 M8 的 WP-080～WP-088 已完成。固定分母 Gate 继续保持失败，
-直到后续里程碑为其余业务与安全 Case 提供产品执行器。M9T 当前按 WP-090～WP-094
-推进，只改工程控制面，不自动启动原 M9 产品治理。
+M7 的 WP-070～WP-073、M8 的 WP-080～WP-088 和 M9T 的 WP-090～WP-094 已完成。
+固定分母 Gate 继续保持失败，直到后续里程碑为其余业务与安全 Case 提供产品执行器。
+M9 按 WP-100～WP-109 推进，工程控制面只记录开发范围和证据，不参与产品授权。
 
 M8 启动前的 WP-037 工程契约已完成：S1～S7 作为领域主 Agent，默认使用 `DELTA`
 热启动，并可在有效工作包内自主调用临时子 Agent。子任务使用最小 Context Capsule、

@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-001,FP-SEC-007,FP-OPS-001
+WORK_PACKAGE=WP-103
+FEATURE_IDS=FP-SEC-005,FP-SEC-006,FP-OPS-003
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
 - 契约状态：DEPENDENCY_WAIT
-- 当前工作：M8 Runtime 身份传播与恢复重验已验收；等待 M9 注册。
-- 激活条件：新的 Work Package、精确 Head、Attempt、范围与退出条件。
+- 当前工作：等待 S3 DLP Handoff 后接入 Prompt 与模型输出边界。
+- 激活条件：WP-102 clean Handoff、精确 Head 与 WP-103 Attempt。
 
 ## 使命
 

@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=WP-091 / WP-092
-FEATURE_IDS=FP-OPS-002
-WRITE_SCOPE=packages/engineering-control/**,scripts/engineering/**,tests/core/engineering_control/**,tests/core/evidence/WP-091-a1-HANDOFF.md,tests/core/evidence/WP-092-a1-HANDOFF.md,pyproject.toml,uv.lock,Makefile,.gitignore
+WORK_PACKAGE=WP-104
+FEATURE_IDS=FP-SEC-004,FP-OBS-002,FP-OBS-003
+WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,tests/core/**,pyproject.toml,uv.lock,Makefile
 ```
 
-- 契约状态：ACTIVE
-- 当前工作：先完成仓库地图和 Context Capsule，再热继续测试选择与 Evidence Cache。
-- 激活条件：M9T Activation Head、WP-091-a1 与独立 Worktree。
+- 契约状态：DEPENDENCY_WAIT
+- 当前工作：等待 Runtime DLP Handoff 后实现治理查询 Port、API 与 Workspace 闭包。
+- 激活条件：WP-103 clean Handoff、精确 Head 与 WP-104 Attempt。
 
 ## 使命
 

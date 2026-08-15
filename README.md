@@ -17,7 +17,7 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 ## 当前状态
 
-`master` 已包含 M0～M8 的工程候选，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
+`master` 已包含 M0～M8 工程候选和 M9T 工程控制面，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
 - 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
 - 启动 Web Fixture，查看任务列表、时间线、补全表单、审批卡和 SSE 重连；Web 同时具备真实 API/SSE 适配模式。
@@ -31,14 +31,15 @@ SecurityContext、工作负载身份、租户传播与 PostgreSQL RLS。真实 K
 同秒刷新、并发刷新、注销撤销、Worker 恢复和跨租户拒绝均已通过本地组合验证。
 这仍是本地工程候选，不等于生产身份系统或企业级部署已经完成。
 
-当前先执行 M9T 工程效率侧线：为 Codex 开发链增加确定性仓库地图、Delta Context
-Capsule、测试选择和 Evidence Cache。原 M9 的策略、DLP、Capability 与审计尚未启动。
+M9T 工程控制面已经合入，后续工作默认使用仓库地图、Delta Context Capsule、测试
+选择和 Evidence Cache。当前启动 M9 本地治理链，依次完成版本化策略、短时能力凭据、
+DLP、追加式审计和可查询的治理页面。
 
 ## M0～M8 做了什么
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
 |---|---|---|
-| M0 工程底座 | 当前 15 成员 Python Workspace、公共 JSON Schema、领域与应用端口、API/Runtime/Persistence 骨架 | 模块可以独立测试，还没有连成产品 |
+| M0 工程底座 | 当前 16 成员 Python Workspace、公共 JSON Schema、领域与应用端口、API/Runtime/Persistence 骨架 | 模块可以独立测试，还没有连成产品 |
 | M1 知识只读候选 | 信息补全、知识检索、租户与 ACL 过滤、引用回答；VPN 仅为历史 Fixture | 使用合成知识源，没有真实模型 |
 | M2 持久化运行 | PostgreSQL Checkpoint、Lease/Fencing、Inbox/Outbox、Redis 丢失恢复 | 已验证恢复行为，生产备份和扩容未覆盖 |
 | M3 安全写入 | MCP Gateway、策略判定、审批绑定、执行账本、幂等、回读和 SSE | 使用 Sandbox Ticket Store，没有企业 Connector |
@@ -117,11 +118,12 @@ flowchart LR
 | [增量上下文启动协议](./docs/team/CONTEXT_BOOTSTRAP_PROTOCOL.md) | 用 Git Base→Target 差异替代新 Attempt 的无条件全量重读 |
 | [主 Agent 与子 Agent 协议](./docs/team/PRINCIPAL_SUBAGENT_PROTOCOL.md) | 领域主 Agent 的自主分派、Context Capsule、单写者、复用优先和责任回收规则 |
 | [工程控制面](./docs/architecture/ENGINEERING_CONTROL_PLANE.md) | M9T 仓库地图、Delta Context Capsule、测试选择、Evidence Cache 与效率报告边界 |
+| [本地治理控制面](./docs/architecture/LOCAL_GOVERNANCE_CONTROL_PLANE.md) | M9 版本化策略、Capability、Secret、DLP、Audit 与 Security Event 边界 |
 | [P2 持久化恢复工作包](./docs/team/work-packages/WP-P2-durable-runtime.md) | Flow Lite `g1` 的批准范围、恢复不变量、测试和注册制执行边界 |
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
-| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7 交付与 M8 的 WP-080～WP-088 状态、依赖和集成顺序 |
+| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7～M9 状态、依赖和集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |
@@ -191,8 +193,8 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 |---|---|
 | M7（候选已合入） | LiteLLM 与 OpenAI/Claude Agents SDK Adapter；API、Worker、LangGraph、数据、只读 MCP 与 Web/SSE 组合；24 条知识问答执行器 |
 | M8（候选已验收） | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS；真实本地组合门禁通过 |
-| M9T（开发中） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
-| M9 | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
+| M9T（已合入） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
+| M9（开发中） | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
 | M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
 | M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |
 | M12 | 用户可管理、可纠正、可删除的长期记忆 |

@@ -3,10 +3,10 @@
 ## 1. 路线状态
 
 ~~~text
-CURRENT_BASELINE=M0-M8_CANDIDATE
-NEXT_MILESTONE=M9T_ENGINEERING_CONTROL
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9T-ENGINEERING-CONTROL-01
-PLAN_STATUS=M9T-ACTIVE-M9-PRODUCT-PAUSED
+CURRENT_BASELINE=M0-M8_M9T_CANDIDATE
+NEXT_MILESTONE=M9_LOCAL_GOVERNANCE
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9-GOVERNANCE-01
+PLAN_STATUS=M9-ACTIVE
 RELEASED=false
 FROZEN=false
 ~~~
@@ -65,7 +65,7 @@ Vendor-neutral Port、Schema、Sandbox 和 Preview 可以保留，用于证明�
 
 | 阶段 | 已进入主分支 | 仍然欠缺 |
 |---|---|---|
-| M0 | 当前 15 成员 Python Workspace、公共契约、Domain/Application/API/Runtime/Persistence 骨架 | 尚未组成产品 |
+| M0 | 当前 16 成员 Python Workspace、公共契约、Domain/Application/API/Runtime/Persistence 骨架 | 尚未组成产品 |
 | M1 | 知识信息补全、检索、租户与 ACL 过滤、引用回答；VPN 是历史 Fixture | 使用合成知识与 Sandbox |
 | M2 | PostgreSQL Checkpoint、Lease/Fencing、Inbox/Outbox、Redis 丢失恢复 | 生产运维不在范围内 |
 | M3 | MCP Gateway、策略、审批绑定、账本、幂等、回读和 SSE | 没有真实企业 Connector |
@@ -190,8 +190,9 @@ M8 沿用 DELTA 热启动协议，没有在身份租户链中替换启动和门�
 硬约束不能成为质量盲区。跨包故障、契约变化和 P0/P1 调查必须保留带审计记录的范围
 扩展通道；优化验收同时比较缺陷发现率和安全回归，不以 Token 降低单独判定成功。
 
-该侧线当前为 `ACTIVE`，使用 `CHAIN-M9T-ENGINEERING-CONTROL-01` 和 WP-090～WP-094。
-原 M9 产品治理在 M9T 用户门禁前保持暂停。
+该侧线已经完成并进入主分支，使用 `CHAIN-M9T-ENGINEERING-CONTROL-01` 和
+WP-090～WP-094。M9 产品治理从其验收 Head 启动，默认使用仓库地图、Context Capsule、
+测试选择和 Evidence Cache；这些工程记录不进入产品 Runtime Context。
 
 ## 8. M10：本地知识平台
 

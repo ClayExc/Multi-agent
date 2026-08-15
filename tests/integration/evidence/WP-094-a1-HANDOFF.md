@@ -1,12 +1,20 @@
-# WP-094-a1 S7-INTEGRATION Handoff
+# WP-094-a1-r1 S7-INTEGRATION Handoff
 
 ## OUTCOME
 
-`PASS_HANDOFF`。在精确输入 `80eba3066bc7dfe3ed91985343881b89d280ac17` 上完成
+`PASS_HANDOFF`。P1 提交后复现缺陷已修复。在精确输入
+`80eba3066bc7dfe3ed91985343881b89d280ac17` 上完成
 M9T 工程控制面组合验证，可交给 S1 独立复算。本结论不提升 FP-OPS-002 状态，不批准
 Release，也不启动原 M9 产品链。
 
 ## EVIDENCE
+
+- S1 在 clean committed Head `10a0702` 发现验证器错误要求当前 Head 必须等于 S4
+  `INPUT_HEAD`，导致验证器自身提交后无法公开复现。返修后 `INPUT_HEAD` 仍是固定被验输入；
+  当前候选必须以它为祖先，且 `INPUT_HEAD..candidate` 只能包含 WP-094 四个授权 S7 路径。
+  规则不嵌入新提交 SHA，因此没有自引用。
+- clean committed candidate 形态下，S1 给出的公开 CLI 与 pytest 复现命令均 PASS；新增
+  合法候选、非祖先、越权产品后继、输入保护树漂移回归，共 `7 passed`。
 
 - 消费者门禁：专用分支/Worktree clean，当前 Head 是输入祖先；仅用 `--ff-only` 到达
   精确输入。Handoff、Proof、Contract digest 全部匹配派发值。
@@ -22,6 +30,10 @@ Release，也不启动原 M9 产品链。
   `packages/engineering-control/**`。Workspace 与 `uv.lock` 都完整包含该包。
 
 ## GATES
+
+- P1 定向公开 CLI：PASS；P1 定向 pytest：7 passed。
+- Ruff、strict Mypy、diff-check、Secret Scan：P1 受影响范围 PASS。
+- 下列 WP-094-a1 结果按派发复用，未重复执行：
 
 - `tests/core/engineering_control`：56 passed。
 - S4 黑盒 Acceptance：6 passed；S7 Integration + Secret：5 passed。
@@ -50,9 +62,9 @@ Migration、破坏性恢复或全仓测试；这些不是本 WP 的声明门禁�
 OUTCOME=PASS_HANDOFF
 CHAIN_ID=CHAIN-M9T-ENGINEERING-CONTROL-01
 STEP_ID=M9T-04-S7-INTEGRATION
-ATTEMPT_ID=WP-094-a1
+ATTEMPT_ID=WP-094-a1-r1
 SESSION_ROLE=S7-INTEGRATION
-BASE_COMMIT=80eba3066bc7dfe3ed91985343881b89d280ac17
+BASE_COMMIT=10a07024951d017b868303a9410f0e3caeaf0d2c
 NEW_HEAD=<this-handoff-commit>
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
 HANDOFF=tests/integration/evidence/WP-094-a1-HANDOFF.md

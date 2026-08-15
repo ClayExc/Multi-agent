@@ -2,7 +2,7 @@
   "schema_version": "flowpilot.wp094-proof.v1",
   "chain_id": "CHAIN-M9T-ENGINEERING-CONTROL-01",
   "step_id": "M9T-04-S7-INTEGRATION",
-  "attempt_id": "WP-094-a1",
+  "attempt_id": "WP-094-a1-r1",
   "feature_id": "FP-OPS-002",
   "session_role": "S7-INTEGRATION",
   "input_head": "80eba3066bc7dfe3ed91985343881b89d280ac17",
@@ -35,6 +35,7 @@
     "mismatches": 0
   },
   "protection": {
+    "candidate_policy": "INPUT_HEAD must be ancestor; successor paths restricted to the four WP-094 S7 files",
     "contract_tree": "8eab44bfe8436d7d5ba9f4be4854af8e207adb52",
     "migration_tree": "8383eda91972210ff16fb770679a48a9793e457a",
     "apps_tree": "020db6b94a2e6317b672b748e595468ba16a1309",
@@ -50,7 +51,8 @@
   "gates": {
     "core_engineering_control": "56 passed",
     "acceptance_engineering_control": "6 passed",
-    "integration_and_secret": "5 passed",
+    "remediation_targeted": "7 passed",
+    "integration_and_secret": "reused from WP-094-a1: 5 passed",
     "contract": "20 schemas, 35 cases, 43 semantic cases, 52 features",
     "ruff": "PASS",
     "mypy": "13 production + 4 acceptance + 2 S7 source files PASS",
@@ -60,6 +62,11 @@
     "diff_check": "PASS"
   },
   "diagnostics": [{
+    "command": "public verifier at committed Head 10a0702",
+    "result": "FAIL",
+    "classification": "P1 reproducibility defect: verifier required HEAD == INPUT_HEAD",
+    "resolution": "candidate now proves INPUT_HEAD ancestry and an exact S7 successor path allowlist without embedding its own commit SHA"
+  }, {
     "command": "combined pytest across core and acceptance namespaces",
     "result": "FAIL",
     "classification": "invocation namespace collision",
@@ -74,6 +81,15 @@
     "feature_state_promoted": false,
     "release_approved": false,
     "original_m9_started": false
+  },
+  "remediation": {
+    "severity": "P1",
+    "base_commit": "10a07024951d017b868303a9410f0e3caeaf0d2c",
+    "input_head_remains": "80eba3066bc7dfe3ed91985343881b89d280ac17",
+    "self_referential_candidate_hash": false,
+    "non_ancestor_negative": "PASS",
+    "unauthorized_successor_negative": "PASS",
+    "input_tree_drift_negative": "PASS"
   },
   "gate": "PASS_HANDOFF"
 }

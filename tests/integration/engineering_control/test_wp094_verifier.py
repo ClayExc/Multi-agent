@@ -76,3 +76,38 @@ def test_wp094_verifier_rejects_mutation_omission() -> None:
 
     with pytest.raises(AssertionError, match="selected no commands"):
         module._verify_mutations(cases)
+
+
+def test_wp094_verifier_accepts_committed_candidate_head() -> None:
+    module = _module()
+
+    module._validate_candidate_lineage(module._git("rev-parse", "HEAD"))
+
+
+def test_wp094_verifier_rejects_non_ancestor(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _module()
+    monkeypatch.setattr(module, "_is_ancestor", lambda _base, _head: False)
+
+    with pytest.raises(AssertionError, match="not an ancestor"):
+        module._validate_candidate_lineage("candidate")
+
+
+def test_wp094_verifier_rejects_unauthorized_successor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    monkeypatch.setattr(module, "_is_ancestor", lambda _base, _head: True)
+    monkeypatch.setattr(module, "_candidate_paths", lambda _head: ("apps/api/main.py",))
+
+    with pytest.raises(AssertionError, match="unauthorized S7 delta"):
+        module._validate_candidate_lineage("candidate")
+
+
+def test_wp094_verifier_rejects_input_tree_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _module()
+    monkeypatch.setattr(module, "_git", lambda *_args: "drifted")
+
+    with pytest.raises(AssertionError, match="input tree drifted"):
+        module._validate_input_trees()

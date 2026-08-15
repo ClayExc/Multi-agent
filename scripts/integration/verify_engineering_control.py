@@ -22,6 +22,19 @@ HANDOFF_SHA256 = "86f0ef5757bd3cea2a414cc9070c8a22330b523fc2094d59be8159c2f8c21f
 UPSTREAM_PROOF_SHA256 = (
     "d512cffd08bf6d6bd3f94028e23694e2a08fcbf00e684c847c3a337f827a150c"
 )
+AUTHORIZED_CANDIDATE_PATHS = frozenset(
+    {
+        "scripts/integration/verify_engineering_control.py",
+        "tests/integration/engineering_control/test_wp094_verifier.py",
+        "tests/integration/evidence/WP-094-a1-HANDOFF.md",
+        "tests/integration/evidence/WP-094-a1-PROOF.json",
+    }
+)
+EXPECTED_INPUT_TREES = {
+    "contracts": "8eab44bfe8436d7d5ba9f4be4854af8e207adb52",
+    "migrations": "8383eda91972210ff16fb770679a48a9793e457a",
+    "apps": "020db6b94a2e6317b672b748e595468ba16a1309",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +70,36 @@ def _git(*args: str) -> str:
         ["git", *args], cwd=ROOT, check=True, capture_output=True, text=True
     )
     return result.stdout.strip()
+
+
+def _is_ancestor(ancestor: str, descendant: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+def _candidate_paths(head: str) -> tuple[str, ...]:
+    return tuple(
+        _git("diff", "--name-only", f"{INPUT_HEAD}..{head}").splitlines()
+    )
+
+
+def _validate_candidate_lineage(candidate_head: str) -> None:
+    if not _is_ancestor(INPUT_HEAD, candidate_head):
+        raise AssertionError("input Head is not an ancestor of the candidate")
+    unauthorized = set(_candidate_paths(candidate_head)) - AUTHORIZED_CANDIDATE_PATHS
+    if unauthorized:
+        raise AssertionError("candidate contains an unauthorized S7 delta")
+
+
+def _validate_input_trees() -> None:
+    for path, expected in EXPECTED_INPUT_TREES.items():
+        if _git("rev-parse", f"{INPUT_HEAD}:{path}") != expected:
+            raise AssertionError("protected input tree drifted")
 
 
 def _canonical(value: object) -> bytes:
@@ -132,8 +175,9 @@ def _verify_mutations(cases: list[dict[str, Any]]) -> int:
 
 
 def _verify_protection() -> tuple[int, int, bool]:
-    if _git("rev-parse", "HEAD") != INPUT_HEAD:
-        raise AssertionError("verification must run at the exact input Head")
+    candidate_head = _git("rev-parse", "HEAD")
+    _validate_candidate_lineage(candidate_head)
+    _validate_input_trees()
     protected = ("contracts", "migrations", "apps")
     changed_trees = sum(
         _git("rev-parse", f"{CONTROL_BASE}:{path}")

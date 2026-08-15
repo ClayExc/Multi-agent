@@ -16,7 +16,11 @@ from flowpilot_engineering_control.paths import (
     normalize_repo_path,
     path_is_within,
 )
-from flowpilot_engineering_control.repository import FileRecord, RepositoryMap
+from flowpilot_engineering_control.repository import (
+    FileRecord,
+    RepositoryMap,
+    protected_tags_for_path,
+)
 from flowpilot_engineering_control.serialization import (
     JsonValue,
     canonical_json_bytes,
@@ -25,6 +29,7 @@ from flowpilot_engineering_control.serialization import (
 
 SCHEMA_VERSION = "flowpilot.context-capsule.v1"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_SAFE_ID = re.compile(r"^[A-Za-z0-9_.\-/]+$")
 
 
 class ExpansionReason(StrEnum):
@@ -43,7 +48,11 @@ class EvidenceReference:
 
     def __post_init__(self) -> None:
         normalized = normalize_repo_path(self.path)
-        if normalized != self.path or not _SHA256.fullmatch(self.sha256):
+        if (
+            normalized != self.path
+            or not _SHA256.fullmatch(self.sha256)
+            or not _SAFE_ID.fullmatch(self.reference_id)
+        ):
             raise EngineeringControlError(ErrorCode.INVALID_PATH)
 
     def to_record(self) -> dict[str, JsonValue]:
@@ -59,6 +68,10 @@ class ScopeExpansion:
     reason: ExpansionReason
     paths: tuple[str, ...]
     authority: str
+
+    def __post_init__(self) -> None:
+        if not _SAFE_ID.fullmatch(self.authority):
+            raise EngineeringControlError(ErrorCode.INVALID_PATH)
 
     def to_record(self) -> dict[str, JsonValue]:
         return {
@@ -82,6 +95,20 @@ class CapsuleRequest:
     known_fact_refs: tuple[EvidenceReference, ...] = ()
     do_not_recheck_refs: tuple[EvidenceReference, ...] = ()
     expansions: tuple[ScopeExpansion, ...] = ()
+
+    def __post_init__(self) -> None:
+        identifiers = (
+            self.owner,
+            self.work_package,
+            self.attempt_id,
+            self.risk_class,
+        )
+        if (
+            not all(_SAFE_ID.fullmatch(value) for value in identifiers)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", self.contract_digest)
+            or not self.write_scope
+        ):
+            raise EngineeringControlError(ErrorCode.INVALID_PATH)
 
 
 @dataclass(frozen=True, slots=True)
@@ -497,7 +524,14 @@ class CapsuleBuilder:
         file_index: dict[str, FileRecord],
     ) -> tuple[str, ...]:
         record = file_index.get(change.path)
-        return record.protected_tags if record is not None else ()
+        tags = set(
+            record.protected_tags
+            if record is not None
+            else protected_tags_for_path(change.path)
+        )
+        if change.old_path is not None:
+            tags.update(protected_tags_for_path(change.old_path))
+        return tuple(sorted(tags))
 
     @staticmethod
     def _is_public_change(

@@ -5,11 +5,14 @@ STUDIO_PORT ?= 2024
 MYPY_SOURCES := apps/api/src apps/mcp-gateway/src apps/worker/src \
 	mcp-servers/knowledge/src mcp-servers/ticket/src \
 	packages/agent-runtime/src packages/application/src packages/context/src \
-	packages/domain/src packages/graph/src packages/model-gateway/src \
+	packages/domain/src packages/engineering-control/src packages/graph/src \
+	packages/model-gateway/src \
 	packages/persistence/src packages/policy/src packages/security/src \
 	packages/tool-contracts/src web/src
 
-.PHONY: bootstrap studio studio-smoke lint test test-all test-contract test-security test-identity test-coverage audit ci acceptance
+.PHONY: bootstrap studio studio-smoke engineering-control-test \
+	engineering-control-smoke lint test test-all test-contract test-security \
+	test-identity test-coverage audit ci acceptance
 
 bootstrap:
 	$(UV) sync --all-packages --all-groups --locked
@@ -20,6 +23,12 @@ studio:
 studio-smoke:
 	PYTHONUTF8=1 LANGSMITH_TRACING=false $(UV) run --all-packages --all-groups --locked langgraph --version
 	PYTHONUTF8=1 LANGSMITH_TRACING=false $(UV) run --all-packages --all-groups --locked langgraph dev --help
+
+engineering-control-test:
+	$(UV) run --locked pytest -q tests/core/engineering_control
+
+engineering-control-smoke:
+	$(UV) run --locked flowpilot-eng --help
 
 test:
 	$(UV) run --all-packages --all-groups --locked python -B -m pytest

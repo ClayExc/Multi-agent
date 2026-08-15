@@ -29,6 +29,54 @@ OWNER_POLICY_VERSION = "flowpilot.repository-owners.v1"
 _DEPENDENCY_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9_.-]*)")
 
 
+def protected_tags_for_path(path: str) -> tuple[str, ...]:
+    """Return all protection classes applying to a repository path."""
+
+    tags: list[str] = []
+    if path.startswith("contracts/"):
+        tags.append("contract")
+    if path.startswith("migrations/"):
+        tags.append("migration")
+    if path == "uv.lock":
+        tags.append("lock")
+    if path.startswith("infra/") or path == ".env.example":
+        tags.append("environment")
+    security_markers = (
+        "approval",
+        "auth",
+        "identity",
+        "oidc",
+        "policy",
+        "security",
+        "tenant",
+    )
+    if path.startswith(
+        (
+            "apps/mcp-gateway/",
+            "packages/policy/",
+            "packages/security/",
+            "tests/platform/",
+        )
+    ) or any(marker in path.casefold() for marker in security_markers):
+        tags.append("security")
+    if path.startswith(
+        (
+            ".github/",
+            "apps/",
+            "domain-packs/",
+            "evals/",
+            "infra/",
+            "mcp-servers/",
+            "packages/",
+            "scripts/",
+            "tests/",
+            "web/",
+        )
+    ) or path in {"Makefile", "langgraph.json", "pyproject.toml"}:
+        tags.append("product")
+    return tuple(sorted(tags))
+
+
 @dataclass(frozen=True, slots=True)
 class WorkspaceMember:
     path: str
@@ -114,9 +162,11 @@ class RepositoryMap:
             }
             for rule in self.owner_rules
         ]
+        owner_policy_sha256 = sha256_bytes(canonical_json_bytes(owner_rule_records))
         total_bytes = sum(record.byte_count for record in self.files)
         return {
             "authorization": {
+                "owner_policy_sha256": owner_policy_sha256,
                 "owner_policy_version": OWNER_POLICY_VERSION,
                 "owner_rules": owner_rule_records,
             },
@@ -192,7 +242,7 @@ class RepositoryMapBuilder:
             assignment = self._owners.resolve(path)
             content = self._read_tracked_bytes(path)
             package = self._package_for_path(path, member_paths)
-            tags = self._protected_tags(path)
+            tags = protected_tags_for_path(path)
             files.append(
                 FileRecord(
                     path=path,
@@ -335,32 +385,6 @@ class RepositoryMapBuilder:
             or "/ports/" in path
             or name.endswith("_ports.py")
         )
-
-    @staticmethod
-    def _protected_tags(path: str) -> tuple[str, ...]:
-        tags: list[str] = []
-        if path.startswith("contracts/"):
-            tags.append("contract")
-        if path.startswith("migrations/"):
-            tags.append("migration")
-        if path == "uv.lock":
-            tags.append("lock")
-        if path.startswith(("infra/",)) or path == ".env.example":
-            tags.append("environment")
-        if path.startswith(
-            (
-                "apps/mcp-gateway/",
-                "packages/policy/",
-                "packages/security/",
-                "tests/platform/",
-            )
-        ):
-            tags.append("security")
-        if path.startswith(
-            ("apps/", "mcp-servers/", "packages/", "web/")
-        ) and not path.startswith("packages/engineering-control/"):
-            tags.append("product")
-        return tuple(sorted(tags))
 
     @staticmethod
     def _dependency_edges(

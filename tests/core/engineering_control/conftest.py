@@ -88,5 +88,6 @@ dependencies = []
     repository.write("tests/core/evidence/generated.md", "generated-secret\n")
     repository.write(".idea/workspace.xml", "local-only-secret\n")
     repository.write("AGENTS.md", "# Test authority\n")
+    repository.write(".gitignore", ".flowpilot-engineering/\n")
     repository.commit("baseline")
     return repository

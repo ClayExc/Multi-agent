@@ -21,6 +21,16 @@ class ErrorCode(StrEnum):
     TARGET_NOT_HEAD = "ENG_TARGET_NOT_HEAD"
     SCOPE_VIOLATION = "ENG_SCOPE_VIOLATION"
     OUTPUT_POLICY_VIOLATION = "ENG_OUTPUT_POLICY_VIOLATION"
+    SELECTION_INCOMPLETE = "ENG_SELECTION_INCOMPLETE"
+    TEST_PLAN_EMPTY = "ENG_TEST_PLAN_EMPTY"
+    ARGV_INVALID = "ENG_ARGV_INVALID"
+    CACHE_FAILED_RESULT = "ENG_CACHE_FAILED_RESULT"
+    CACHE_POLICY_DENIED = "ENG_CACHE_POLICY_DENIED"
+    CACHE_INTEGRITY_MISMATCH = "ENG_CACHE_INTEGRITY_MISMATCH"
+    CACHE_KEY_CONFLICT = "ENG_CACHE_KEY_CONFLICT"
+    CACHE_UNTRACEABLE_HEAD = "ENG_CACHE_UNTRACEABLE_HEAD"
+    EVIDENCE_INVALID = "ENG_EVIDENCE_INVALID"
+    REPORT_INVALID = "ENG_REPORT_INVALID"
 
 
 _MESSAGES: Final[dict[ErrorCode, str]] = {
@@ -36,6 +46,16 @@ _MESSAGES: Final[dict[ErrorCode, str]] = {
     ErrorCode.TARGET_NOT_HEAD: "target must equal the clean worktree HEAD",
     ErrorCode.SCOPE_VIOLATION: "requested path is outside the authorized scope",
     ErrorCode.OUTPUT_POLICY_VIOLATION: "output would violate metadata-only policy",
+    ErrorCode.SELECTION_INCOMPLETE: "test selection completeness cannot be proven",
+    ErrorCode.TEST_PLAN_EMPTY: "test plan cannot be empty",
+    ErrorCode.ARGV_INVALID: "command argv is invalid",
+    ErrorCode.CACHE_FAILED_RESULT: "failed command result is not cacheable",
+    ErrorCode.CACHE_POLICY_DENIED: "evidence reuse policy denies caching",
+    ErrorCode.CACHE_INTEGRITY_MISMATCH: "evidence cache integrity check failed",
+    ErrorCode.CACHE_KEY_CONFLICT: "cache key already has different evidence",
+    ErrorCode.CACHE_UNTRACEABLE_HEAD: "evidence producer Head is not traceable",
+    ErrorCode.EVIDENCE_INVALID: "evidence metadata is invalid",
+    ErrorCode.REPORT_INVALID: "attempt report metadata is invalid",
 }
 
 

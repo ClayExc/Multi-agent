@@ -6,7 +6,7 @@
 - Attempt：WP-100-a1
 - Owner：S1-ARCH
 - Reviewer：S3、S2、S5、S6、S4、S7
-- 风险：R1
+- 风险：R2
 - Feature：FP-SEC-004/005/006、FP-MCP-006、FP-OBS-002/003
 - 依赖：WP-094
 - 执行：ORDERED
@@ -21,4 +21,6 @@
 - [`LOCAL_GOVERNANCE_CONTROL_PLANE.md`](../../architecture/LOCAL_GOVERNANCE_CONTROL_PLANE.md)
 - `CHAIN-M9-GOVERNANCE-01`、WP-101～WP-109 和对应 Agent Registry。
 - M9T Context Capsule 记录读取范围、范围扩展和已复用 WP-094 证据。
+- 最终 Capsule：`sha256:c4beb52198cc61271f17dbd01ed7673cc70e1d9325060109c0a75c13aab8bb71`；
+  27 个文件、3.68% 仓库字节、24 次有理由的范围扩展。
 - M9 与 M9T 状态不混淆；`RELEASED=false`、`FROZEN=false` 保持不变。

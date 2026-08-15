@@ -16,6 +16,7 @@ members = [
     "flowpilot-application",
     "flowpilot-context",
     "flowpilot-domain",
+    "flowpilot-engineering-control",
     "flowpilot-graph",
     "flowpilot-mcp-gateway",
     "flowpilot-mcp-knowledge",
@@ -774,6 +775,11 @@ dependencies = [
 requires-dist = [{ name = "rfc8785", specifier = ">=0.1.4,<0.2" }]
 
 [[package]]
+name = "flowpilot-engineering-control"
+version = "0.1.0"
+source = { editable = "packages/engineering-control" }
+
+[[package]]
 name = "flowpilot-graph"
 version = "0.1.0"
 source = { editable = "packages/graph" }
@@ -955,6 +961,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "cryptography" },
+    { name = "flowpilot-engineering-control" },
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "langgraph-cli", extra = ["inmem"] },
@@ -983,6 +990,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "cryptography", specifier = ">=50,<51" },
+    { name = "flowpilot-engineering-control", editable = "packages/engineering-control" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "langgraph-cli", extras = ["inmem"], specifier = ">=0.4.31,<0.5" },

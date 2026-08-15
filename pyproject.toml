@@ -19,6 +19,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "cryptography>=50,<51",
+    "flowpilot-engineering-control",
     "httpx>=0.28,<1",
     "jsonschema>=4.23,<5",
     "langgraph-cli[inmem]>=0.4.31,<0.5",
@@ -44,6 +45,7 @@ members = [
     "packages/application",
     "packages/context",
     "packages/domain",
+    "packages/engineering-control",
     "packages/graph",
     "packages/model-gateway",
     "packages/persistence",
@@ -58,6 +60,7 @@ flowpilot-agent-runtime = { workspace = true }
 flowpilot-application = { workspace = true }
 flowpilot-context = { workspace = true }
 flowpilot-domain = { workspace = true }
+flowpilot-engineering-control = { workspace = true }
 flowpilot-graph = { workspace = true }
 flowpilot-mcp-gateway = { workspace = true }
 flowpilot-mcp-knowledge = { workspace = true }

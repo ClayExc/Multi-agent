@@ -1,0 +1,16 @@
+[project]
+name = "flowpilot-engineering-control"
+version = "0.1.0"
+description = "Deterministic engineering context and evidence controls for FlowPilot"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+flowpilot-eng = "flowpilot_engineering_control.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowpilot_engineering_control"]

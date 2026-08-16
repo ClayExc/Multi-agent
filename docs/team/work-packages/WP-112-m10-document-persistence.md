@@ -1,6 +1,6 @@
 # WP-112：知识文档事实与 RLS
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-112-a1
 - Owner：S6-DATA
 - 风险：R2

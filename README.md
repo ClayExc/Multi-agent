@@ -17,7 +17,7 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 ## 当前状态
 
-`master` 已包含 M0～M9 工程候选和 M9T 工程控制面，M10 本地知识平台已进入开发链，
+`master` 已包含 M0～M10 工程候选和 M9T 工程控制面，M11 尚未启动，
 但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
 - 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
@@ -36,11 +36,12 @@ M9T 工程控制面已经合入，后续工作默认使用仓库地图、Delta C
 选择和 Evidence Cache。M9 已完成版本化策略、短时 Capability、Gateway 与 Runtime
 DLP、追加式审计、可查询治理页面和 9 条治理安全执行器的本地组合验证。
 
-M10 正在把合成知识读取升级为 PostgreSQL/pgvector 本地知识平台。当前已固定文档版本、
-ACL、生命周期、混合检索、稳定引用和无证据回答边界；产品实现从领域/Application Port
-开始，后续按数据、检索、MCP、Runtime、Web 和验收顺序线性推进。
+M10 已把合成知识读取升级为 PostgreSQL/pgvector 本地知识平台：文档版本、ACL、
+生命周期、混合检索、稳定引用、无证据回答、Knowledge MCP、Runtime、管理 API 和
+Web 诊断入口已完成本地组合验证。固定 156 条 Case 当前为 40 条完成、116 条因没有
+对应产品执行器而明确失败；项目仍不是发布版本。
 
-## M0～M9 做了什么
+## M0～M10 做了什么
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
 |---|---|---|
@@ -54,6 +55,7 @@ ACL、生命周期、混合检索、稳定引用和无证据回答边界；产�
 | M7 本地产品候选 | LiteLLM 与 Agents SDK Adapter、API/Worker/Graph/Data 组合、Web API/SSE 模式、Studio 安全恢复、集中凭据扫描、24 条知识问答执行器 | 在线 Provider Smoke 未运行；132 条 Case 未注册；没有一键产品启动入口 |
 | M8 本地身份与租户 | Keycloak 双租户、OIDC/JWKS、Cookie-only 会话、双主体身份、可信 SecurityContext、RLS 与恢复重验、6 条租户隔离执行器 | 使用本地 Realm；126 条后续 Case 尚无执行器；不包含生产 IdP/HA |
 | M9 本地治理 | 版本化 Rego/OPA 策略、Capability、Secret Provider、Gateway/Runtime DLP、追加式审计与治理页面、9 条治理安全执行器 | 使用本地 OPA/Secret 配置；117 条后续 Case 尚无执行器；不包含生产 Vault/KMS/SIEM/HA |
+| M10 本地知识平台 | PostgreSQL/pgvector 文档事实、ACL/RLS、生命周期、混合检索、稳定引用、Knowledge MCP、Runtime、管理 API、Web 诊断和 1 条知识安全执行器 | 116 条后续 Case 尚无执行器；在线 Provider 与真实企业知识源未接入 |
 
 当前仓库状态为 `RELEASED=false`、整体 `FROZEN=false`。原方案中的 Token 降低 24%、任务成功率 82.5%→90.0%、Macro-F1 0.86→0.91 都是参考目标，不是已有结果。项目在产生可复现报告前不会使用这些数字。
 
@@ -202,7 +204,7 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 | M8（候选已验收） | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS；真实本地组合门禁通过 |
 | M9T（已合入） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
 | M9（候选已验收） | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event；固定分母累计 39 条完成 |
-| M10（开发中） | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
+| M10（候选已验收） | PostgreSQL/pgvector 本地知识平台、权限过滤、混合检索、稳定引用、管理与诊断页面；固定分母累计 40 条完成 |
 | M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |
 | M12 | 用户可管理、可纠正、可删除的长期记忆 |
 | M13 | 带来源和新鲜度的用户画像；只做预填和个性化，不参与授权 |

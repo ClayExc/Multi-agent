@@ -1,6 +1,6 @@
 # WP-114：混合检索与稳定引用
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-114-a1
 - Owner：S4-QUALITY
 - 风险：R2

@@ -1,6 +1,6 @@
 # WP-120：M10 组合验证
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-120-a1
 - Owner：S7-INTEGRATION
 - 风险：R2

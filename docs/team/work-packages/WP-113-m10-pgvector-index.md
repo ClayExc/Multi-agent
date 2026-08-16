@@ -1,6 +1,6 @@
 # WP-113：pgvector 与索引生命周期
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-113-a1
 - Owner：S6-DATA
 - 风险：R2

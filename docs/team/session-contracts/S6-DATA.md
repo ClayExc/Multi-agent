@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=WP-112,WP-113
+WORK_PACKAGE=UNASSIGNED
 FEATURE_IDS=FP-DATA-001,FP-SEC-002,FP-SEC-003
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：DEPENDENCY_WAIT / WP-112
-- 当前工作：等待 WP-111 精确线性 Head；随后热继续 WP-113。
+- 契约状态：STANDBY / M10 ACCEPTED
+- 当前工作：无激活写工作包；等待新的 Agent Registry 派发。
 
 ## 使命
 

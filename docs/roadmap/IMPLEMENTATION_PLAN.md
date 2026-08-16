@@ -3,17 +3,17 @@
 ## 1. 路线状态
 
 ~~~text
-CURRENT_BASELINE=M0-M9_CANDIDATE_M10_ACTIVE
-NEXT_MILESTONE=M10_LOCAL_KNOWLEDGE_PLATFORM_ACTIVE
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M10-KNOWLEDGE-01
-PLAN_STATUS=M10-ACTIVE
+CURRENT_BASELINE=M0-M10_CANDIDATE
+NEXT_MILESTONE=M11_SHORT_TERM_MEMORY_PENDING_USER_GATE
+ACTIVE_DEVELOPMENT_CHAIN=none
+PLAN_STATUS=M10-COMPLETE_M11-NOT-ACTIVATED
 RELEASED=false
 FROZEN=false
 ~~~
 
-M0～M9 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
-Adapter、本地身份租户、版本化策略、DLP、追加式审计和评测工具链合入当前工程候选。
-固定 156 条 Case 已有 39 条产品执行器，另 117 条明确失败；一键产品入口、在线 Provider 验证和后续
+M0～M10 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
+Adapter、本地身份租户、版本化策略、DLP、追加式审计、本地知识平台和评测工具链
+合入当前工程候选。固定 156 条 Case 已有 40 条产品执行器，另 116 条明确失败；一键产品入口、在线 Provider 验证和后续
 业务执行器仍未完成。
 
 M7～M20 的目标是完成一个可在本机完整演示、能够说明企业级边界的智能工单
@@ -199,8 +199,8 @@ WP-090～WP-094。M9 产品治理从其验收 Head 启动，默认使用仓库�
 
 ## 8. M10：本地知识平台
 
-状态：`ACTIVE`。执行链为 `CHAIN-M10-KNOWLEDGE-01`，工作包 WP-110～WP-120；当前从
-WP-111 知识领域与应用 Port 开始，保持单写者线性 Head。
+状态：`COMPLETE / ACCEPTED_CANDIDATE`。执行链 `CHAIN-M10-KNOWLEDGE-01` 与工作包
+WP-110～WP-120 已完成并合入主分支；固定分母新增 1 条知识安全执行器。
 
 目标：把合成知识读取升级为可维护、可授权、带稳定引用的本地知识系统。
 

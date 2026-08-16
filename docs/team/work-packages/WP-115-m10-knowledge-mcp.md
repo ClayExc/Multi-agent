@@ -1,6 +1,6 @@
 # WP-115：安全 Knowledge MCP
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-115-a1
 - Owner：S3-PLATFORM
 - 风险：R2

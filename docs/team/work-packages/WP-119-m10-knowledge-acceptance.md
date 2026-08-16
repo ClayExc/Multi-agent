@@ -1,6 +1,6 @@
 # WP-119：M10 固定分母验收
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-119-a1
 - Owner：S4-QUALITY
 - 风险：R2

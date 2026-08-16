@@ -1,6 +1,6 @@
 # WP-117：Runtime 知识查询与引用
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-117-a1
 - Owner：S2-RUNTIME
 - 风险：R2

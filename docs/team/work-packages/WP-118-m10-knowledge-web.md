@@ -1,6 +1,6 @@
 # WP-118：知识管理与检索诊断 Web
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-118-a1
 - Owner：S4-QUALITY
 - 风险：R2

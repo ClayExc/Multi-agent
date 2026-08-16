@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：ACTIVE
+- 状态：ACCEPTED_M10
 - Attempt：WP-111-a1
 - Owner：S5-CORE
 - 风险：R2

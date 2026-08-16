@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=WP-111
+WORK_PACKAGE=UNASSIGNED
 FEATURE_IDS=FP-FLOW-003,FP-DATA-001,FP-SEC-003,FP-UI-001
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,tests/core/**,pyproject.toml,uv.lock,Makefile
 ```
 
-- 契约状态：ACTIVE / WP-111
-- 当前工作：定义知识文档领域、生命周期、Application Port 和 S6 事务交接。
+- 契约状态：STANDBY / M10 ACCEPTED
+- 当前工作：无激活写工作包；等待新的 Agent Registry 派发。
 
 ## 使命
 

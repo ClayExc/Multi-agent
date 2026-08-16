@@ -1,6 +1,6 @@
 # WP-116：知识 API、组合与 Workspace 闭包
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M10
 - Attempt：WP-116-a1
 - Owner：S5-CORE
 - 风险：R2

@@ -30,12 +30,12 @@ Contract 和当前 Work Package 引用。长期任务的新 Attempt 默认按
 
 ## 2. 当前事实
 
-- M0～M9 工程候选与 M9T 工程控制面已完成；M10 本地知识平台已激活，M11～M20
-  未激活。
+- M0～M10 工程候选与 M9T 工程控制面已完成；M11～M20 未激活。
 - M7 有 24 条知识问答产品执行器，M8 新增 6 条租户隔离执行器，M9 新增 9 条治理
-  安全执行器；固定 156 条 Case 当前为 39 条通过、117 条明确失败，因此
+  安全执行器，M10 新增 1 条知识安全执行器；固定 156 条 Case 当前为 40 条通过、
+  116 条明确失败，因此
   `RELEASED=false`、`FROZEN=false`。
-- 当前只运行 WP-111（S5），其余 M10 角色按线性依赖等待。现状以
+- 当前没有激活的开发链或写工作包；M11 等待用户门禁。现状以
   [`PROJECT_HANDOFF.md`](docs/roadmap/PROJECT_HANDOFF.md) 和机器追踪清单为准。
 - `DESIGNED / IMPLEMENTED / VERIFIED / RELEASED` 只按
   [`ACCEPTANCE.md`](docs/acceptance/ACCEPTANCE.md) 提升。

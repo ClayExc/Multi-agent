@@ -18,7 +18,7 @@ services:
     restart: "no"
 
   postgres:
-    image: postgres:17.5-alpine
+    image: pgvector/pgvector:0.8.0-pg17
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-flowpilot}
       POSTGRES_USER: ${POSTGRES_USER:-flowpilot_migrator}
@@ -32,6 +32,8 @@ services:
       - ../../migrations/0003_api_task_initialization.sql:/docker-entrypoint-initdb.d/003-api-task-initialization.sql:ro
       - ../../migrations/0004_security_context_rls_binding.sql:/docker-entrypoint-initdb.d/004-security-context-rls-binding.sql:ro
       - ../../migrations/0005_governance_audit_query.sql:/docker-entrypoint-initdb.d/005-governance-audit-query.sql:ro
+      - ../../migrations/0006_knowledge_document_facts.sql:/docker-entrypoint-initdb.d/006-knowledge-document-facts.sql:ro
+      - ../../migrations/0007_pgvector_knowledge_index.sql:/docker-entrypoint-initdb.d/007-pgvector-knowledge-index.sql:ro
     healthcheck:
       test:
         - CMD-SHELL

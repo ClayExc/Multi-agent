@@ -60,6 +60,10 @@ from packages.evaluation.m9_governance import (  # noqa: E402
     M9_SUPPORTED_CASE_COUNT,
     M9GovernanceSecurityExecutor,
 )
+from packages.evaluation.m10_knowledge import (  # noqa: E402
+    M10_SUPPORTED_CASE_COUNT,
+    M10KnowledgeSecurityExecutor,
+)
 from packages.evaluation.reporting import (  # noqa: E402
     AssertionOutcome,
     CaseResult,
@@ -114,6 +118,7 @@ def build_product_executors(
         M7EnterpriseKnowledgeExecutor(ROOT),
         M8IdentityTenancyExecutor(ROOT),
         M9GovernanceSecurityExecutor(ROOT),
+        M10KnowledgeSecurityExecutor(ROOT),
     )
     return CaseExecutorRegistry(registered), registered
 
@@ -419,11 +424,13 @@ def main() -> int:
         M7_SUPPORTED_CASE_COUNT
         + M8_SUPPORTED_CASE_COUNT
         + M9_SUPPORTED_CASE_COUNT
+        + M10_SUPPORTED_CASE_COUNT
     )
     print(
         f"  已注册 M7 企业知识产品执行器: {M7_SUPPORTED_CASE_COUNT} 条，"
         f"M8 身份租户执行器: {M8_SUPPORTED_CASE_COUNT} 条，"
-        f"M9 治理安全执行器: {M9_SUPPORTED_CASE_COUNT} 条；"
+        f"M9 治理安全执行器: {M9_SUPPORTED_CASE_COUNT} 条，"
+        f"M10 知识安全执行器: {M10_SUPPORTED_CASE_COUNT} 条；"
         f"其余 {len(cases) - supported_case_count} 条未实现 Case 保持显式失败"
     )
     execution_evidence_root = output / "execution"

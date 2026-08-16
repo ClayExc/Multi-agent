@@ -587,6 +587,10 @@ class M7EnterpriseKnowledgeExecutor:
         output_classification = (
             "restricted" if scenario == "scope_denied_restricted" else "internal"
         )
+        if any(
+            record["classification"] == "confidential" for record in records
+        ):
+            output_classification = "confidential"
         return ToolResult(
             execution_id=f"tex_m7eval{suffix}",
             request_id=request_id,
@@ -628,9 +632,12 @@ class M7EnterpriseKnowledgeExecutor:
                 {
                     "source_ref": (
                         f"knowledge://{record_tenant}/{doc_id.lower()}/"
-                        f"v{document['version']}"
+                        "1#synthetic-summary"
                     ),
-                    "document_version": str(document["version"]),
+                    # Each synthetic fixture document is imported once.  Its
+                    # human-facing policy revision remains in the content,
+                    # while the product citation binds persistence version 1.
+                    "document_version": "1",
                     "section": "synthetic-summary",
                     "redacted_summary": content,
                     "content_hash": "sha256:"

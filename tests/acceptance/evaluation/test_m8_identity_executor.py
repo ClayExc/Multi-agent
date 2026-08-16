@@ -15,6 +15,7 @@ from packages.evaluation.m8_identity import (
 from packages.evaluation.m9_governance import (
     M9_GOVERNANCE_EXECUTOR_ID,
 )
+from packages.evaluation.m10_knowledge import M10_KNOWLEDGE_EXECUTOR_ID
 from packages.evaluation.reporting import CaseStatus
 from packages.evaluation.validation import OfflineRepositoryValidator
 from scripts.acceptance.run_acceptance import (
@@ -145,4 +146,5 @@ def test_official_fixed_denominator_measures_registered_product_cases(
         "flowpilot.m7.enterprise-knowledge",
         "flowpilot.m8.identity-tenancy",
         M9_GOVERNANCE_EXECUTOR_ID,
+        M10_KNOWLEDGE_EXECUTOR_ID,
     ]

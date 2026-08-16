@@ -1,0 +1,71 @@
+{
+  "schema": "flowpilot.wp109-composition-proof.v1",
+  "chain_id": "CHAIN-M9-GOVERNANCE-01",
+  "step_id": "M9-09-S7-COMPOSITION",
+  "attempt_id": "WP-109-a1",
+  "session_role": "S7-INTEGRATION",
+  "risk_class": "R3",
+  "input_head": "f0b9c529e6408dd8faa53a734bb4e8dcb3844864",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "upstream": {
+    "handoff_sha256": "8ba0f2a26b8efb089040222482b1b5bf316fd2ca527597d626b1ac197fc7eba6",
+    "proof_sha256": "25caef1b05cfee84741fc6f93ceaa0e3e4ea534750c99b8f17647b37bee5f469"
+  },
+  "official_registry": {
+    "implementation": "scripts.acceptance.run_acceptance collect/build/evaluate/registration",
+    "match_policy": "unique_exact_case_digest",
+    "declared_cases": 156,
+    "unique_case_ids": 156,
+    "collection_errors": 0,
+    "completed": 39,
+    "explicit_failed": 117,
+    "skipped": 0,
+    "quarantined": 0,
+    "executors": {"m7": 24, "m8": 6, "m9": 9},
+    "duplicate_matches": 0
+  },
+  "security": {
+    "dangerous_output_count": 0,
+    "cross_tenant_success_count": 0,
+    "judge_scores_used": 0,
+    "manifest_gate": "FAIL"
+  },
+  "protected_objects": {
+    "contracts_tree": "8eab44bfe8436d7d5ba9f4be4854af8e207adb52",
+    "migrations_tree": "575fdc77c98ce110096396a3e5e453bb8fae1983",
+    "uv_lock_blob": "4f95ab10d47bf3f98c61472e7842313e927d850f",
+    "uv_lock_sha256": "2f1e4c5f18e7752938f739d66dd3ada8d233bc3d1b2d2b413d8246a671b7b8e9",
+    "opa_bundle_tree": "1dfdbfc226a0cc45c8aa1ae62b1a205e3582d53f",
+    "apps_tree": "92d7e0b69c1ebe0847c56b92c8bef9c81ceb941d",
+    "packages_tree": "60adfc8283f50057065937a259829d6915598508",
+    "migration_0005_sha256": "ec65060c923230dfac8095c2d241b02f9936111433874aea490fc7c31b5b84a0",
+    "opa_manifest_sha256": "9bbbed34df8ef49c7c471a1158ea94f7f2de74489c80d2351eeaecf80d8ca266",
+    "candidate_scope_violations": 0,
+    "candidate_protected_changes": 0
+  },
+  "gates": {
+    "public_verifier": "PASS",
+    "targeted_security_acceptance_integration_secret": "22 passed",
+    "contract": "20 schemas, 35 cases, 43 semantic cases, 52 features",
+    "uv_lock_check": "PASS",
+    "ruff": "PASS",
+    "mypy_strict_follow_imports_skip": "2 source files PASS",
+    "pip_audit": "0 known vulnerabilities",
+    "secret_scan": "0 findings",
+    "diff_check": "PASS"
+  },
+  "reused_not_run": {
+    "compose": "WP-106/WP-107 evidence reused; not run",
+    "real_postgresql_opa_migration": "WP-106 protected evidence reused; not run",
+    "keycloak_rls": "WP-087 protected evidence reused; not run",
+    "online_provider": "not run",
+    "full_repository": "not run"
+  },
+  "claims": {
+    "m9_released": false,
+    "m9_frozen": false,
+    "m10_started": false,
+    "s7_self_approved": false
+  },
+  "gate": "PASS_HANDOFF"
+}

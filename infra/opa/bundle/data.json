@@ -1,0 +1,8 @@
+{
+  "flowpilot": {
+    "policy": {
+      "default": "deny",
+      "version": "policy-m9-local-v1"
+    }
+  }
+}

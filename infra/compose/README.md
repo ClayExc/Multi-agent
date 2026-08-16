@@ -9,7 +9,7 @@ docker compose --env-file .env -f infra/compose/compose.yaml up -d
 docker compose --env-file .env -f infra/compose/compose.yaml ps
 ```
 
-PostgreSQL 会在命名卷为空时按 `0001 -> 0002 -> 0003 -> 0004` 运行正向迁移。如果需要
+PostgreSQL 会在命名卷为空时按 `0001 -> 0002 -> 0003 -> 0004 -> 0005` 运行正向迁移。如果需要
 在不删除业务事实的情况下再次验证，请执行 `migrations/README.md` 中的 `psql`
 命令。
 
@@ -43,6 +43,14 @@ management port 9000 的 `/health/ready`，不把 management port 暴露到宿�
 Realm 用户密码与 Worker/Gateway Client Secret 只从 `.env` 注入；提交的 JSON 只含
 环境占位符。动态登录、刷新/撤销、服务 Client 与安全负例使用
 `tests/data/integration/verify_keycloak.py` 验证。
+
+OPA 从只读 `infra/opa/bundle` 加载固定本地 Bundle。`governance-config` 会在 OPA
+启动前校验三个 Bundle 文件的固定 SHA-256，并验证
+`FLOWPILOT_GOVERNANCE_CURSOR_HMAC_SECRET` 至少 32 字节；失败时不会启动 OPA。
+该 Secret 只通过 Compose environment-backed Secret 注入，不出现在镜像、环境模板
+默认值或日志中。真实默认拒绝、跨租户拒绝、精确低风险允许及重启恢复使用
+`tests/data/integration/verify_opa_bundle.py` 验证。此 Bundle 仅用于本地开发，不是生产
+策略发布、签名或信任系统。
 
 仓库中提交的凭据是显而易见的本地占位值，`.env` 已被忽略。生产身份、密钥、
 TLS、备份、高可用和外部审计锚定不属于当前本地 Compose 的范围。

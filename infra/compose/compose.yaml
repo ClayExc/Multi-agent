@@ -1,6 +1,22 @@
 name: flowpilot-m0-data
 
 services:
+  governance-config:
+    image: alpine:3.21.3
+    command:
+      - sh
+      - -ec
+      - >-
+        test "$$(wc -c < /run/secrets/governance_cursor_hmac)" -ge 32 &&
+        echo 'fc82d6950308d8dc395a7a3718c2fb3c190a3445cf58851b6fc20a4b40c9c6a5  /bundle/flowpilot/authz.rego' | sha256sum -c - >/dev/null &&
+        echo '2353d2f3f282befeb13daaf9337f2012210df0aa9d3776bb730535df74c62f9d  /bundle/data.json' | sha256sum -c - >/dev/null &&
+        echo '9bbbed34df8ef49c7c471a1158ea94f7f2de74489c80d2351eeaecf80d8ca266  /bundle/.manifest' | sha256sum -c - >/dev/null
+    secrets:
+      - governance_cursor_hmac
+    volumes:
+      - ../opa/bundle:/bundle:ro
+    restart: "no"
+
   postgres:
     image: postgres:17.5-alpine
     environment:
@@ -15,6 +31,7 @@ services:
       - ../../migrations/0002_checkpoint_sequence_cas.sql:/docker-entrypoint-initdb.d/002-checkpoint-sequence-cas.sql:ro
       - ../../migrations/0003_api_task_initialization.sql:/docker-entrypoint-initdb.d/003-api-task-initialization.sql:ro
       - ../../migrations/0004_security_context_rls_binding.sql:/docker-entrypoint-initdb.d/004-security-context-rls-binding.sql:ro
+      - ../../migrations/0005_governance_audit_query.sql:/docker-entrypoint-initdb.d/005-governance-audit-query.sql:ro
     healthcheck:
       test:
         - CMD-SHELL
@@ -90,17 +107,26 @@ services:
     command:
       - run
       - --server
+      - --addr=:8181
       - --config-file=/config/config.yaml
+      - --bundle
+      - /bundle
     ports:
       - "127.0.0.1:${OPA_PORT:-8181}:8181"
     volumes:
       - ../opa/config.yaml:/config/config.yaml:ro
+      - ../opa/bundle:/bundle:ro
+    depends_on:
+      governance-config:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - CMD
         - /opa
         - eval
-        - "true"
+        - --bundle
+        - /bundle
+        - data.flowpilot.authz.decisions
       interval: 10s
       timeout: 5s
       retries: 10
@@ -135,3 +161,7 @@ networks:
   data-plane: {}
   coordination: {}
   control-plane: {}
+
+secrets:
+  governance_cursor_hmac:
+    environment: FLOWPILOT_GOVERNANCE_CURSOR_HMAC_SECRET

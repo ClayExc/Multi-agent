@@ -1,0 +1,8 @@
+{
+  "revision": "policy-m9-local-v1",
+  "roots": ["flowpilot"],
+  "metadata": {
+    "format": "flowpilot.rego-bundle.v1",
+    "policy": "local-development-only"
+  }
+}

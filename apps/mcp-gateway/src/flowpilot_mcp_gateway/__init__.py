@@ -5,6 +5,7 @@ from .errors import (
     GatewayReason,
 )
 from .gateway import (
+    GATEWAY_GOVERNANCE_PORT_VERSION,
     GATEWAY_INBOUND_PORT_VERSION,
     GatewayDependencies,
     McpGateway,
@@ -29,6 +30,7 @@ from .ports import (
     ReadbackResult,
     ReconciliationDisposition,
     ReconciliationResult,
+    SecretAwareToolAdapter,
     ToolAdapter,
     ToolInvocationResult,
 )
@@ -57,6 +59,7 @@ __all__ = [
     "GatewayIngressRequest",
     "GatewayInvocation",
     "GatewayReason",
+    "GATEWAY_GOVERNANCE_PORT_VERSION",
     "GATEWAY_INBOUND_PORT_VERSION",
     "LifecycleEvent",
     "LifecycleOutcome",
@@ -67,6 +70,7 @@ __all__ = [
     "ReconciliationDisposition",
     "ReconciliationResult",
     "SecurityDraft",
+    "SecretAwareToolAdapter",
     "SignalSinkPort",
     "ToolAdapter",
     "ToolDefinition",

@@ -1,3 +1,11 @@
+from .content_safety import (
+    PROMPT_INJECTION_RULES,
+    ContentFinding,
+    ContentSafetyRule,
+    ContentSurface,
+    assert_content_safe,
+    scan_prompt_injection,
+)
 from .context_integrity import (
     trusted_context_snapshot_hash,
     verify_trusted_context_integrity,
@@ -34,21 +42,39 @@ from .identity import (
 from .models import (
     AuthenticatedWorkload,
     CapabilityHandle,
+    CapabilityUse,
     CredentialBrokerPort,
     SecurityContextSource,
     TrustedSecurityContext,
 )
 from .safety import assert_safe_projection
+from .secrets import (
+    DevelopmentSecretBinding,
+    DevelopmentSecretProvider,
+    SecretLease,
+    SecretProviderPort,
+)
 from .verifier import SecurityVerifier
 
 SECURITY_ADAPTER_PORT_VERSION = "flowpilot.security-adapter.m0.v1"
+CAPABILITY_PORT_VERSION = "flowpilot.capability.m9.v1"
+CONTENT_SAFETY_REGISTRY_VERSION = "flowpilot.content-safety.m9.v1"
+SECRET_PROVIDER_PORT_VERSION = "flowpilot.secret-provider.m9.v1"
 
 __all__ = [
     "AuthenticatedWorkload",
     "CapabilityHandle",
+    "CapabilityUse",
+    "CAPABILITY_PORT_VERSION",
     "CREDENTIAL_FAMILIES",
     "CredentialFamily",
     "CredentialBrokerPort",
+    "ContentFinding",
+    "ContentSafetyRule",
+    "ContentSurface",
+    "CONTENT_SAFETY_REGISTRY_VERSION",
+    "DevelopmentSecretBinding",
+    "DevelopmentSecretProvider",
     "InMemorySecurityContextSource",
     "JwksSourcePort",
     "NonceReplayGuardPort",
@@ -64,6 +90,9 @@ __all__ = [
     "SecurityVerifier",
     "SecurityContextReference",
     "SecretFinding",
+    "SecretLease",
+    "SecretProviderPort",
+    "SECRET_PROVIDER_PORT_VERSION",
     "SECURITY_ADAPTER_PORT_VERSION",
     "TrustedSecurityContext",
     "TrustedContextMapper",
@@ -75,8 +104,11 @@ __all__ = [
     "WorkloadRegistration",
     "WorkloadTokenVerifierPort",
     "assert_no_secret_material",
+    "assert_content_safe",
     "assert_safe_projection",
     "scan_secret_material",
+    "scan_prompt_injection",
+    "PROMPT_INJECTION_RULES",
     "require_sha256_digest",
     "trusted_context_snapshot_hash",
     "verify_trusted_context_integrity",

@@ -395,7 +395,7 @@ async def test_malicious_read_output_is_rejected_and_not_projected() -> None:
     execution = await fixture.gateway.execute(fixture.invocation)
 
     assert execution.result.status is ToolResultStatus.FAILED_FINAL
-    assert execution.result.error_code == "PLATFORM_TOOL_OUTPUT_INVALID"
+    assert execution.result.error_code == "PLATFORM_DLP_BLOCKED"
     assert execution.result.data is None
     assert malicious.invocation_count == 1
     assert len(fixture.signals.security) == 1

@@ -17,3 +17,10 @@ Knowledge MCP 会先应用这些属性，再生成候选结果；模型参数既
 
 本包不包含上游企业系统客户端、生产凭据或私有持久化实现。工具适配器、
 身份/策略来源、凭据代理和信号接收端均通过 Port 注入。
+
+M9 的强制顺序为：内容安全、可信身份/Context、Registry、Policy、Approval、
+Capability 签发与单次消费，然后才允许写入执行账本和调用上游。`invoke`、`readback`
+和 `reconcile` 使用不同 Capability；Secret 只通过 `SecretAwareToolAdapter` 的动态调用
+栈打开。Gateway 会扫描工具参数、原始 MCP content envelope、写响应、回读/对账的
+数据与引用、完整 `ToolResult`、Lifecycle、Audit、Security 和 debug projection。
+写调用返回后才发现危险内容时保留 `UNKNOWN`，不能错误声明副作用未发生。

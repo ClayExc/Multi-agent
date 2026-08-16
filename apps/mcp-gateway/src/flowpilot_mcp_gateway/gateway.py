@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
-from flowpilot_domain import Approval, SecurityContextRef, ToolOperation
+from flowpilot_domain import (
+    Approval,
+    SecurityContextRef,
+    ToolOperation,
+    canonical_sha256,
+)
 from flowpilot_persistence import (
     DataUnitOfWorkFactory,
     ExecutionIntent,
@@ -32,12 +39,15 @@ from flowpilot_policy import (
 )
 from flowpilot_security import (
     CapabilityHandle,
+    CapabilityUse,
+    ContentSurface,
     CredentialBrokerPort,
+    SecretProviderPort,
     SecurityContextSource,
     SecurityError,
     SecurityErrorCode,
     SecurityVerifier,
-    assert_safe_projection,
+    assert_content_safe,
 )
 from flowpilot_tool_contracts import (
     Reconciliation,
@@ -64,18 +74,23 @@ from .models import (
 )
 from .ports import (
     Clock,
+    ReadbackResult,
     ReconciliationDisposition,
     ReconciliationResult,
+    SecretAwareToolAdapter,
+    ToolInvocationResult,
 )
 from .registry import ToolDefinition, ToolRegistry
 from .signals import (
     AuditDraft,
+    SecurityDraft,
     SignalSinkPort,
     build_audit_draft,
     build_blocked_pair,
 )
 
 GATEWAY_INBOUND_PORT_VERSION = "flowpilot.mcp-gateway.m0.v1"
+GATEWAY_GOVERNANCE_PORT_VERSION = "flowpilot.mcp-gateway-governance.m9.v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +107,7 @@ class GatewayDependencies:
     data_uow: DataUnitOfWorkFactory
     signals: SignalSinkPort
     clock: Clock
+    secrets: SecretProviderPort | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +258,28 @@ class McpGateway:
                 trusted_context=authorization.context,
             )
         try:
+            capability = await self._issue_capability(
+                invocation=invocation,
+                authorization=authorization,
+                execution_id=execution_id,
+                use=CapabilityUse.RECONCILE,
+            )
+            await self._consume_capability(capability)
+            await self._authorize_secret_access(
+                authorization.definition,
+                capability,
+            )
+        except Exception as exc:
+            return await self._reject(
+                invocation=invocation,
+                execution_id=execution_id,
+                recorder=recorder,
+                started_at=started_at,
+                exc=exc,
+                policy=authorization.policy,
+                trusted_context=authorization.context,
+            )
+        try:
             record = await self._get_record(
                 authorization.context.tenant_id, execution_id
             )
@@ -312,11 +350,8 @@ class McpGateway:
             GatewayReason.RECONCILIATION_PENDING.value,
         )
         try:
-            capability = await self._issue_capability(
-                invocation=invocation,
-                authorization=authorization,
-            )
-            reconciled = await authorization.definition.adapter.reconcile(
+            reconciled = await self._reconcile_adapter(
+                definition=authorization.definition,
                 arguments=invocation.request.planned_action.arguments,
                 capability=capability,
                 idempotency_key=invocation.request.idempotency_key,
@@ -370,6 +405,11 @@ class McpGateway:
             action = request.planned_action
             self._deps.security.verify_action_context(
                 context=context, action=action
+            )
+            assert_content_safe(
+                action.arguments,
+                surface=ContentSurface.TOOL_ARGUMENTS,
+                field="tool_arguments",
             )
             await recorder.record(
                 LifecycleStage.IDENTITY,
@@ -509,6 +549,13 @@ class McpGateway:
             capability = await self._issue_capability(
                 invocation=invocation,
                 authorization=authorization,
+                execution_id=execution_id,
+                use=CapabilityUse.INVOKE,
+            )
+            await self._consume_capability(capability)
+            await self._authorize_secret_access(
+                authorization.definition,
+                capability,
             )
             await recorder.record(
                 LifecycleStage.UPSTREAM,
@@ -516,7 +563,8 @@ class McpGateway:
                 GatewayReason.UPSTREAM_STARTED.value,
             )
             try:
-                response = await authorization.definition.adapter.invoke(
+                response = await self._invoke_adapter(
+                    definition=authorization.definition,
                     arguments=invocation.request.planned_action.arguments,
                     capability=capability,
                     idempotency_key=invocation.request.idempotency_key,
@@ -541,8 +589,12 @@ class McpGateway:
                     GatewayReason.UPSTREAM_UNAVAILABLE.value,
                     "read tool upstream is unavailable",
                 ) from exc
+            assert_content_safe(
+                response.safety_projection(),
+                surface=ContentSurface.MCP_CONTENT,
+                field="mcp_content",
+            )
             authorization.definition.contract.validate_output(response.data)
-            assert_safe_projection(response.data, field="tool_output")
             data, redactions = authorization.enforced_policy.apply_output(
                 response.data
             )
@@ -587,7 +639,7 @@ class McpGateway:
                 approval=authorization.approval,
                 trusted_context=authorization.context,
             )
-            await self._deps.signals.append_audit(audit)
+            await self._append_audit(audit)
             await recorder.record(
                 LifecycleStage.AUDIT,
                 LifecycleOutcome.PASSED,
@@ -620,6 +672,38 @@ class McpGateway:
         started_at: datetime,
         authorization: _Authorization,
     ) -> GatewayExecution:
+        try:
+            capability = await self._issue_capability(
+                invocation=invocation,
+                authorization=authorization,
+                execution_id=execution_id,
+                use=CapabilityUse.INVOKE,
+            )
+            readback_capability = await self._issue_capability(
+                invocation=invocation,
+                authorization=authorization,
+                execution_id=execution_id,
+                use=CapabilityUse.READBACK,
+            )
+            await self._consume_capability(capability)
+            await self._authorize_secret_access(
+                authorization.definition,
+                capability,
+            )
+            await self._authorize_secret_access(
+                authorization.definition,
+                readback_capability,
+            )
+        except Exception as exc:
+            return await self._reject(
+                invocation=invocation,
+                execution_id=execution_id,
+                recorder=recorder,
+                started_at=started_at,
+                exc=exc,
+                policy=authorization.policy,
+                trusted_context=authorization.context,
+            )
         intent = self._execution_intent(
             invocation=invocation,
             execution_id=execution_id,
@@ -742,37 +826,22 @@ class McpGateway:
                 result=result,
                 reason_code=GatewayReason.LEDGER_UNAVAILABLE.value,
             )
-        try:
-            capability = await self._issue_capability(
-                invocation=invocation,
-                authorization=authorization,
-            )
-        except Exception as exc:
-            outcome = ExecutionOutcome(
-                status=LedgerStatus.FAILED_RETRYABLE,
-                recorded_at=self._deps.clock(),
-                retryable=True,
-                error_code=self._exception_code(exc),
-                retry_basis=LedgerRetryBasis.NOT_SENT,
-            )
-            return await self._complete_write(
-                invocation=invocation,
-                intent=intent,
-                authorization=authorization,
-                recorder=recorder,
-                outcome=outcome,
-                reason_code=GatewayReason.UPSTREAM_NOT_SENT.value,
-            )
         await recorder.record(
             LifecycleStage.UPSTREAM,
             LifecycleOutcome.STARTED,
             GatewayReason.UPSTREAM_STARTED.value,
         )
         try:
-            response = await authorization.definition.adapter.invoke(
+            response = await self._invoke_adapter(
+                definition=authorization.definition,
                 arguments=invocation.request.planned_action.arguments,
                 capability=capability,
                 idempotency_key=invocation.request.idempotency_key,
+            )
+            assert_content_safe(
+                response.safety_projection(),
+                surface=ContentSurface.MCP_CONTENT,
+                field="mcp_content",
             )
         except GatewayAdapterError as exc:
             if exc.disposition is GatewayAdapterDisposition.NOT_SENT:
@@ -809,6 +878,18 @@ class McpGateway:
                 outcome=outcome,
                 reason_code=reason,
             )
+        except SecurityError as exc:
+            return await self._complete_write(
+                invocation=invocation,
+                intent=intent,
+                authorization=authorization,
+                recorder=recorder,
+                outcome=self._unknown_outcome(
+                    recorded_at=self._deps.clock(),
+                    error_code=exc.code.value,
+                ),
+                reason_code=exc.code.value,
+            )
         except Exception:
             return await self._complete_write(
                 invocation=invocation,
@@ -832,11 +913,18 @@ class McpGateway:
                 LifecycleOutcome.STARTED,
                 GatewayReason.UPSTREAM_SUCCEEDED.value,
             )
-            readback = await authorization.definition.adapter.readback(
+            await self._consume_capability(readback_capability)
+            readback = await self._readback_adapter(
+                definition=authorization.definition,
                 arguments=invocation.request.planned_action.arguments,
                 invocation=response,
-                capability=capability,
+                capability=readback_capability,
                 idempotency_key=invocation.request.idempotency_key,
+            )
+            assert_content_safe(
+                readback.safety_projection(),
+                surface=ContentSurface.MCP_CONTENT,
+                field="mcp_content",
             )
             if not readback.matched:
                 raise GatewayControlError(
@@ -844,7 +932,6 @@ class McpGateway:
                     "authoritative readback did not match the write",
                 )
             authorization.definition.contract.validate_output(readback.data)
-            assert_safe_projection(readback.data, field="tool_output")
             data, _ = authorization.enforced_policy.apply_output(readback.data)
             await recorder.record(
                 LifecycleStage.READBACK,
@@ -872,6 +959,18 @@ class McpGateway:
                 outcome=outcome,
                 reason_code=GatewayReason.RESULT_VERIFIED.value,
             )
+        except SecurityError as exc:
+            return await self._complete_write(
+                invocation=invocation,
+                intent=intent,
+                authorization=authorization,
+                recorder=recorder,
+                outcome=self._unknown_outcome(
+                    recorded_at=self._deps.clock(),
+                    error_code=exc.code.value,
+                ),
+                reason_code=exc.code.value,
+            )
         except Exception:
             return await self._complete_write(
                 invocation=invocation,
@@ -897,6 +996,11 @@ class McpGateway:
         reconciled: ReconciliationResult,
     ) -> GatewayExecution:
         del started_at
+        assert_content_safe(
+            reconciled.safety_projection(),
+            surface=ContentSurface.MCP_CONTENT,
+            field="mcp_content",
+        )
         if reconciled.disposition is ReconciliationDisposition.UNKNOWN:
             await recorder.record(
                 LifecycleStage.RECONCILIATION,
@@ -942,7 +1046,6 @@ class McpGateway:
                     "verified reconciliation lacks result data",
                 )
             authorization.definition.contract.validate_output(reconciled.data)
-            assert_safe_projection(reconciled.data, field="tool_output")
             data, _ = authorization.enforced_policy.apply_output(reconciled.data)
             outcome = ExecutionOutcome(
                 status=LedgerStatus.VERIFIED,
@@ -1119,7 +1222,7 @@ class McpGateway:
                 trusted_context=trusted_context,
             )
             try:
-                await self._deps.signals.append_blocked_pair(audit, security)
+                await self._append_blocked_pair(audit, security)
                 await recorder.record(
                     LifecycleStage.SECURITY,
                     LifecycleOutcome.PASSED,
@@ -1148,7 +1251,7 @@ class McpGateway:
                 trusted_context=trusted_context,
             )
             try:
-                await self._deps.signals.append_audit(audit)
+                await self._append_audit(audit)
                 await recorder.record(
                     LifecycleStage.AUDIT,
                     LifecycleOutcome.PASSED,
@@ -1178,6 +1281,11 @@ class McpGateway:
         reason_code: str,
         record_result_stage: bool = True,
     ) -> GatewayExecution:
+        assert_content_safe(
+            result.to_mapping(),
+            surface=ContentSurface.TOOL_RESULT,
+            field="tool_result",
+        )
         if record_result_stage:
             outcome = (
                 LifecycleOutcome.VERIFIED
@@ -1210,12 +1318,15 @@ class McpGateway:
         *,
         invocation: GatewayInvocation,
         authorization: _Authorization,
+        execution_id: str,
+        use: CapabilityUse,
     ) -> CapabilityHandle:
         now = self._deps.clock()
         authorization_limit = min(
             authorization.context.expires_at,
             authorization.policy.expires_at,
             invocation.workload.expires_at,
+            invocation.request.planned_action.expires_at,
         )
         remaining_seconds = int(
             (authorization_limit - now).total_seconds()
@@ -1241,7 +1352,15 @@ class McpGateway:
                 data_classification_ceiling=(
                     invocation.request.planned_action.data_classification.value
                 ),
+                context_hash=authorization.context.context_hash,
+                tool_name=invocation.request.planned_action.tool.name,
+                resource_digest=canonical_sha256(
+                    invocation.request.planned_action.resource.to_mapping()
+                ),
                 action_digest=invocation.request.action_digest,
+                policy_version=authorization.policy.policy_version,
+                execution_id=execution_id,
+                use=use,
                 ttl_seconds=ttl_seconds,
                 now=now,
             )
@@ -1267,17 +1386,170 @@ class McpGateway:
                 handle.data_classification_ceiling
                 != invocation.request.planned_action.data_classification.value
             )
+            or handle.context_hash != authorization.context.context_hash
+            or handle.tool_name != invocation.request.planned_action.tool.name
+            or handle.resource_digest
+            != canonical_sha256(
+                invocation.request.planned_action.resource.to_mapping()
+            )
             or handle.action_digest != invocation.request.action_digest
+            or handle.policy_version != authorization.policy.policy_version
+            or handle.execution_id != execution_id
+            or handle.use is not use
             or now < handle.issued_at
             or now >= handle.expires_at
             or handle.expires_at > authorization_limit
             or handle.expires_at > now + timedelta(seconds=ttl_seconds)
         ):
             raise SecurityError(
-                SecurityErrorCode.CREDENTIAL_UNAVAILABLE,
+                SecurityErrorCode.CAPABILITY_INVALID,
                 "capability handle does not match the authorized action",
             )
         return handle
+
+    async def _consume_capability(self, handle: CapabilityHandle) -> None:
+        try:
+            await self._deps.credentials.consume(
+                handle=handle,
+                now=self._deps.clock(),
+            )
+        except SecurityError:
+            raise
+        except Exception as exc:
+            raise SecurityError(
+                SecurityErrorCode.CAPABILITY_REPLAY,
+                "capability could not be consumed exactly once",
+            ) from exc
+
+    async def _authorize_secret_access(
+        self,
+        definition: ToolDefinition,
+        capability: CapabilityHandle,
+    ) -> None:
+        if definition.secret_ref is None:
+            return
+        provider = self._deps.secrets
+        if provider is None or not isinstance(
+            definition.adapter, SecretAwareToolAdapter
+        ):
+            raise SecurityError(
+                SecurityErrorCode.SECRET_UNAVAILABLE,
+                "tool secret provider or adapter is unavailable",
+            )
+        try:
+            await provider.authorize(
+                secret_ref=definition.secret_ref,
+                capability=capability,
+            )
+        except SecurityError:
+            raise
+        except Exception as exc:
+            raise SecurityError(
+                SecurityErrorCode.SECRET_UNAVAILABLE,
+                "tool secret provider is unavailable",
+            ) from exc
+
+    async def _invoke_adapter(
+        self,
+        *,
+        definition: ToolDefinition,
+        arguments: Mapping[str, Any],
+        capability: CapabilityHandle,
+        idempotency_key: str,
+    ) -> ToolInvocationResult:
+        if definition.secret_ref is None:
+            return await definition.adapter.invoke(
+                arguments=arguments,
+                capability=capability,
+                idempotency_key=idempotency_key,
+            )
+        provider = self._deps.secrets
+        if provider is None or not isinstance(
+            definition.adapter, SecretAwareToolAdapter
+        ):
+            raise SecurityError(
+                SecurityErrorCode.SECRET_UNAVAILABLE,
+                "tool secret provider or adapter is unavailable",
+            )
+        async with provider.open(
+            secret_ref=definition.secret_ref,
+            capability=capability,
+        ) as secret:
+            return await definition.adapter.invoke_with_secret(
+                arguments=arguments,
+                capability=capability,
+                idempotency_key=idempotency_key,
+                secret=secret,
+            )
+
+    async def _readback_adapter(
+        self,
+        *,
+        definition: ToolDefinition,
+        arguments: Mapping[str, Any],
+        invocation: ToolInvocationResult,
+        capability: CapabilityHandle,
+        idempotency_key: str,
+    ) -> ReadbackResult:
+        if definition.secret_ref is None:
+            return await definition.adapter.readback(
+                arguments=arguments,
+                invocation=invocation,
+                capability=capability,
+                idempotency_key=idempotency_key,
+            )
+        provider = self._deps.secrets
+        if provider is None or not isinstance(
+            definition.adapter, SecretAwareToolAdapter
+        ):
+            raise SecurityError(
+                SecurityErrorCode.SECRET_UNAVAILABLE,
+                "tool secret provider or adapter is unavailable",
+            )
+        async with provider.open(
+            secret_ref=definition.secret_ref,
+            capability=capability,
+        ) as secret:
+            return await definition.adapter.readback_with_secret(
+                arguments=arguments,
+                invocation=invocation,
+                capability=capability,
+                idempotency_key=idempotency_key,
+                secret=secret,
+            )
+
+    async def _reconcile_adapter(
+        self,
+        *,
+        definition: ToolDefinition,
+        arguments: Mapping[str, Any],
+        capability: CapabilityHandle,
+        idempotency_key: str,
+    ) -> ReconciliationResult:
+        if definition.secret_ref is None:
+            return await definition.adapter.reconcile(
+                arguments=arguments,
+                capability=capability,
+                idempotency_key=idempotency_key,
+            )
+        provider = self._deps.secrets
+        if provider is None or not isinstance(
+            definition.adapter, SecretAwareToolAdapter
+        ):
+            raise SecurityError(
+                SecurityErrorCode.SECRET_UNAVAILABLE,
+                "tool secret provider or adapter is unavailable",
+            )
+        async with provider.open(
+            secret_ref=definition.secret_ref,
+            capability=capability,
+        ) as secret:
+            return await definition.adapter.reconcile_with_secret(
+                arguments=arguments,
+                capability=capability,
+                idempotency_key=idempotency_key,
+                secret=secret,
+            )
 
     def _execution_intent(
         self,
@@ -1390,11 +1662,24 @@ class McpGateway:
 
     async def _best_effort_audit(self, audit: AuditDraft) -> bool:
         try:
-            await self._deps.signals.append_audit(audit)
+            await self._append_audit(audit)
         except Exception:
             # The transactionally stored outbox draft remains authoritative.
             return False
         return True
+
+    async def _append_audit(self, audit: AuditDraft) -> None:
+        audit.to_mapping()
+        await self._deps.signals.append_audit(audit)
+
+    async def _append_blocked_pair(
+        self,
+        audit: AuditDraft,
+        security: SecurityDraft,
+    ) -> None:
+        audit.to_mapping()
+        security.to_mapping()
+        await self._deps.signals.append_blocked_pair(audit, security)
 
     def _terminal_audit(
         self,
@@ -1411,7 +1696,7 @@ class McpGateway:
         elif outcome.status is LedgerStatus.UNKNOWN:
             result = "unknown"
             event_type = "audit.tool.unknown.v1"
-            reason = GatewayReason.RESULT_UNKNOWN.value
+            reason = outcome.error_code or GatewayReason.RESULT_UNKNOWN.value
         else:
             result = "failure"
             event_type = "audit.tool.failed.v1"
@@ -1553,6 +1838,14 @@ class McpGateway:
             return ("security.idempotency.conflict.v1", "idempotency")
         if "POLICY_UNAVAILABLE" in code:
             return ("security.policy.unavailable.v1", "authorization")
+        if "PROMPT_INJECTION" in code:
+            return ("security.content.prompt_injection.v1", "content_safety")
+        if "DLP" in code:
+            return ("security.content.dlp.v1", "data_loss_prevention")
+        if "CAPABILITY" in code:
+            return ("security.capability.invalid.v1", "authorization")
+        if "SECRET" in code:
+            return ("security.secret.unavailable.v1", "credential_exposure")
         if "UNSAFE" in code or "CREDENTIAL" in code:
             return ("security.secret.detected.v1", "credential_exposure")
         return ("security.authorization.denied.v1", "authorization")

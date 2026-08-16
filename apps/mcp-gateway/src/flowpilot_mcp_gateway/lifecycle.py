@@ -4,7 +4,12 @@ from collections import Counter
 from typing import Any
 
 from flowpilot_policy import PolicyErrorCode
-from flowpilot_security import SecurityErrorCode, assert_safe_projection
+from flowpilot_security import (
+    ContentSurface,
+    SecurityErrorCode,
+    assert_content_safe,
+    assert_safe_projection,
+)
 from flowpilot_tool_contracts import ToolContractErrorCode
 
 from .errors import GatewayReason
@@ -82,7 +87,13 @@ class LifecycleRecorder:
             recorded_at=self._clock(),
             evidence_refs=evidence_refs,
         )
-        assert_safe_projection(event.to_mapping(), field="lifecycle")
+        event_mapping = event.to_mapping()
+        assert_content_safe(
+            event_mapping,
+            surface=ContentSurface.SIGNAL,
+            field="lifecycle",
+        )
+        assert_safe_projection(event_mapping, field="lifecycle")
         self._events.append(event)
         try:
             await self._sink.emit_trace(event)
@@ -135,5 +146,10 @@ class LifecycleRecorder:
         }
         if set(projection) != DEBUG_PROJECTION_KEYS:
             raise AssertionError("debug projection whitelist drifted")
+        assert_content_safe(
+            projection,
+            surface=ContentSurface.SIGNAL,
+            field="debug_projection",
+        )
         assert_safe_projection(projection, field="debug_projection")
         return projection

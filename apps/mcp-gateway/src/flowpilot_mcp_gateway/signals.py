@@ -8,7 +8,11 @@ from typing import Any, Protocol
 
 from flowpilot_domain import Approval, SecurityContextRef
 from flowpilot_policy import PolicyDecision
-from flowpilot_security import assert_safe_projection
+from flowpilot_security import (
+    ContentSurface,
+    assert_content_safe,
+    assert_safe_projection,
+)
 from flowpilot_tool_contracts import AgentPrincipal, ToolRequest
 
 from .models import GatewayInvocation, LifecycleEvent
@@ -48,6 +52,9 @@ class AuditDraft:
     data_classification: str
     security_event_id: str | None = None
 
+    def __post_init__(self) -> None:
+        self.to_mapping()
+
     def to_mapping(self) -> dict[str, Any]:
         value: dict[str, Any] = {
             "event_id": self.event_id,
@@ -80,7 +87,8 @@ class AuditDraft:
             "result": self.result,
             "data_classification": self.data_classification,
         }
-        assert_safe_projection(value)
+        assert_content_safe(value, surface=ContentSurface.SIGNAL, field="audit")
+        assert_safe_projection(value, field="audit")
         return value
 
 
@@ -103,6 +111,9 @@ class SecurityDraft:
     category: str
     policy_decision_id: str | None
     audit_event_id: str
+
+    def __post_init__(self) -> None:
+        self.to_mapping()
 
     def to_mapping(self) -> dict[str, Any]:
         value = {
@@ -144,7 +155,12 @@ class SecurityDraft:
             "audit_event_id": self.audit_event_id,
             "data_classification": "internal",
         }
-        assert_safe_projection(value)
+        assert_content_safe(
+            value,
+            surface=ContentSurface.SIGNAL,
+            field="security_event",
+        )
+        assert_safe_projection(value, field="security_event")
         return value
 
 

@@ -28,7 +28,7 @@ from flowpilot_mcp_knowledge import (
     KnowledgeMcpAdapter,
     KnowledgeRecord,
 )
-from flowpilot_security import CapabilityHandle
+from flowpilot_security import CapabilityHandle, CapabilityUse
 from flowpilot_tool_contracts import (
     DeterministicGatewayClientFake,
     GatewayCall,
@@ -59,7 +59,14 @@ def _capability(
         workload_principal_ref=workload_principal_ref,
         purpose=purpose,
         data_classification_ceiling=classification,
+        context_hash=canonical_sha256({"context": "knowledge-search"}),
+        tool_name="knowledge.search.v1",
+        resource_digest=canonical_sha256({"resource": "knowledge"}),
         action_digest=canonical_sha256({"action": "knowledge-search"}),
+        policy_version="policy-m0.1",
+        execution_id="tex_knowledge0001",
+        use=CapabilityUse.INVOKE,
+        token_id_hash=canonical_sha256({"token": "knowledge-search"}),
         issued_at=NOW - timedelta(seconds=1),
         expires_at=NOW + timedelta(minutes=5),
     )
@@ -308,7 +315,7 @@ async def test_secret_like_summary_is_rejected_without_projection_leak() -> None
     )
 
     assert execution.result.status is ToolResultStatus.FAILED_FINAL
-    assert execution.result.error_code == "PLATFORM_UNSAFE_PROJECTION"
+    assert execution.result.error_code == "PLATFORM_DLP_BLOCKED"
     assert execution.result.data is None
     assert "super-secret" not in str(execution.debug_projection)
     assert "super-secret" not in str(fixture.signals.audits)

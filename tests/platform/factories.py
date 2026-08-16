@@ -54,6 +54,9 @@ from flowpilot_policy import (
 from flowpilot_security import (
     AuthenticatedWorkload,
     CapabilityHandle,
+    CapabilityUse,
+    SecurityError,
+    SecurityErrorCode,
     SecurityVerifier,
     TrustedSecurityContext,
     trusted_context_snapshot_hash,
@@ -227,6 +230,9 @@ class CredentialBroker:
         self.issue_count = 0
         self.last_ttl_seconds: int | None = None
         self.available = True
+        self.consume_count = 0
+        self._issued: dict[str, CapabilityHandle] = {}
+        self._consumed: set[str] = set()
 
     async def issue(
         self,
@@ -239,7 +245,13 @@ class CredentialBroker:
         workload_principal_ref: str,
         purpose: str,
         data_classification_ceiling: str,
+        context_hash: str,
+        tool_name: str,
+        resource_digest: str,
         action_digest: str,
+        policy_version: str,
+        execution_id: str,
+        use: CapabilityUse,
         ttl_seconds: int,
         now: datetime,
     ) -> CapabilityHandle:
@@ -247,7 +259,10 @@ class CredentialBroker:
             raise RuntimeError("credential broker unavailable")
         self.issue_count += 1
         self.last_ttl_seconds = ttl_seconds
-        return CapabilityHandle(
+        token_id_hash = canonical_sha256(
+            {"capability_sequence": self.issue_count}
+        )
+        handle = CapabilityHandle(
             handle_ref=f"capability://fixture/{self.issue_count}",
             audience=audience,
             scopes=scopes,
@@ -257,10 +272,40 @@ class CredentialBroker:
             workload_principal_ref=workload_principal_ref,
             purpose=purpose,
             data_classification_ceiling=data_classification_ceiling,
+            context_hash=context_hash,
+            tool_name=tool_name,
+            resource_digest=resource_digest,
             action_digest=action_digest,
+            policy_version=policy_version,
+            execution_id=execution_id,
+            use=use,
+            token_id_hash=token_id_hash,
             issued_at=now,
             expires_at=now + timedelta(seconds=ttl_seconds),
         )
+        self._issued[token_id_hash] = handle
+        return handle
+
+    async def consume(
+        self,
+        *,
+        handle: CapabilityHandle,
+        now: datetime,
+    ) -> None:
+        if not self.available:
+            raise RuntimeError("credential broker unavailable")
+        if (
+            self._issued.get(handle.token_id_hash) != handle
+            or handle.token_id_hash in self._consumed
+            or now < handle.issued_at
+            or now >= handle.expires_at
+        ):
+            raise SecurityError(
+                SecurityErrorCode.CAPABILITY_REPLAY,
+                "capability is unknown, expired, or already consumed",
+            )
+        self._consumed.add(handle.token_id_hash)
+        self.consume_count += 1
 
 
 class SignalSink:

@@ -21,6 +21,7 @@ class ToolDefinition:
     allowed_purposes: frozenset[str]
     credential_scopes: frozenset[str]
     adapter: ToolAdapter
+    secret_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not self.audience or not self.upstream_provider:
@@ -34,6 +35,10 @@ class ToolDefinition:
             )
         ):
             raise ValueError("tool allowlists and credential scopes cannot be empty")
+        if self.secret_ref is not None and not self.secret_ref.startswith(
+            "secret://development/"
+        ):
+            raise ValueError("tool secret reference must use the development provider")
 
 
 class ToolRegistry:

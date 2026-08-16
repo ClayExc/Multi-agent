@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Protocol
 
 from flowpilot_domain import SecurityContextRef
@@ -94,6 +95,12 @@ class AuthenticatedWorkload:
         object.__setattr__(self, "expires_at", expires)
 
 
+class CapabilityUse(StrEnum):
+    INVOKE = "invoke"
+    READBACK = "readback"
+    RECONCILE = "reconcile"
+
+
 @dataclass(frozen=True, slots=True)
 class CapabilityHandle:
     handle_ref: str
@@ -105,7 +112,14 @@ class CapabilityHandle:
     workload_principal_ref: str
     purpose: str
     data_classification_ceiling: str
+    context_hash: str
+    tool_name: str
+    resource_digest: str
     action_digest: str
+    policy_version: str
+    execution_id: str
+    use: CapabilityUse
+    token_id_hash: str
     issued_at: datetime
     expires_at: datetime
 
@@ -118,6 +132,9 @@ class CapabilityHandle:
             ("subject_id", self.subject_id),
             ("workload_principal_ref", self.workload_principal_ref),
             ("purpose", self.purpose),
+            ("tool_name", self.tool_name),
+            ("policy_version", self.policy_version),
+            ("execution_id", self.execution_id),
             ("action_digest", self.action_digest),
         ):
             if not value:
@@ -128,6 +145,13 @@ class CapabilityHandle:
             raise ValueError("capability subject ACL cannot be empty")
         if self.data_classification_ceiling not in _CLASSIFICATIONS:
             raise ValueError("capability classification ceiling is not supported")
+        for field, digest in (
+            ("context_hash", self.context_hash),
+            ("resource_digest", self.resource_digest),
+            ("action_digest", self.action_digest),
+            ("token_id_hash", self.token_id_hash),
+        ):
+            require_sha256_digest(digest, f"capability.{field}")
         issued = utc(self.issued_at, "capability.issued_at")
         expires = utc(self.expires_at, "capability.expires_at")
         if expires <= issued:
@@ -148,7 +172,20 @@ class CredentialBrokerPort(Protocol):
         workload_principal_ref: str,
         purpose: str,
         data_classification_ceiling: str,
+        context_hash: str,
+        tool_name: str,
+        resource_digest: str,
         action_digest: str,
+        policy_version: str,
+        execution_id: str,
+        use: CapabilityUse,
         ttl_seconds: int,
         now: datetime,
     ) -> CapabilityHandle: ...
+
+    async def consume(
+        self,
+        *,
+        handle: CapabilityHandle,
+        now: datetime,
+    ) -> None: ...

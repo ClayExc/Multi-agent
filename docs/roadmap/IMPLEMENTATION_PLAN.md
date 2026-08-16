@@ -3,17 +3,17 @@
 ## 1. 路线状态
 
 ~~~text
-CURRENT_BASELINE=M0-M8_M9T_CANDIDATE
-NEXT_MILESTONE=M9_LOCAL_GOVERNANCE
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9-GOVERNANCE-01
-PLAN_STATUS=M9-ACTIVE
+CURRENT_BASELINE=M0-M9_CANDIDATE
+NEXT_MILESTONE=M10_LOCAL_KNOWLEDGE_PLATFORM
+ACTIVE_DEVELOPMENT_CHAIN=none
+PLAN_STATUS=M9-VERIFIED-CANDIDATE
 RELEASED=false
 FROZEN=false
 ~~~
 
-M0～M8 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
-Adapter、本地身份租户和评测工具链合入当前工程候选。M8 结束后固定 156 条 Case
-已有 30 条产品执行器，另 126 条明确失败；一键产品入口、在线 Provider 验证和后续
+M0～M9 已把契约、运行时、安全工具、持久化恢复、两个场景候选、Web、Provider
+Adapter、本地身份租户、版本化策略、DLP、追加式审计和评测工具链合入当前工程候选。
+固定 156 条 Case 已有 39 条产品执行器，另 117 条明确失败；一键产品入口、在线 Provider 验证和后续
 业务执行器仍未完成。
 
 M7～M20 的目标是完成一个可在本机完整演示、能够说明企业级边界的智能工单
@@ -151,6 +151,9 @@ M7 固定拆为四个工作包，当前均已完成并进入主分支：
 - 模型输出无法提高权限、改变租户或绕过 RLS。
 
 ## 7. M9：本地策略、密钥与 DLP
+
+状态：`VERIFIED_CANDIDATE / RELEASE_BLOCKED`。WP-100～WP-109 已完成，S7 与 S1
+独立复算得到 39 completed、117 explicit failed、0 skip、0 quarantine；M9 未发布、未 frozen。
 
 目标：把授权、审批前置条件、数据泄漏检查和审计变成可版本化的本地治理能力。
 

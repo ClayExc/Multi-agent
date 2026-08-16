@@ -17,7 +17,7 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 ## 当前状态
 
-`master` 已包含 M0～M8 工程候选和 M9T 工程控制面，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
+`master` 已包含 M0～M9 工程候选和 M9T 工程控制面，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
 - 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
 - 启动 Web Fixture，查看任务列表、时间线、补全表单、审批卡和 SSE 重连；Web 同时具备真实 API/SSE 适配模式。
@@ -32,10 +32,10 @@ SecurityContext、工作负载身份、租户传播与 PostgreSQL RLS。真实 K
 这仍是本地工程候选，不等于生产身份系统或企业级部署已经完成。
 
 M9T 工程控制面已经合入，后续工作默认使用仓库地图、Delta Context Capsule、测试
-选择和 Evidence Cache。当前启动 M9 本地治理链，依次完成版本化策略、短时能力凭据、
-DLP、追加式审计和可查询的治理页面。
+选择和 Evidence Cache。M9 已完成版本化策略、短时 Capability、Gateway 与 Runtime
+DLP、追加式审计、可查询治理页面和 9 条治理安全执行器的本地组合验证。
 
-## M0～M8 做了什么
+## M0～M9 做了什么
 
 | 阶段 | 已进入主分支的内容 | 当前限制 |
 |---|---|---|
@@ -48,6 +48,7 @@ DLP、追加式审计和可查询的治理页面。
 | M6 评测工具链 | 120 条功能 Case、36 条安全/故障 Case、Hash 冻结、Judge 工具和 `make acceptance` | 产品执行器与人工 Judge 校准尚未完成 |
 | M7 本地产品候选 | LiteLLM 与 Agents SDK Adapter、API/Worker/Graph/Data 组合、Web API/SSE 模式、Studio 安全恢复、集中凭据扫描、24 条知识问答执行器 | 在线 Provider Smoke 未运行；132 条 Case 未注册；没有一键产品启动入口 |
 | M8 本地身份与租户 | Keycloak 双租户、OIDC/JWKS、Cookie-only 会话、双主体身份、可信 SecurityContext、RLS 与恢复重验、6 条租户隔离执行器 | 使用本地 Realm；126 条后续 Case 尚无执行器；不包含生产 IdP/HA |
+| M9 本地治理 | 版本化 Rego/OPA 策略、Capability、Secret Provider、Gateway/Runtime DLP、追加式审计与治理页面、9 条治理安全执行器 | 使用本地 OPA/Secret 配置；117 条后续 Case 尚无执行器；不包含生产 Vault/KMS/SIEM/HA |
 
 当前仓库状态为 `RELEASED=false`、整体 `FROZEN=false`。原方案中的 Token 降低 24%、任务成功率 82.5%→90.0%、Macro-F1 0.86→0.91 都是参考目标，不是已有结果。项目在产生可复现报告前不会使用这些数字。
 
@@ -131,7 +132,7 @@ flowchart LR
 | [M6 Hash 冻结记录](./evals/runners/m6-hash-freeze.v1.json) | 三个数据集 120+36 Case 的内容哈希；不代表产品执行通过 |
 | [评测 Fixture 清单](./contracts/registries/evaluation-fixture-manifest.v1.json) | 合成租户/主体 Fixture 的版本与哈希 |
 | [需求追踪矩阵](./docs/acceptance/TRACEABILITY.md) | 机器追踪清单的人类可读投影视图 |
-| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；下一里程碑为 M9（未启动） |
+| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；下一里程碑为 M10（未启动） |
 | [架构评审报告](./docs/review/ARCHITECTURE_REVIEW.md) | 对原始总稿的保留项、问题与改造决策 |
 | [WP-000 rc1 裁决](./docs/review/WP-000-RC1-DISPOSITION.md) | 三方 REJECT、逐项处理和 rc2 冻结门禁 |
 | [ADR-0001](./docs/decisions/ADR-0001-orchestration-boundary.md) | LangGraph、Agents SDK 与 LiteLLM 的边界 |
@@ -194,7 +195,7 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 | M7（候选已合入） | LiteLLM 与 OpenAI/Claude Agents SDK Adapter；API、Worker、LangGraph、数据、只读 MCP 与 Web/SSE 组合；24 条知识问答执行器 |
 | M8（候选已验收） | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS；真实本地组合门禁通过 |
 | M9T（已合入） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
-| M9（开发中） | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event |
+| M9（候选已验收） | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event；固定分母累计 39 条完成 |
 | M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
 | M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |
 | M12 | 用户可管理、可纠正、可删除的长期记忆 |

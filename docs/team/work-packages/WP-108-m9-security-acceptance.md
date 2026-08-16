@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M9
 - Owner：S4-QUALITY
 - Attempt：WP-108-a1
 - 风险：R3

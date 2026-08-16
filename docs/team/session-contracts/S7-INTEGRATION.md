@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S7-INTEGRATION
-WORK_PACKAGE=WP-109
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-004,FP-SEC-005,FP-SEC-006,FP-MCP-006,FP-OBS-002,FP-OBS-003
 WRITE_SCOPE=scripts/integration/**,tests/integration/**,artifacts/integration/**,WP-040授权共享文件
 EXECUTION_MODE=<READ_ONLY_PARALLEL|ORDERED|PARALLEL>
 ```
 
-- 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待 WP-108 后执行 M9 真实本地组合与最终证据复算。
+- 契约状态：IDLE / WP-109 ACCEPTED
+- 当前工作：无；等待下一里程碑激活。
 - 初始模式：`READ_ONLY_PARALLEL`；只有后续垂直候选汇合且取得独立 Worktree、
   Attempt 和 S1 授权后才进入写模式。
 

@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M9
 - Owner：S5-CORE
 - Attempt：WP-104-a1
 - 风险：R2

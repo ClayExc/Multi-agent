@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M9
 - Owner：S2-RUNTIME
 - Attempt：WP-103-a1
 - 风险：R2

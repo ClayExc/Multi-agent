@@ -4,14 +4,13 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=WP-103
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-005,FP-SEC-006,FP-OPS-003
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待 S3 DLP Handoff 后接入 Prompt 与模型输出边界。
-- 激活条件：WP-102 clean Handoff、精确 Head 与 WP-103 Attempt。
+- 契约状态：IDLE / WP-103 ACCEPTED
+- 当前工作：无；等待下一里程碑激活。
 
 ## 使命
 

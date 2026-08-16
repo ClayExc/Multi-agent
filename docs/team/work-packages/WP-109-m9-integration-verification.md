@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACCEPTED_M9
 - Owner：S7-INTEGRATION
 - Attempt：WP-109-a1
 - 风险：R3

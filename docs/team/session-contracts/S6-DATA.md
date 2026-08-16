@@ -4,14 +4,13 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=WP-105 / WP-106
+WORK_PACKAGE=none
 FEATURE_IDS=FP-DATA-001,FP-MCP-006,FP-OBS-002,FP-OBS-003,FP-OPS-001
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待治理 API Port 后实现追加式审计数据，再热继续本地 OPA/Secret Infra。
-- 激活条件：WP-104 clean Handoff、精确 Head 与 WP-105 Attempt。
+- 契约状态：IDLE / WP-105/106 ACCEPTED
+- 当前工作：无；等待下一里程碑激活。
 
 ## 使命
 

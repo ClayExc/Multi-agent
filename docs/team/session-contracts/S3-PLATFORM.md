@@ -4,14 +4,13 @@
 
 ```text
 SESSION_ROLE=S3-PLATFORM
-WORK_PACKAGE=WP-101 / WP-102
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-004,FP-SEC-005,FP-SEC-006,FP-MCP-006,FP-APR-002,FP-APR-003
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：ACTIVE
-- 当前工作：先实现版本化 Rego/OPA 策略，再热继续 Capability、Secret 与 DLP Gateway。
-- 激活条件：M9 Activation Head、WP-101-a1 与独立 Worktree。
+- 契约状态：IDLE / WP-101/102 ACCEPTED
+- 当前工作：无；等待下一里程碑激活。
 
 ## 使命
 

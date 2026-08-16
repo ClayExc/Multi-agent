@@ -3,11 +3,11 @@
 ## 当前阶段
 
 - 里程碑：M9 本地策略、密钥与 DLP
-- 阶段状态：`M9_ACTIVE`
+- 阶段状态：`M9_VERIFIED_CANDIDATE`
 - 架构责任：`S1-ARCH`
-- 已接受基线：M0～M8 工程候选、P2 持久化恢复与 M9T 工程控制面
-- 当前链：`CHAIN-M9-GOVERNANCE-01`
-- 当前工作包：WP-101
+- 已接受基线：M0～M9 工程候选、P2 持久化恢复与 M9T 工程控制面
+- 当前链：无
+- 当前工作包：无
 - 批准来源：用户已批准启动 M9 产品治理链
 - 发布状态：未发布、未 frozen；M10～M20 未激活
 
@@ -44,15 +44,15 @@
 | [WP-093](./WP-093-m9t-engineering-control-acceptance.md) | S4-QUALITY | ACCEPTED_M9T | WP-092 | 黑盒、变异矩阵、效率与安全验收 |
 | [WP-094](./WP-094-m9t-engineering-control-integration.md) | S7-INTEGRATION | ACCEPTED_M9T | WP-093 | 组合复算与最终证据 |
 | [WP-100](./WP-100-m9-governance-gate.md) | S1-ARCH | DONE | WP-094 | M9 架构、注册、范围与退出门禁 |
-| [WP-101](./WP-101-m9-versioned-policy.md) | S3-PLATFORM | ACTIVE | WP-100 | 版本化 Rego/OPA、发布回滚与 deny-overrides |
-| [WP-102](./WP-102-m9-capability-dlp-gateway.md) | S3-PLATFORM | BLOCKED | WP-101 | Capability、Secret Provider、DLP 与 Gateway 强制执行 |
-| [WP-103](./WP-103-m9-runtime-dlp.md) | S2-RUNTIME | BLOCKED | WP-102 | Prompt、Context 与模型输出 DLP 边界 |
-| [WP-104](./WP-104-m9-governance-api.md) | S5-CORE | BLOCKED | WP-103 | 治理查询 Port、API 与 Workspace 闭包 |
-| [WP-105](./WP-105-m9-audit-persistence.md) | S6-DATA | BLOCKED | WP-104 | Audit/Security 追加式存储、查询与完整性 |
-| [WP-106](./WP-106-m9-local-governance-infra.md) | S6-DATA | BLOCKED | WP-105 | 本地 OPA、Secret 配置与空环境启动 |
-| [WP-107](./WP-107-m9-governance-web.md) | S4-QUALITY | BLOCKED | WP-106 | 治理页面、信号查询与错误体验 |
-| [WP-108](./WP-108-m9-security-acceptance.md) | S4-QUALITY | BLOCKED | WP-107 | M9 黑盒安全、固定分母执行器与证据 |
-| [WP-109](./WP-109-m9-integration-verification.md) | S7-INTEGRATION | BLOCKED | WP-108 | 真实本地组合、保护树与最终复算 |
+| [WP-101](./WP-101-m9-versioned-policy.md) | S3-PLATFORM | ACCEPTED_M9 | WP-100 | 版本化 Rego/OPA、发布回滚与 deny-overrides |
+| [WP-102](./WP-102-m9-capability-dlp-gateway.md) | S3-PLATFORM | ACCEPTED_M9 | WP-101 | Capability、Secret Provider、DLP 与 Gateway 强制执行 |
+| [WP-103](./WP-103-m9-runtime-dlp.md) | S2-RUNTIME | ACCEPTED_M9 | WP-102 | Prompt、Context 与模型输出 DLP 边界 |
+| [WP-104](./WP-104-m9-governance-api.md) | S5-CORE | ACCEPTED_M9 | WP-103 | 治理查询 Port、API 与 Workspace 闭包 |
+| [WP-105](./WP-105-m9-audit-persistence.md) | S6-DATA | ACCEPTED_M9 | WP-104 | Audit/Security 追加式存储、查询与完整性 |
+| [WP-106](./WP-106-m9-local-governance-infra.md) | S6-DATA | ACCEPTED_M9 | WP-105 | 本地 OPA、Secret 配置与空环境启动 |
+| [WP-107](./WP-107-m9-governance-web.md) | S4-QUALITY | ACCEPTED_M9 | WP-106 | 治理页面、信号查询与错误体验 |
+| [WP-108](./WP-108-m9-security-acceptance.md) | S4-QUALITY | ACCEPTED_M9 | WP-107 | M9 黑盒安全、固定分母执行器与证据 |
+| [WP-109](./WP-109-m9-integration-verification.md) | S7-INTEGRATION | ACCEPTED_M9 | WP-108 | 真实本地组合、保护树与最终复算 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 | [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | MERGED_M7_CANDIDATE | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |
@@ -64,7 +64,7 @@
 
 rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 `flowpilot-m0-contracts-v1-rc2`。旧结论不得作为 rc2 的接受证据。
 
-## M7 结果与下一次启动
+## M7～M9 结果与下一次启动
 
 M7 已按严格 `ORDERED` 和最小 Agent 注册集合完成：
 
@@ -76,9 +76,9 @@ WP-070 Provider/SDK Adapter
   -> S1 final/user gate
 ```
 
-WP-070～WP-073 与 WP-080～WP-088、S7 组合复现和 S1 final 均已完成。固定
-156 条结果为 30 通过、126 明确失败、0 跳过、0 隔离，因此发布 Gate 继续失败。
-M9T 已完成。当前只激活 S3 的 WP-101；后续角色只在直接前置 Handoff 到达后启动。
+WP-070～WP-073、WP-080～WP-088、WP-100～WP-109 及对应 S7/S1 final 均已完成。
+固定 156 条结果为 39 通过、117 明确失败、0 跳过、0 隔离，因此发布 Gate 继续失败。
+M9T 与 M9 已完成。当前没有激活的工作包；M10 需要新的 S1 激活提交和用户批准。
 
 历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
 启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行

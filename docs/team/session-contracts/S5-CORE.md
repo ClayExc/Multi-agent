@@ -4,14 +4,13 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=WP-104
+WORK_PACKAGE=none
 FEATURE_IDS=FP-SEC-004,FP-OBS-002,FP-OBS-003
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,tests/core/**,pyproject.toml,uv.lock,Makefile
 ```
 
-- 契约状态：DEPENDENCY_WAIT
-- 当前工作：等待 Runtime DLP Handoff 后实现治理查询 Port、API 与 Workspace 闭包。
-- 激活条件：WP-103 clean Handoff、精确 Head 与 WP-104 Attempt。
+- 契约状态：IDLE / WP-104 ACCEPTED
+- 当前工作：无；等待下一里程碑激活。
 
 ## 使命
 

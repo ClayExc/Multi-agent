@@ -6,13 +6,13 @@
 
 | 会话 | 契约 | 当前工作包 | 当前激活状态 |
 |---|---|---|---|
-| S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | WP-100 / M9 Join | ACTIVE |
-| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | WP-103 | DEPENDENCY_WAIT |
-| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | WP-101/102 | ACTIVE |
-| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | WP-107/108 | DEPENDENCY_WAIT |
-| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | WP-104 | DEPENDENCY_WAIT |
-| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | WP-105/106 | DEPENDENCY_WAIT |
-| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | WP-109 | DEPENDENCY_WAIT |
+| S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | 无 | IDLE / M9 ACCEPTED |
+| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | 无 | IDLE / WP-103 ACCEPTED |
+| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | 无 | IDLE / WP-101/102 ACCEPTED |
+| S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | 无 | IDLE / WP-107/108 ACCEPTED |
+| S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | 无 | IDLE / WP-104 ACCEPTED |
+| S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | 无 | IDLE / WP-105/106 ACCEPTED |
+| S7-INTEGRATION | [SC-S7-INTEGRATION-v1](./S7-INTEGRATION.md) | 无 | IDLE / WP-109 ACCEPTED |
 
 S1～S7 均是各自领域的主 Agent。取得有效工作包后，可按
 [`PRINCIPAL_SUBAGENT_PROTOCOL.md`](../PRINCIPAL_SUBAGENT_PROTOCOL.md) 自主调用临时
@@ -35,7 +35,7 @@ S1～S7 均是各自领域的主 Agent。取得有效工作包后，可按
 - `BLOCKED`：存在外部前置条件，除记录阻塞信息外不能推进。
 - `HANDOFF`：实现结束，等待跨角色审查或集成。
 
-M9T 已完成。M9 当前只激活 S3 WP-101；其余角色按严格有序链等待直接前置 Handoff。
+M9T 与 M9 已完成，当前没有激活的开发链。后续里程碑必须重新注册、激活并分配工作包。
 ContractSet 候选摘要为
 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`；
 M0～M7 与 P2 已进入主分支。任何角色必须按 Agent Registry

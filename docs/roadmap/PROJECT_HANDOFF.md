@@ -3,12 +3,12 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M0_M8_M9T_CANDIDATE
-STATUS=M9_LOCAL_GOVERNANCE_ACTIVE
-S7_HEAD=b7ab61248793456db4e011b3e03a50421b98f963
+SNAPSHOT=M0_M9_CANDIDATE
+STATUS=M9_LOCAL_GOVERNANCE_VERIFIED_CANDIDATE
+S7_HEAD=59f898ab8b24eb08ef5df7fc74eeeed39ea8b88b
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
-NEXT_MILESTONE=M9_LOCAL_GOVERNANCE
-ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M9-GOVERNANCE-01
+NEXT_MILESTONE=M10_LOCAL_KNOWLEDGE_PLATFORM
+ACTIVE_DEVELOPMENT_CHAIN=none
 RELEASED=false
 FROZEN=false
 ```
@@ -19,10 +19,11 @@ FlowPilot 已完成 M0～M8 工程候选：公共契约与当前 16 成员 Pytho
 功能任务和 36 条安全/故障任务的版本化语料与 Hash 冻结。M7 进一步加入 Provider/SDK
 Adapter、知识问答产品组合、真实 API/SSE Web 模式、集中凭据扫描和首批产品执行器；
 M8 接入本地 Keycloak、可信身份、Cookie-only 会话、租户传播、RLS 与恢复重验；
-M9T 增加仓库地图、Delta Context Capsule、测试选择、Evidence Cache 和 Attempt 报告。
+M9T 增加仓库地图、Delta Context Capsule、测试选择、Evidence Cache 和 Attempt 报告；
+M9 完成版本化策略、Capability、Secret/DLP、追加式审计、治理查询与 Web 证据。
 
-整体仍不是发布版本。固定分母中已有 24 条知识问答和 6 条租户隔离 Case 具备产品
-执行器，另外 126 条明确返回 `EXECUTOR_NOT_REGISTERED`；在线 Provider Smoke 和 Judge 人工校准也
+整体仍不是发布版本。固定分母中已有 24 条知识问答、6 条租户隔离和 9 条治理安全
+Case 具备产品执行器，另外 117 条明确返回 `EXECUTOR_NOT_REGISTERED`；在线 Provider Smoke 和 Judge 人工校准也
 没有完成。`make acceptance` 会保留全部 156 条结果并返回失败，不能把候选合入解释为
 `RELEASED` 或整体 `FROZEN`。真实企业 Connector 已明确排除在 M7～M20 外，
 不把“尚未接企业系统”列为本地演示产品的发布阻断。
@@ -44,6 +45,7 @@ M9T 增加仓库地图、Delta Context Capsule、测试选择、Evidence Cache �
 | M6 | 120+36 语料、Hash 冻结、Judge 校准工具、`make acceptance` 与 Ruff 收口 | 产品执行器缺失，Judge 仍为占位校准，不能报告成功率 |
 | M7 | LiteLLM/Agents SDK Adapter、API/Worker/Graph/Data 组合、Web API/SSE、Studio 权威恢复、集中凭据扫描与 24 条知识问答执行器 | 开发候选已合入；132 条 Case 未注册、在线 Provider 未验证、没有一键产品启动入口 |
 | M8 | 本地 Keycloak、OIDC/JWKS、Cookie-only 会话、双主体身份、可信 SecurityContext、租户传播、RLS 与真实恢复验证 | 本地候选已验收；不包含生产 IdP/HA，126 条后续 Case 未注册 |
+| M9 | 版本化 Rego/OPA、Capability、Secret/DLP、追加式 Audit/Security Store、治理查询与 Web、9 条治理安全执行器 | 本地候选已验收；不包含生产 Vault/KMS/SIEM/HA，117 条后续 Case 未注册 |
 
 ## 3. P2 已合并能力
 
@@ -168,11 +170,11 @@ make studio-smoke
 |---|---|---|
 | Provider 与产品运行链 | M7 Adapter、产品组合、Web API/SSE 与 24 条知识执行器已合入；在线供应端未验证 | 后续里程碑补一键产品入口，并在明确授权后运行 DeepSeek V4 Flash Smoke |
 | 身份、租户与 RLS | M8 本地 Keycloak、可信 SecurityContext、租户传播、RLS 与恢复组合已验收 | 后续只做本地产品整合；生产 IdP/HA 不在本路线 |
-| 策略、DLP 与审计 | MCP/Policy/Security 骨架已合入 | M9 完成本地 Rego、Capability、DLP 和可查询审计 |
+| 策略、DLP 与审计 | M9 本地 Rego、Capability、DLP、追加式审计和治理查询已通过组合验证 | 生产 Vault/KMS/SIEM/HA 不在本地路线；后续场景复用现有治理边界 |
 | 知识检索 | 合成知识、ACL 和引用候选已合入 | M10 完成本地导入、混合检索、生命周期与稳定引用 |
 | Context | 硬预算、摘要和 Handoff 过滤已有机制 | M11～M13 分别完成短期记忆、长期记忆和用户画像 |
 | 业务场景 | 历史知识样例与新员工候选已有代码 | M14～M18 完成五条 Web 可操作业务链 |
-| 120+36 | 156 条固定分母已运行；30 通过、126 因无执行器明确失败 | M9～M18 随能力增量注册执行器，M19 完成五链报告与 Judge 校准 |
+| 120+36 | 156 条固定分母已运行；39 通过、117 因无执行器明确失败 | M10～M18 随能力增量注册执行器，M19 完成五链报告与 Judge 校准 |
 | `make acceptance` | 可生成完整 Bundle 和 39 项 Hash 闭包；当前 Gate 为 fail | M19 产出可复现且满足发布门槛的产品报告 |
 | 安全多模态 | 隔离与 Observation 契约已有设计项 | M20 完成隔离、扫描、脱敏、注入检测和只读 Agent |
 | 全仓 Ruff | M6 收口时为零 Finding | 后续增量保持零新增 Finding |
@@ -182,7 +184,7 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M8 候选与 M9T 工程控制面已经完成验收。当前执行 M9 本地治理链；M10～M20
+M8、M9 候选与 M9T 工程控制面已经完成验收。当前没有激活的开发链；M10～M20
 尚未启动：
 
 ```text
@@ -203,9 +205,10 @@ M7 真实 Provider 与本地运行链
                                           M20 安全多模态
 ```
 
-M7 的 WP-070～WP-073、M8 的 WP-080～WP-088 和 M9T 的 WP-090～WP-094 已完成。
+M7 的 WP-070～WP-073、M8 的 WP-080～WP-088、M9T 的 WP-090～WP-094 和
+M9 的 WP-100～WP-109 已完成。
 固定分母 Gate 继续保持失败，直到后续里程碑为其余业务与安全 Case 提供产品执行器。
-M9 按 WP-100～WP-109 推进，工程控制面只记录开发范围和证据，不参与产品授权。
+M9 的工程控制面只记录开发范围和证据，不参与产品授权。
 
 M8 启动前的 WP-037 工程契约已完成：S1～S7 作为领域主 Agent，默认使用 `DELTA`
 热启动，并可在有效工作包内自主调用临时子 Agent。子任务使用最小 Context Capsule、

@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：ACTIVE
+- 状态：ACCEPTED_M9
 - Owner：S3-PLATFORM
 - Attempt：WP-101-a1
 - 风险：R2

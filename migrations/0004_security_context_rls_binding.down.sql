@@ -3,6 +3,13 @@ BEGIN;
 DO $linear_successor$
 BEGIN
     IF EXISTS (
+        SELECT 1 FROM flowpilot.schema_migrations
+        WHERE migration_id = '0005_governance_audit_query'
+    ) THEN
+        RAISE EXCEPTION 'cannot downgrade 0004 while 0005 exists'
+            USING ERRCODE = '55000';
+    END IF;
+    IF EXISTS (
         SELECT 1
         FROM flowpilot.schema_migrations
         WHERE migration_id NOT IN (

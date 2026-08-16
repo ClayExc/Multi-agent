@@ -3,6 +3,11 @@ from .composition import (
     compose_application_unit_of_work_factories,
 )
 from .errors import PersistenceError, PersistenceErrorCode
+from .governance import (
+    GovernanceCursorCodec,
+    PostgresGovernanceQueryUnitOfWork,
+    PostgresGovernanceQueryUnitOfWorkFactory,
+)
 from .memory import (
     MemoryDatabase,
     MemoryDataUnitOfWork,
@@ -66,6 +71,7 @@ __all__ = [
     "ExecutionLedgerPort",
     "ExecutionOutcome",
     "ExecutionRecord",
+    "GovernanceCursorCodec",
     "LedgerStatus",
     "LeaseFence",
     "LeasePort",
@@ -81,6 +87,8 @@ __all__ = [
     "PostgresDataUnitOfWork",
     "PostgresDataUnitOfWorkFactory",
     "PostgresContextBoundDataUnitOfWorkFactory",
+    "PostgresGovernanceQueryUnitOfWork",
+    "PostgresGovernanceQueryUnitOfWorkFactory",
     "PostgresSecurityContextSource",
     "RedisCoordinationAdapter",
     "RecoverySignalPort",

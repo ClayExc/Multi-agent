@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S1-ARCH
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-004,FP-SEC-005,FP-SEC-006,FP-MCP-006,FP-OBS-002,FP-OBS-003
+WORK_PACKAGE=WP-110
+FEATURE_IDS=FP-FLOW-003,FP-MCP-001,FP-MCP-002,FP-SEC-003,FP-DATA-001,FP-EVAL-001,FP-EVAL-002
 WRITE_SCOPE=README.md,STRUCTURE.md,WORKFLOW.md,AGENTS.md,contracts/**,docs/architecture/**,docs/acceptance/**,docs/decisions/**,docs/roadmap/**,docs/review/**,docs/team/**
 ```
 
-- 契约状态：IDLE / M9 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：ACTIVE / WP-110 DONE
+- 当前工作：管理 `CHAIN-M10-KNOWLEDGE-01`，最终验收前不替代领域 Owner 开发。
 
 ## 使命
 
@@ -71,13 +71,13 @@ S1 不可以：
 - 维护 M0～M8/P2 架构事实与当前 `1cad07bd…` 契约候选。
 - M7、M8 工作包、动态安全返修、S7 组合复现和 S1 final 已经收口。
 - 保留 OpenAI/Claude Agents SDK 为正式 Runtime Adapter 技术栈。
-- M9T 工程控制面与 M9 本地治理候选已完成；M10～M20 未激活，M7 在线 Provider
-  Smoke 仍未执行。
+- M9T 工程控制面与 M9 本地治理候选已完成；M10 已激活，M11～M20 未激活，M7
+  在线 Provider Smoke 仍未执行。
 
 ## 完成定义
 
 - 当前契约候选继续通过 Conformance，且本包不改变 ContractSet Artifact。
 - 全仓测试、静态检查、覆盖率、安全和依赖审计入口可重复运行。
 - 当前控制文档不再误报旧摘要、旧 Workspace 数量或历史活动链。
-- M8、M9T 与 M9 已完成，整体仍保持 `RELEASED=false`、
+- M8、M9T 与 M9 已完成，M10 开发中；整体仍保持 `RELEASED=false`、
   `FROZEN=false`。

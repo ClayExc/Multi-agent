@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-005,FP-SEC-006,FP-OPS-003
+WORK_PACKAGE=WP-117
+FEATURE_IDS=FP-FLOW-003,FP-CTX-001,FP-MCP-001
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：IDLE / WP-103 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：DEPENDENCY_WAIT / WP-117
+- 当前工作：等待 WP-116 精确线性 Head，不提前读取或实现 M10 Runtime。
 
 ## 使命
 

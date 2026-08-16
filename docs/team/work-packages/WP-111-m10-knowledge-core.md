@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- 状态：BLOCKED
+- 状态：ACTIVE
 - Attempt：WP-111-a1
 - Owner：S5-CORE
 - 风险：R2

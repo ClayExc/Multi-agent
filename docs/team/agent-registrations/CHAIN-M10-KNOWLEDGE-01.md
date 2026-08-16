@@ -1,7 +1,7 @@
 # CHAIN-M10-KNOWLEDGE-01 Agent 注册表
 
 ```text
-REGISTRY_STATUS=AWAITING_ACTIVATION
+REGISTRY_STATUS=ACTIVE
 REGISTRY_MODE=minimum-capability-set
 EXECUTION_MODE=ORDERED
 MAX_ACTIVE_PRINCIPALS=1
@@ -9,14 +9,14 @@ MAX_ACTIVE_WRITERS=1
 MAX_SUBAGENTS_PER_PRINCIPAL=2
 COMMUNICATION=event-driven
 SELECTED=knowledge-core-builder,knowledge-data-builder,retrieval-builder,knowledge-security-builder,knowledge-runtime-consumer,knowledge-quality-builder,knowledge-integration-verifier
-CURRENTLY_ACTIVE=none
-NOT_YET_ACTIVATED=knowledge-core-builder,knowledge-data-builder,retrieval-builder,knowledge-security-builder,knowledge-runtime-consumer,knowledge-quality-builder,knowledge-integration-verifier
+CURRENTLY_ACTIVE=knowledge-core-builder
+NOT_YET_ACTIVATED=knowledge-data-builder,retrieval-builder,knowledge-security-builder,knowledge-runtime-consumer,knowledge-quality-builder,knowledge-integration-verifier
 UNSELECTED=none
 ```
 
 | Agent ID | Role | 主写目标 | 当前状态 | 退出条件 |
 |---|---|---|---|---|
-| knowledge-core-builder | S5-CORE | 文档领域、应用 Port、API 与 Workspace | AWAITING_ACTIVATION | WP-111/116 clean Handoff |
+| knowledge-core-builder | S5-CORE | 文档领域、应用 Port、API 与 Workspace | ACTIVE_WP111 | WP-111/116 clean Handoff |
 | knowledge-data-builder | S6-DATA | 文档事实、RLS、pgvector、索引生命周期 | DEPENDENCY_WAIT | WP-112/113 clean Handoff |
 | retrieval-builder | S4-QUALITY | 混合检索、重排、引用复验 | DEPENDENCY_WAIT | WP-114 clean Handoff |
 | knowledge-security-builder | S3-PLATFORM | Knowledge MCP、Gateway 与输入安全 | DEPENDENCY_WAIT | WP-115 clean Handoff |

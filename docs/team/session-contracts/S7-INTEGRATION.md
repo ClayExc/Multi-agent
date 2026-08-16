@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ROLE=S7-INTEGRATION
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-004,FP-SEC-005,FP-SEC-006,FP-MCP-006,FP-OBS-002,FP-OBS-003
+WORK_PACKAGE=WP-120
+FEATURE_IDS=FP-FLOW-003,FP-MCP-001,FP-MCP-002,FP-SEC-003,FP-DATA-001,FP-EVAL-001,FP-EVAL-002
 WRITE_SCOPE=scripts/integration/**,tests/integration/**,artifacts/integration/**,WP-040授权共享文件
 EXECUTION_MODE=<READ_ONLY_PARALLEL|ORDERED|PARALLEL>
 ```
 
-- 契约状态：IDLE / WP-109 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：DEPENDENCY_WAIT / WP-120
+- 当前工作：等待 WP-119 精确线性 Head，不提前运行组合或发布门禁。
 - 初始模式：`READ_ONLY_PARALLEL`；只有后续垂直候选汇合且取得独立 Worktree、
   Attempt 和 S1 授权后才进入写模式。
 

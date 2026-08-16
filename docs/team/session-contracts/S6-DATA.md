@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S6-DATA
-WORK_PACKAGE=none
-FEATURE_IDS=FP-DATA-001,FP-MCP-006,FP-OBS-002,FP-OBS-003,FP-OPS-001
+WORK_PACKAGE=WP-112,WP-113
+FEATURE_IDS=FP-DATA-001,FP-SEC-002,FP-SEC-003
 WRITE_SCOPE=packages/persistence/**,migrations/**,infra/**,tests/data/**,WP-021授权共享文件
 ```
 
-- 契约状态：IDLE / WP-105/106 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：DEPENDENCY_WAIT / WP-112
+- 当前工作：等待 WP-111 精确线性 Head；随后热继续 WP-113。
 
 ## 使命
 

@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S4-QUALITY
-WORK_PACKAGE=none
-FEATURE_IDS=FP-UI-001,FP-OBS-002,FP-OBS-003,FP-EVAL-002,FP-SEC-005,FP-SEC-006
+WORK_PACKAGE=WP-114,WP-118,WP-119
+FEATURE_IDS=FP-UI-001,FP-SEC-003,FP-EVAL-001,FP-EVAL-002
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
-- 契约状态：IDLE / WP-107/108 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：DEPENDENCY_WAIT / WP-114
+- 当前工作：等待 WP-113 精确线性 Head；后续 WP-118/119 使用同一角色热继续。
 
 ## 使命
 

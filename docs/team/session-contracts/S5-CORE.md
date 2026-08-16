@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-004,FP-OBS-002,FP-OBS-003
+WORK_PACKAGE=WP-111
+FEATURE_IDS=FP-FLOW-003,FP-DATA-001,FP-SEC-003,FP-UI-001
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,tests/core/**,pyproject.toml,uv.lock,Makefile
 ```
 
-- 契约状态：IDLE / WP-104 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：ACTIVE / WP-111
+- 当前工作：定义知识文档领域、生命周期、Application Port 和 S6 事务交接。
 
 ## 使命
 

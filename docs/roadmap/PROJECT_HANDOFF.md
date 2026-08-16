@@ -3,12 +3,13 @@
 ## 1. 当前结论
 
 ```text
-SNAPSHOT=M0_M9_CANDIDATE
-STATUS=M9_LOCAL_GOVERNANCE_VERIFIED_CANDIDATE
+SNAPSHOT=M0_M9_CANDIDATE_M10_ACTIVE
+STATUS=M10_LOCAL_KNOWLEDGE_ACTIVE
 S7_HEAD=59f898ab8b24eb08ef5df7fc74eeeed39ea8b88b
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
 NEXT_MILESTONE=M10_LOCAL_KNOWLEDGE_PLATFORM
-ACTIVE_DEVELOPMENT_CHAIN=none
+ACTIVE_DEVELOPMENT_CHAIN=CHAIN-M10-KNOWLEDGE-01
+ACTIVE_WORK_PACKAGE=WP-111
 RELEASED=false
 FROZEN=false
 ```
@@ -184,8 +185,8 @@ Evidence Artifact，而不是只依赖分支测试结论。不得提前宣传性
 
 ## 8. 后续交付计划
 
-M8、M9 候选与 M9T 工程控制面已经完成验收。当前没有激活的开发链；M10～M20
-尚未启动：
+M8、M9 候选与 M9T 工程控制面已经完成验收。M10 本地知识平台已激活，当前从知识
+领域/Application Port 开始线性推进；M11～M20 尚未启动：
 
 ```text
 M7 真实 Provider 与本地运行链
@@ -207,6 +208,8 @@ M7 真实 Provider 与本地运行链
 
 M7 的 WP-070～WP-073、M8 的 WP-080～WP-088、M9T 的 WP-090～WP-094 和
 M9 的 WP-100～WP-109 已完成。
+M10 使用 `CHAIN-M10-KNOWLEDGE-01` 和 WP-110～WP-120；当前只激活 WP-111，后续角色
+在收到精确线性 Head 后才获得写租约。
 固定分母 Gate 继续保持失败，直到后续里程碑为其余业务与安全 Case 提供产品执行器。
 M9 的工程控制面只记录开发范围和证据，不参与产品授权。
 

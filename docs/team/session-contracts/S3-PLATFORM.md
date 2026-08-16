@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S3-PLATFORM
-WORK_PACKAGE=none
-FEATURE_IDS=FP-SEC-004,FP-SEC-005,FP-SEC-006,FP-MCP-006,FP-APR-002,FP-APR-003
+WORK_PACKAGE=WP-115
+FEATURE_IDS=FP-MCP-001,FP-MCP-002,FP-SEC-003,FP-SEC-005,FP-SEC-006
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：IDLE / WP-101/102 ACCEPTED
-- 当前工作：无；等待下一里程碑激活。
+- 契约状态：DEPENDENCY_WAIT / WP-115
+- 当前工作：等待 WP-114 精确线性 Head，不提前迁移 Knowledge MCP。
 
 ## 使命
 

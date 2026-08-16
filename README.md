@@ -17,7 +17,8 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 ## 当前状态
 
-`master` 已包含 M0～M9 工程候选和 M9T 工程控制面，但还不是可以部署给真实用户的完整产品。目前可以直接体验：
+`master` 已包含 M0～M9 工程候选和 M9T 工程控制面，M10 本地知识平台已进入开发链，
+但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
 - 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
 - 启动 Web Fixture，查看任务列表、时间线、补全表单、审批卡和 SSE 重连；Web 同时具备真实 API/SSE 适配模式。
@@ -34,6 +35,10 @@ SecurityContext、工作负载身份、租户传播与 PostgreSQL RLS。真实 K
 M9T 工程控制面已经合入，后续工作默认使用仓库地图、Delta Context Capsule、测试
 选择和 Evidence Cache。M9 已完成版本化策略、短时 Capability、Gateway 与 Runtime
 DLP、追加式审计、可查询治理页面和 9 条治理安全执行器的本地组合验证。
+
+M10 正在把合成知识读取升级为 PostgreSQL/pgvector 本地知识平台。当前已固定文档版本、
+ACL、生命周期、混合检索、稳定引用和无证据回答边界；产品实现从领域/Application Port
+开始，后续按数据、检索、MCP、Runtime、Web 和验收顺序线性推进。
 
 ## M0～M9 做了什么
 
@@ -120,11 +125,12 @@ flowchart LR
 | [主 Agent 与子 Agent 协议](./docs/team/PRINCIPAL_SUBAGENT_PROTOCOL.md) | 领域主 Agent 的自主分派、Context Capsule、单写者、复用优先和责任回收规则 |
 | [工程控制面](./docs/architecture/ENGINEERING_CONTROL_PLANE.md) | M9T 仓库地图、Delta Context Capsule、测试选择、Evidence Cache 与效率报告边界 |
 | [本地治理控制面](./docs/architecture/LOCAL_GOVERNANCE_CONTROL_PLANE.md) | M9 版本化策略、Capability、Secret、DLP、Audit 与 Security Event 边界 |
+| [本地知识平台](./docs/architecture/LOCAL_KNOWLEDGE_PLATFORM.md) | M10 文档版本、ACL、pgvector 混合检索、稳定引用与生命周期边界 |
 | [P2 持久化恢复工作包](./docs/team/work-packages/WP-P2-durable-runtime.md) | Flow Lite `g1` 的批准范围、恢复不变量、测试和注册制执行边界 |
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
-| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7～M9 状态、依赖和集成顺序 |
+| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7～M10 状态、依赖和集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |
@@ -132,7 +138,7 @@ flowchart LR
 | [M6 Hash 冻结记录](./evals/runners/m6-hash-freeze.v1.json) | 三个数据集 120+36 Case 的内容哈希；不代表产品执行通过 |
 | [评测 Fixture 清单](./contracts/registries/evaluation-fixture-manifest.v1.json) | 合成租户/主体 Fixture 的版本与哈希 |
 | [需求追踪矩阵](./docs/acceptance/TRACEABILITY.md) | 机器追踪清单的人类可读投影视图 |
-| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；下一里程碑为 M10（未启动） |
+| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；当前里程碑为 M10（已启动） |
 | [架构评审报告](./docs/review/ARCHITECTURE_REVIEW.md) | 对原始总稿的保留项、问题与改造决策 |
 | [WP-000 rc1 裁决](./docs/review/WP-000-RC1-DISPOSITION.md) | 三方 REJECT、逐项处理和 rc2 冻结门禁 |
 | [ADR-0001](./docs/decisions/ADR-0001-orchestration-boundary.md) | LangGraph、Agents SDK 与 LiteLLM 的边界 |
@@ -196,7 +202,7 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 | M8（候选已验收） | 本地 Keycloak 登录、可信 SecurityContext、租户隔离与 RLS；真实本地组合门禁通过 |
 | M9T（已合入） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
 | M9（候选已验收） | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event；固定分母累计 39 条完成 |
-| M10 | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
+| M10（开发中） | PostgreSQL/pgvector 本地知识平台、权限过滤和稳定引用 |
 | M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |
 | M12 | 用户可管理、可纠正、可删除的长期记忆 |
 | M13 | 带来源和新鲜度的用户画像；只做预填和个性化，不参与授权 |

@@ -1,0 +1,22 @@
+from __future__ import annotations
+
+from enum import StrEnum
+
+
+class RetrievalErrorCode(StrEnum):
+    REQUEST_INVALID = "RETRIEVAL_REQUEST_INVALID"
+    SECURITY_BINDING_MISMATCH = "RETRIEVAL_SECURITY_BINDING_MISMATCH"
+    SECURITY_CONTEXT_UNAVAILABLE = "RETRIEVAL_SECURITY_CONTEXT_UNAVAILABLE"
+    EMBEDDING_VERSION_UNSUPPORTED = "RETRIEVAL_EMBEDDING_VERSION_UNSUPPORTED"
+    EMBEDDING_FAILED = "RETRIEVAL_EMBEDDING_FAILED"
+    CANDIDATE_SOURCE_FAILED = "RETRIEVAL_CANDIDATE_SOURCE_FAILED"
+    CANDIDATE_PROTOCOL_VIOLATION = "RETRIEVAL_CANDIDATE_PROTOCOL_VIOLATION"
+    REFERENCE_REVALIDATION_FAILED = "RETRIEVAL_REFERENCE_REVALIDATION_FAILED"
+
+
+class RetrievalError(RuntimeError):
+    """Stable fail-closed error that never includes query or candidate content."""
+
+    def __init__(self, code: RetrievalErrorCode) -> None:
+        self.code = code
+        super().__init__(code.value)

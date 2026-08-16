@@ -7,6 +7,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, TypedDict, cast
+from urllib.parse import quote, unquote, urlsplit
 
 from flowpilot_agent_runtime import (
     CLAUDE_AGENT_PROVIDER,
@@ -106,6 +107,7 @@ _OUTPUT_SCHEMA_HASH = canonical_sha256(
     }
 )
 _SHA256 = re.compile(r"^sha256:[a-f0-9]{64}$")
+_DOCUMENT_VERSION = re.compile(r"^[1-9][0-9]*$")
 _CLASSIFICATION_RANK = {
     DataClassification.PUBLIC: 0,
     DataClassification.INTERNAL: 1,
@@ -181,6 +183,7 @@ class KnowledgeGraphState(TypedDict, total=False):
     service_read_skipped: bool
     reads_complete: bool
     knowledge_call_count: int
+    knowledge_result_digest: str
     model_call_count: int
     citation_count: int
     citation_refs: list[dict[str, str]]
@@ -253,6 +256,7 @@ class _Invocation:
     execution_ref: str
     lease: LeaseToken
     records: tuple[dict[str, str], ...] = ()
+    records_digest: str | None = None
     context: ContextEnvelope | None = None
     runtime_result: AgentRunResult | None = None
 
@@ -353,7 +357,12 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         )
         current = await self._save(current, lease)
 
-        invocation = _Invocation(command, execution_ref, lease)
+        invocation = _Invocation(
+            command,
+            execution_ref,
+            lease,
+            records_digest=current.knowledge_result_digest,
+        )
         token = _ACTIVE_INVOCATION.set(invocation)
         graph_config = {"configurable": {"thread_id": self._graph_thread_id(command)}}
         try:
@@ -364,6 +373,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 graph_input = {
                     "task_ref": self._opaque_task_ref(command),
                     "knowledge_call_count": current.knowledge_call_count,
+                    "knowledge_result_digest": current.knowledge_result_digest,
                     "citation_count": current.citation_count,
                 }
             result = await self._definition.graph.ainvoke(
@@ -379,6 +389,9 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                     observation_ref=self._optional_text(result.get("observation_ref")),
                     knowledge_call_count=self._count(
                         result.get("knowledge_call_count")
+                    ),
+                    knowledge_result_digest=self._optional_text(
+                        result.get("knowledge_result_digest")
                     ),
                     citation_count=self._count(result.get("citation_count")),
                     service_read_skipped=result.get("service_read_skipped") is True,
@@ -399,8 +412,12 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 result_ref=result_ref,
                 observation_ref=self._optional_text(result.get("observation_ref")),
                 knowledge_call_count=self._count(result.get("knowledge_call_count")),
+                knowledge_result_digest=self._required_digest(
+                    result.get("knowledge_result_digest")
+                ),
                 citation_count=len(citations),
                 reference_refs=tuple(item["source_ref"] for item in citations),
+                citation_bindings=tuple(dict(item) for item in citations),
                 service_read_skipped=result.get("service_read_skipped") is True,
                 failure_code=None,
             )
@@ -424,6 +441,9 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 node=GraphNode.RUN_AGENT if should_retry else GraphNode.FINALIZE,
                 failure_code=failure.code,
                 knowledge_call_count=knowledge_count,
+                knowledge_result_digest=(
+                    invocation.records_digest or current.knowledge_result_digest
+                ),
             )
             failed = await self._save(failed, lease)
             return GraphRunOutcome(failed, invocation.runtime_result, should_retry)
@@ -458,10 +478,20 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         self,
         observation: RequestObservation,
     ) -> tuple[dict[str, str], ...]:
-        await self._validate_current_context()
         invocation = self._invocation()
         if invocation.records:
             return invocation.records
+        records = await self._query_records(observation)
+        invocation.records = records
+        invocation.records_digest = self._records_digest(records)
+        return records
+
+    async def _query_records(
+        self,
+        observation: RequestObservation,
+    ) -> tuple[dict[str, str], ...]:
+        await self._validate_current_context()
+        invocation = self._invocation()
         call = build_knowledge_gateway_call(
             config=self._config,
             command=invocation.command,
@@ -492,7 +522,24 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 "RUNTIME_KNOWLEDGE_NO_RESULT",
                 knowledge_called=True,
             )
+        return records
+
+    async def _revalidate_records(
+        self,
+        observation: RequestObservation,
+        *,
+        expected_digest: str,
+    ) -> tuple[dict[str, str], ...]:
+        records = await self._query_records(observation)
+        current_digest = self._records_digest(records)
+        if current_digest != expected_digest:
+            raise _KnowledgeFailure(
+                "RUNTIME_KNOWLEDGE_REFERENCE_DRIFT",
+                knowledge_called=True,
+            )
+        invocation = self._invocation()
         invocation.records = records
+        invocation.records_digest = current_digest
         return records
 
     def _build_context(
@@ -641,6 +688,10 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 knowledge_called=True,
                 model_called=True,
             )
+        records = await self._revalidate_records(
+            observation,
+            expected_digest=self._records_digest(records),
+        )
         answer, citations = self._validated_answer(result, records)
         projection = {
             "tenant_id": command.tenant_id,
@@ -789,6 +840,11 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 "RUNTIME_KNOWLEDGE_CLASSIFICATION_DENIED",
                 knowledge_called=True,
             )
+        if set(result.data) != {"records", "returned_count"}:
+            raise _KnowledgeFailure(
+                "RUNTIME_KNOWLEDGE_RESULT_INVALID",
+                knowledge_called=True,
+            )
         raw_records = result.data.get("records")
         returned_count = result.data.get("returned_count")
         if (
@@ -796,6 +852,7 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
             or isinstance(returned_count, bool)
             or not isinstance(returned_count, int)
             or returned_count != len(raw_records)
+            or returned_count > self._config.knowledge_limit
         ):
             raise _KnowledgeFailure(
                 "RUNTIME_KNOWLEDGE_RESULT_INVALID",
@@ -809,7 +866,6 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
             "content_hash",
             "classification",
         }
-        tenant_prefix = f"knowledge://{self._invocation().command.tenant_id}/"
         records: list[dict[str, str]] = []
         seen: set[str] = set()
         for raw in raw_records:
@@ -838,7 +894,14 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 )
             if (
                 _SHA256.fullmatch(record["content_hash"]) is None
-                or not record["source_ref"].startswith(tenant_prefix)
+                or _CLASSIFICATION_RANK[classification]
+                > _CLASSIFICATION_RANK[output_classification]
+                or len(record["redacted_summary"]) > 2048
+                or any(
+                    ord(character) < 32 and character not in "\n\r\t"
+                    for character in record["redacted_summary"]
+                )
+                or not self._source_ref_matches(record)
                 or record["source_ref"] in seen
             ):
                 raise _KnowledgeFailure(
@@ -978,6 +1041,15 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         return value
 
     @staticmethod
+    def _required_digest(value: object) -> str:
+        if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "knowledge graph result is missing a verified result digest",
+            )
+        return value
+
+    @staticmethod
     def _optional_text(value: object) -> str | None:
         return value if isinstance(value, str) and value else None
 
@@ -987,10 +1059,19 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
             return value
         return 0
 
-    @staticmethod
-    def _citation_refs(state: Mapping[str, Any]) -> tuple[dict[str, str], ...]:
+    def _citation_refs(
+        self,
+        state: Mapping[str, Any],
+    ) -> tuple[dict[str, str], ...]:
         value = state.get("citation_refs", ())
-        required = {"source_ref", "document_version", "section", "content_hash"}
+        required = {
+            "source_ref",
+            "document_version",
+            "section",
+            "redacted_summary",
+            "content_hash",
+            "classification",
+        }
         if not isinstance(value, (tuple, list)):
             raise GraphError(
                 GraphErrorCode.STATE_INVALID,
@@ -1003,8 +1084,52 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                     GraphErrorCode.STATE_INVALID,
                     "knowledge citation references are invalid",
                 )
-            result.append({key: str(item[key]) for key in required})
+            binding = {key: str(item[key]) for key in required}
+            if not self._source_ref_matches(binding):
+                raise GraphError(
+                    GraphErrorCode.STATE_INVALID,
+                    "knowledge citation references are invalid",
+                )
+            result.append(binding)
         return tuple(result)
+
+    @staticmethod
+    def _records_digest(records: Sequence[Mapping[str, str]]) -> str:
+        return canonical_sha256(
+            [
+                dict(record)
+                for record in sorted(
+                    records,
+                    key=lambda item: item["source_ref"],
+                )
+            ]
+        )
+
+    def _source_ref_matches(self, record: Mapping[str, str]) -> bool:
+        source_ref = record.get("source_ref", "")
+        version = record.get("document_version", "")
+        section = record.get("section", "")
+        if (
+            len(source_ref) > 512
+            or _DOCUMENT_VERSION.fullmatch(version) is None
+            or any(ord(character) < 33 for character in source_ref)
+        ):
+            return False
+        parsed = urlsplit(source_ref)
+        path_parts = parsed.path.removeprefix("/").split("/")
+        document_id = unquote(path_parts[0]) if len(path_parts) == 2 else ""
+        return (
+            parsed.scheme == "knowledge"
+            and parsed.netloc
+            == quote(self._invocation().command.tenant_id, safe="")
+            and parsed.query == ""
+            and len(path_parts) == 2
+            and bool(document_id)
+            and document_id not in {".", ".."}
+            and path_parts[0] == quote(document_id, safe="")
+            and path_parts[1] == quote(version, safe="")
+            and parsed.fragment == quote(section, safe="")
+        )
 
     @staticmethod
     def _utc(value: datetime, field_name: str) -> datetime:
@@ -1115,27 +1240,29 @@ class _KnowledgeNodes:
             },
         )
 
-    async def knowledge_read(self, _state: Mapping[str, Any]) -> Mapping[str, Any]:
+    async def knowledge_read(self, state: Mapping[str, Any]) -> Mapping[str, Any]:
         observation = await self._runtime._resolve()
         if observation.missing_fields:
             raise _KnowledgeFailure("RUNTIME_CLARIFICATION_REQUIRED")
-        records = await self._runtime._fetch_records(observation)
-        citations = [
-            {
-                "source_ref": record["source_ref"],
-                "document_version": record["document_version"],
-                "section": record["section"],
-                "content_hash": record["content_hash"],
-            }
-            for record in records
-        ]
+        expected_digest = self._runtime._optional_text(
+            state.get("knowledge_result_digest")
+        )
+        records = (
+            await self._runtime._revalidate_records(
+                observation,
+                expected_digest=self._runtime._required_digest(expected_digest),
+            )
+            if expected_digest is not None
+            else await self._runtime._fetch_records(observation)
+        )
         return self._advance(
             "knowledge_read",
             {
                 "knowledge_read_complete": True,
                 "knowledge_call_count": 1,
-                "citation_count": len(citations),
-                "citation_refs": citations,
+                "knowledge_result_digest": self._runtime._records_digest(records),
+                "citation_count": 0,
+                "citation_refs": [],
             },
             record_current=False,
         )
@@ -1162,15 +1289,13 @@ class _KnowledgeNodes:
     async def handoff(self, state: Mapping[str, Any]) -> Mapping[str, Any]:
         await self._runtime._validate_current_context()
         observation = await self._runtime._resolve()
-        records = await self._runtime._fetch_records(observation)
-        expected_refs = {
-            item["source_ref"] for item in self._runtime._citation_refs(state)
-        }
-        if expected_refs != {record["source_ref"] for record in records}:
-            raise _KnowledgeFailure(
-                "RUNTIME_KNOWLEDGE_RESULT_BINDING_MISMATCH",
-                knowledge_called=True,
-            )
+        expected_digest = self._runtime._required_digest(
+            state.get("knowledge_result_digest")
+        )
+        records = await self._runtime._revalidate_records(
+            observation,
+            expected_digest=expected_digest,
+        )
         context = self._runtime._build_context(observation, records)
         return self._advance(
             "handoff",
@@ -1187,10 +1312,17 @@ class _KnowledgeNodes:
             "read-only knowledge flow cannot route to approval",
         )
 
-    async def run_agent(self, _state: Mapping[str, Any]) -> Mapping[str, Any]:
+    async def run_agent(self, state: Mapping[str, Any]) -> Mapping[str, Any]:
         observation = await self._runtime._resolve()
-        records = await self._runtime._fetch_records(observation)
+        expected_digest = self._runtime._required_digest(
+            state.get("knowledge_result_digest")
+        )
+        records = await self._runtime._revalidate_records(
+            observation,
+            expected_digest=expected_digest,
+        )
         result_ref, citations = await self._runtime._run_model(observation, records)
+        by_ref = {record["source_ref"]: record for record in records}
         return self._advance(
             "run_agent",
             {
@@ -1198,7 +1330,9 @@ class _KnowledgeNodes:
                 "model_call_count": 1,
                 "result_ref": result_ref,
                 "citation_count": len(citations),
-                "citation_refs": [citation.to_mapping() for citation in citations],
+                "citation_refs": [
+                    dict(by_ref[citation.source_ref]) for citation in citations
+                ],
             },
         )
 

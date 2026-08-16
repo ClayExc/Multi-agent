@@ -104,8 +104,10 @@ class GraphState:
     tool_proposal_refs: tuple[str, ...] = ()
     observation_ref: str | None = None
     knowledge_call_count: int = 0
+    knowledge_result_digest: str | None = None
     citation_count: int = 0
     reference_refs: tuple[str, ...] = ()
+    citation_bindings: tuple[dict[str, str], ...] = ()
     service_read_skipped: bool = False
     # M4-2 context engineering (FP-CTX-004 / FP-CTX-002): cross-turn budget
     # counters and the layered conversation summary ride the Checkpoint so
@@ -166,6 +168,39 @@ class GraphState:
             raise GraphError(
                 GraphErrorCode.STATE_INVALID,
                 "graph knowledge references must be unique",
+            )
+        binding_keys = {
+            "source_ref",
+            "document_version",
+            "section",
+            "redacted_summary",
+            "content_hash",
+            "classification",
+        }
+        if any(
+            set(binding) != binding_keys
+            or any(
+                not isinstance(value, str) or not value
+                for value in binding.values()
+            )
+            for binding in self.citation_bindings
+        ):
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph citation bindings must contain only safe reference metadata",
+            )
+        binding_refs = tuple(
+            binding["source_ref"] for binding in self.citation_bindings
+        )
+        if len(binding_refs) != len(set(binding_refs)):
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph citation bindings must be unique",
+            )
+        if self.citation_bindings and binding_refs != self.reference_refs:
+            raise GraphError(
+                GraphErrorCode.STATE_INVALID,
+                "graph citation bindings must match their reference projection",
             )
         if self.citation_count != len(self.reference_refs) and self.reference_refs:
             raise GraphError(
@@ -228,8 +263,10 @@ class GraphState:
             "tool_proposal_refs": list(self.tool_proposal_refs),
             "observation_ref": self.observation_ref,
             "knowledge_call_count": self.knowledge_call_count,
+            "knowledge_result_digest": self.knowledge_result_digest,
             "citation_count": self.citation_count,
             "reference_refs": list(self.reference_refs),
+            "citation_bindings": [dict(item) for item in self.citation_bindings],
             "service_read_skipped": self.service_read_skipped,
             "conversation_round": self.conversation_round,
             "cumulative_input_tokens": self.cumulative_input_tokens,
@@ -297,9 +334,18 @@ class GraphState:
                     else None
                 ),
                 knowledge_call_count=int(value.get("knowledge_call_count", 0)),
+                knowledge_result_digest=(
+                    str(value["knowledge_result_digest"])
+                    if value.get("knowledge_result_digest") is not None
+                    else None
+                ),
                 citation_count=int(value.get("citation_count", 0)),
                 reference_refs=tuple(
                     str(item) for item in value.get("reference_refs", ())
+                ),
+                citation_bindings=tuple(
+                    dict(item)
+                    for item in value.get("citation_bindings", ())
                 ),
                 service_read_skipped=(
                     value.get("service_read_skipped", False) is True

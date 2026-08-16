@@ -49,6 +49,7 @@ class IdentityApiState:
         self.event = event
         self.calls: list[dict[str, Any]] = []
         self.sessions = {COOKIE_A: "a", COOKIE_B: "b"}
+        self.consumed_request_body_bytes = 0
 
     @staticmethod
     def _bind_tenant(task: dict[str, Any], tenant_id: str) -> dict[str, Any]:
@@ -144,6 +145,8 @@ class IdentityApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
+        if not self._consume_request_body():
+            return
         self._record(parsed.path)
         if parsed.path == "/v1/auth/refresh":
             cookie = self.headers.get("Cookie", "")
@@ -198,6 +201,23 @@ class IdentityApiHandler(BaseHTTPRequestHandler):
             )
             return
         self._json_error(404, "TASK_NOT_FOUND", "not found")
+
+    def _consume_request_body(self) -> bool:
+        raw_length = self.headers.get("Content-Length", "0")
+        try:
+            length = int(raw_length)
+        except ValueError:
+            self._json_error(400, "API_INTERNAL_ERROR", "invalid request")
+            return False
+        if not 0 <= length <= 1024 * 1024:
+            self._json_error(400, "API_INTERNAL_ERROR", "invalid request")
+            return False
+        body = self.rfile.read(length) if length else b""
+        if len(body) != length:
+            self._json_error(400, "API_INTERNAL_ERROR", "invalid request")
+            return False
+        self.server.state.consumed_request_body_bytes += len(body)
+        return True
 
     def _record(self, path: str) -> None:
         self.server.state.calls.append(
@@ -517,6 +537,7 @@ def test_live_command_error_does_not_expose_upstream_message(
     assert payload["error"]["message"] == (
         "请求与当前任务状态冲突，请刷新后重试。"
     )
+    assert state.consumed_request_body_bytes > 0
     exposed = body.decode()
     for canary in (ACCESS_CANARY, REFRESH_CANARY, NONCE_CANARY):
         assert canary not in exposed

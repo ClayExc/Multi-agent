@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -49,6 +50,9 @@ from flowpilot_policy import (
 from flowpilot_security import (
     AuthenticatedWorkload,
     CapabilityHandle,
+    CapabilityUse,
+    SecurityError,
+    SecurityErrorCode,
     SecurityVerifier,
     TrustedSecurityContext,
     trusted_context_snapshot_hash,
@@ -249,6 +253,10 @@ class ApproverDirectory:
 class CapabilityIssuer:
     def __init__(self) -> None:
         self.issue_count = 0
+        self.consume_count = 0
+        self._issued: dict[str, CapabilityHandle] = {}
+        self._consumed: set[str] = set()
+        self._lock = asyncio.Lock()
 
     async def issue(
         self,
@@ -261,25 +269,73 @@ class CapabilityIssuer:
         workload_principal_ref: str,
         purpose: str,
         data_classification_ceiling: str,
+        context_hash: str,
+        tool_name: str,
+        resource_digest: str,
         action_digest: str,
+        policy_version: str,
+        execution_id: str,
+        use: CapabilityUse,
         ttl_seconds: int,
         now: datetime,
     ) -> CapabilityHandle:
-        self.issue_count += 1
-        return CapabilityHandle(
-            handle_ref=f"capability://acceptance/{self.issue_count}",
-            audience=audience,
-            scopes=scopes,
-            tenant_id=tenant_id,
-            subject_id=subject_id,
-            subject_acl=subject_acl,
-            workload_principal_ref=workload_principal_ref,
-            purpose=purpose,
-            data_classification_ceiling=data_classification_ceiling,
-            action_digest=action_digest,
-            issued_at=now,
-            expires_at=now + timedelta(seconds=ttl_seconds),
-        )
+        async with self._lock:
+            self.issue_count += 1
+            token_id_hash = canonical_sha256(
+                {
+                    "action_digest": action_digest,
+                    "capability_sequence": self.issue_count,
+                    "context_hash": context_hash,
+                    "execution_id": execution_id,
+                    "policy_version": policy_version,
+                    "resource_digest": resource_digest,
+                    "tool_name": tool_name,
+                    "use": use.value,
+                }
+            )
+            handle = CapabilityHandle(
+                handle_ref=f"capability://acceptance/{self.issue_count}",
+                audience=audience,
+                scopes=scopes,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                subject_acl=subject_acl,
+                workload_principal_ref=workload_principal_ref,
+                purpose=purpose,
+                data_classification_ceiling=data_classification_ceiling,
+                context_hash=context_hash,
+                tool_name=tool_name,
+                resource_digest=resource_digest,
+                action_digest=action_digest,
+                policy_version=policy_version,
+                execution_id=execution_id,
+                use=use,
+                token_id_hash=token_id_hash,
+                issued_at=now,
+                expires_at=now + timedelta(seconds=ttl_seconds),
+            )
+            self._issued[token_id_hash] = handle
+            return handle
+
+    async def consume(
+        self,
+        *,
+        handle: CapabilityHandle,
+        now: datetime,
+    ) -> None:
+        async with self._lock:
+            if (
+                self._issued.get(handle.token_id_hash) != handle
+                or handle.token_id_hash in self._consumed
+                or now < handle.issued_at
+                or now >= handle.expires_at
+            ):
+                raise SecurityError(
+                    SecurityErrorCode.CAPABILITY_REPLAY,
+                    "capability is unknown, expired, or already consumed",
+                )
+            self._consumed.add(handle.token_id_hash)
+            self.consume_count += 1
 
 
 class RecordingSignalSink:

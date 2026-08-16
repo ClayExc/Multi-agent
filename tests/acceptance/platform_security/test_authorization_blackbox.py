@@ -266,7 +266,7 @@ async def test_expired_approval_and_role_forgery_are_rejected() -> None:
     ("adapter_mode", "expected_code"),
     [
         ("malicious_extra_field", "PLATFORM_TOOL_OUTPUT_INVALID"),
-        ("secret_material", "PLATFORM_UNSAFE_PROJECTION"),
+        ("secret_material", "PLATFORM_DLP_BLOCKED"),
     ],
 )
 async def test_malicious_or_secret_tool_output_is_not_projected(

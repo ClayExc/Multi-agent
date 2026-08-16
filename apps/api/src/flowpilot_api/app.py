@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
+from dataclasses import asdict
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import FastAPI, Request, Response
@@ -11,9 +14,18 @@ from flowpilot_application import (
     ApplicationError,
     ApprovalDecisionResult,
     ApprovalDecisionService,
+    AuditEventView,
     CommandAcceptance,
     CommandIntakeService,
     ErrorCode,
+    EventQuery,
+    GovernancePageRequest,
+    GovernanceQueryContext,
+    GovernanceQueryService,
+    GovernanceTimeWindow,
+    PolicyDecisionQuery,
+    PolicyDecisionView,
+    SecurityEventView,
     TaskEventEnvelope,
     TaskEventErrorCode,
     TaskEventSubscriptionService,
@@ -37,13 +49,26 @@ from .models import (
     ErrorBody,
     ErrorEnvelope,
     ExecutionReceiptBody,
+    GovernanceAuditEventBody,
+    GovernanceAuditEventPageBody,
+    GovernanceCorrelationBody,
+    GovernancePolicyDecisionBody,
+    GovernancePolicyDecisionPageBody,
+    GovernanceSecurityEventBody,
+    GovernanceSecurityEventPageBody,
     HealthBody,
+    PolicyVersionBody,
+    PolicyVersionPageBody,
     TaskBody,
     TaskCommandBody,
     TaskId,
 )
 from .oidc import OidcBffConfig, OidcBffService, OidcSessionStart
-from .security import RequestSecurityPort, TrustedRequestIdentity
+from .security import (
+    GovernanceAccessPolicy,
+    RequestSecurityPort,
+    TrustedRequestIdentity,
+)
 from .stream import InMemoryEventStream
 
 _CONFLICT_CODES = {
@@ -57,22 +82,29 @@ _BAD_REQUEST_CODES = {
     ErrorCode.CONTRACT_INVALID,
     ErrorCode.COMMAND_DIGEST_MISMATCH,
     ErrorCode.APPROVAL_BINDING_MISMATCH,
+    ErrorCode.GOVERNANCE_CURSOR_INVALID,
 }
 _UNAVAILABLE_CODES = {
     ErrorCode.EXECUTION_UNAVAILABLE,
     ErrorCode.REPOSITORY_UNAVAILABLE,
+    ErrorCode.GOVERNANCE_REPOSITORY_UNAVAILABLE,
 }
 _COMMAND_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     status: {"model": ErrorEnvelope}
     for status in (400, 401, 403, 409, 422, 500, 502, 503)
 }
 _TASK_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
-    status: {"model": ErrorEnvelope}
-    for status in (401, 403, 404, 422, 500, 502, 503)
+    status: {"model": ErrorEnvelope} for status in (401, 403, 404, 422, 500, 502, 503)
 }
 _AUTH_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     status: {"model": ErrorEnvelope} for status in (401, 403, 409, 503)
 }
+_GOVERNANCE_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status: {"model": ErrorEnvelope} for status in (400, 401, 403, 404, 500, 502, 503)
+}
+_INTEGER = re.compile(r"^[1-9][0-9]{0,2}$")
+_TASK_FILTER = re.compile(r"^task_[A-Za-z0-9_-]{8,128}$")
+_CORRELATION_FILTER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 
 def create_app(
@@ -84,6 +116,8 @@ def create_app(
     event_stream: InMemoryEventStream | None = None,
     approval_decisions: ApprovalDecisionService | None = None,
     oidc_bff: OidcBffService | None = None,
+    governance_queries: GovernanceQueryService | None = None,
+    governance_access: GovernanceAccessPolicy | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="FlowPilot API",
@@ -387,6 +421,149 @@ def create_app(
         task = await query.get(identity.tenant_id, task_id)
         return _task_body(task)
 
+    async def governance_context(
+        request: Request,
+    ) -> tuple[GovernanceQueryService, GovernanceQueryContext]:
+        security = _require_dependency(
+            request_security, "request security is not configured"
+        )
+        access = _require_dependency(
+            governance_access, "governance access policy is not configured"
+        )
+        service = _require_dependency(
+            governance_queries, "governance query service is not configured"
+        )
+        identity = await security.authenticate(request)
+        await security.authorize_governance_read(identity, access)
+        return service, GovernanceQueryContext(
+            tenant_id=identity.tenant_id,
+            subject_id=identity.subject_id,
+            purpose=identity.purpose,
+            security_context_ref=identity.security_context_ref,
+            security_context_hash=identity.security_context_hash,
+        )
+
+    @app.get(
+        "/v1/governance/policy-versions",
+        response_model=PolicyVersionPageBody,
+        responses=_GOVERNANCE_ERROR_RESPONSES,
+        tags=["governance"],
+        operation_id="listGovernancePolicyVersionsV1",
+    )
+    async def list_governance_policy_versions(
+        request: Request,
+        response: Response,
+    ) -> PolicyVersionPageBody:
+        service, context = await governance_context(request)
+        values = _governance_query_values(request, {"limit", "cursor"})
+        page_request = _governance_page_request(values)
+        page = await service.list_policy_versions(context, page_request)
+        _set_governance_headers(response)
+        return PolicyVersionPageBody(
+            items=[PolicyVersionBody(**asdict(item)) for item in page.items],
+            next_cursor=page.next_cursor,
+        )
+
+    @app.get(
+        "/v1/governance/policy-decisions",
+        response_model=GovernancePolicyDecisionPageBody,
+        responses=_GOVERNANCE_ERROR_RESPONSES,
+        tags=["governance"],
+        operation_id="listGovernancePolicyDecisionsV1",
+    )
+    async def list_governance_policy_decisions(
+        request: Request,
+        response: Response,
+    ) -> GovernancePolicyDecisionPageBody:
+        service, context = await governance_context(request)
+        values = _governance_query_values(request, {"limit", "cursor", "task_id"})
+        task_id = values.get("task_id")
+        if task_id is not None and _TASK_FILTER.fullmatch(task_id) is None:
+            raise _governance_query_error()
+        try:
+            query = PolicyDecisionQuery(
+                page=_governance_page_request(values),
+                task_id=task_id,
+            )
+        except (TypeError, ValueError):
+            raise _governance_query_error() from None
+        page = await service.list_policy_decisions(context, query)
+        _set_governance_headers(response)
+        return GovernancePolicyDecisionPageBody(
+            items=[_governance_policy_decision_body(item) for item in page.items],
+            next_cursor=page.next_cursor,
+        )
+
+    @app.get(
+        "/v1/governance/audit-events",
+        response_model=GovernanceAuditEventPageBody,
+        responses=_GOVERNANCE_ERROR_RESPONSES,
+        tags=["governance"],
+        operation_id="listGovernanceAuditEventsV1",
+    )
+    async def list_governance_audit_events(
+        request: Request,
+        response: Response,
+    ) -> GovernanceAuditEventPageBody:
+        service, context = await governance_context(request)
+        query = _governance_event_query(request)
+        page = await service.list_audit_events(context, query)
+        _set_governance_headers(response)
+        return GovernanceAuditEventPageBody(
+            items=[_governance_audit_body(item) for item in page.items],
+            next_cursor=page.next_cursor,
+        )
+
+    @app.get(
+        "/v1/governance/security-events",
+        response_model=GovernanceSecurityEventPageBody,
+        responses=_GOVERNANCE_ERROR_RESPONSES,
+        tags=["governance"],
+        operation_id="listGovernanceSecurityEventsV1",
+    )
+    async def list_governance_security_events(
+        request: Request,
+        response: Response,
+    ) -> GovernanceSecurityEventPageBody:
+        service, context = await governance_context(request)
+        query = _governance_event_query(request)
+        page = await service.list_security_events(context, query)
+        _set_governance_headers(response)
+        return GovernanceSecurityEventPageBody(
+            items=[_governance_security_body(item) for item in page.items],
+            next_cursor=page.next_cursor,
+        )
+
+    @app.get(
+        "/v1/governance/correlations/{correlation_id}",
+        response_model=GovernanceCorrelationBody,
+        responses=_GOVERNANCE_ERROR_RESPONSES,
+        tags=["governance"],
+        operation_id="getGovernanceCorrelationV1",
+    )
+    async def get_governance_correlation(
+        correlation_id: str,
+        request: Request,
+        response: Response,
+    ) -> GovernanceCorrelationBody:
+        service, context = await governance_context(request)
+        _governance_query_values(request, set())
+        if _CORRELATION_FILTER.fullmatch(correlation_id) is None:
+            raise _governance_query_error()
+        chain = await service.get_correlation_chain(context, correlation_id)
+        _set_governance_headers(response)
+        return GovernanceCorrelationBody(
+            correlation_id=chain.correlation_id,
+            policy_decisions=[
+                _governance_policy_decision_body(item)
+                for item in chain.policy_decisions
+            ],
+            audit_events=[_governance_audit_body(item) for item in chain.audit_events],
+            security_events=[
+                _governance_security_body(item) for item in chain.security_events
+            ],
+        )
+
     return app
 
 
@@ -402,6 +579,116 @@ def _to_domain_command(body: TaskCommandBody) -> TaskCommand:
         ) from exc
 
 
+def _governance_query_values(
+    request: Request,
+    allowed: set[str],
+) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for key, value in request.query_params.multi_items():
+        if key not in allowed or key in values or not value or len(value) > 512:
+            raise _governance_query_error()
+        values[key] = value
+    return values
+
+
+def _governance_page_request(values: dict[str, str]) -> GovernancePageRequest:
+    raw_limit = values.get("limit")
+    if raw_limit is None:
+        limit = 50
+    elif _INTEGER.fullmatch(raw_limit) is None:
+        raise _governance_query_error()
+    else:
+        limit = int(raw_limit)
+    try:
+        return GovernancePageRequest(limit=limit, cursor=values.get("cursor"))
+    except ApplicationError:
+        raise
+    except (TypeError, ValueError):
+        raise _governance_query_error() from None
+
+
+def _governance_event_query(request: Request) -> EventQuery:
+    values = _governance_query_values(
+        request,
+        {
+            "limit",
+            "cursor",
+            "task_id",
+            "correlation_id",
+            "occurred_after",
+            "occurred_before",
+        },
+    )
+    task_id = values.get("task_id")
+    correlation_id = values.get("correlation_id")
+    if task_id is not None and _TASK_FILTER.fullmatch(task_id) is None:
+        raise _governance_query_error()
+    if (
+        correlation_id is not None
+        and _CORRELATION_FILTER.fullmatch(correlation_id) is None
+    ):
+        raise _governance_query_error()
+    try:
+        return EventQuery(
+            page=_governance_page_request(values),
+            window=GovernanceTimeWindow(
+                occurred_after=_governance_datetime(values.get("occurred_after")),
+                occurred_before=_governance_datetime(values.get("occurred_before")),
+            ),
+            task_id=task_id,
+            correlation_id=correlation_id,
+        )
+    except (TypeError, ValueError):
+        raise _governance_query_error() from None
+
+
+def _governance_datetime(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise _governance_query_error() from None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise _governance_query_error()
+    return parsed.astimezone(UTC)
+
+
+def _governance_query_error() -> ApiError:
+    return ApiError(
+        ApiErrorCode.GOVERNANCE_QUERY_INVALID,
+        "governance query is invalid",
+        status_code=400,
+    )
+
+
+def _set_governance_headers(response: Response) -> None:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Vary"] = "Cookie"
+
+
+def _governance_policy_decision_body(
+    item: PolicyDecisionView,
+) -> GovernancePolicyDecisionBody:
+    values = asdict(item)
+    values.pop("tenant_id")
+    return GovernancePolicyDecisionBody(**values)
+
+
+def _governance_audit_body(item: AuditEventView) -> GovernanceAuditEventBody:
+    values = asdict(item)
+    values.pop("tenant_id")
+    return GovernanceAuditEventBody(**values)
+
+
+def _governance_security_body(
+    item: SecurityEventView,
+) -> GovernanceSecurityEventBody:
+    values = asdict(item)
+    values.pop("tenant_id")
+    return GovernanceSecurityEventBody(**values)
+
+
 def _assert_request_binding(
     identity: TrustedRequestIdentity, command: TaskCommand
 ) -> None:
@@ -412,8 +699,7 @@ def _assert_request_binding(
     )
     if (
         context_mismatch
-        or
-        identity.tenant_id != command.tenant_id
+        or identity.tenant_id != command.tenant_id
         or identity.subject_id != command.actor.id
         or identity.subject_type is not command.actor.type
         or identity.purpose != context.purpose
@@ -580,7 +866,11 @@ def _application_status(code: ErrorCode) -> int:
         ErrorCode.APPROVAL_DUTIES_VIOLATION,
     }:
         return 403
-    if code is ErrorCode.TASK_NOT_FOUND or code is ErrorCode.APPROVAL_NOT_FOUND:
+    if code in {
+        ErrorCode.TASK_NOT_FOUND,
+        ErrorCode.APPROVAL_NOT_FOUND,
+        ErrorCode.GOVERNANCE_NOT_FOUND,
+    }:
         return 404
     if code in _CONFLICT_CODES or code in {
         ErrorCode.APPROVAL_CONFLICT,
@@ -593,6 +883,8 @@ def _application_status(code: ErrorCode) -> int:
         ErrorCode.EXECUTION_PROTOCOL_ERROR,
         ErrorCode.REPOSITORY_PROTOCOL_ERROR,
         ErrorCode.TASK_INITIALIZATION_PROTOCOL_ERROR,
+        ErrorCode.GOVERNANCE_REPOSITORY_PROTOCOL_ERROR,
+        ErrorCode.GOVERNANCE_UNSAFE_PROJECTION,
     }:
         return 502
     return 500

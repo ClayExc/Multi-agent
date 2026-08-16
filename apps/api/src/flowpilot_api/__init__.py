@@ -27,6 +27,7 @@ from .oidc import (
 )
 from .security import (
     BrowserSessionBinding,
+    GovernanceAccessPolicy,
     OidcRequestSecurity,
     RequestSecurityPort,
     RequestSessionSourcePort,
@@ -38,6 +39,7 @@ __all__ = [
     "ApiError",
     "ApiErrorCode",
     "BrowserSessionBinding",
+    "GovernanceAccessPolicy",
     "InMemoryEventStream",
     "InMemoryOidcSessionStore",
     "KeycloakOidcConfig",

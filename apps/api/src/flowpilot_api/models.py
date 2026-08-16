@@ -238,6 +238,129 @@ class AuthSessionBody(StrictModel):
     expires_at: datetime
 
 
+class PolicyVersionBody(StrictModel):
+    version: Bounded128
+    bundle_digest: Sha256
+    active: bool
+    parent_version: Bounded128 | None
+    published_at: datetime
+    revoked_at: datetime | None
+    rollback_of: Bounded128 | None
+
+
+class GovernancePolicyDecisionBody(StrictModel):
+    decision_id: Annotated[str, StringConstraints(pattern=r"^pd_[A-Za-z0-9_-]{8,128}$")]
+    task_id: TaskId
+    decision: Literal["allow", "deny", "require_approval"]
+    policy_version: Bounded128
+    reason_codes: list[Bounded128]
+    obligation_names: list[Bounded128]
+    action_digest: Sha256
+    evaluated_at: datetime
+    expires_at: datetime
+
+
+class GovernanceAuditEventBody(StrictModel):
+    event_id: Annotated[str, StringConstraints(pattern=r"^evt_[A-Za-z0-9_-]{8,128}$")]
+    event_type: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    occurred_at: datetime
+    trace_id: Bounded128
+    thread_id: ThreadId
+    task_id: TaskId
+    run_id: RunId | None
+    correlation_id: Bounded128
+    causation_id: Bounded128 | None
+    action: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    decision: Literal["allow", "deny", "require_approval", "not_applicable"]
+    reason_codes: list[Bounded128]
+    result: Literal["success", "failure", "blocked", "unknown"]
+    data_classification: DataClassification
+    stream_id: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    sequence: Annotated[int, Field(ge=1, strict=True)]
+    event_hash: Sha256
+    previous_hash: Sha256 | None
+    policy_decision_id: (
+        Annotated[str, StringConstraints(pattern=r"^pd_[A-Za-z0-9_-]{8,128}$")] | None
+    )
+    policy_version: Bounded128 | None
+    approval_id: ApprovalId | None
+    action_digest: Sha256 | None
+    tool_execution_id: (
+        Annotated[str, StringConstraints(pattern=r"^tex_[A-Za-z0-9_-]{8,128}$")] | None
+    )
+    security_event_id: (
+        Annotated[str, StringConstraints(pattern=r"^sevt_[A-Za-z0-9_-]{8,128}$")] | None
+    )
+
+
+class GovernanceSecurityEventBody(StrictModel):
+    event_id: Annotated[str, StringConstraints(pattern=r"^sevt_[A-Za-z0-9_-]{8,128}$")]
+    event_type: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    occurred_at: datetime
+    trace_id: Bounded128
+    thread_id: ThreadId | None
+    task_id: TaskId | None
+    run_id: RunId | None
+    correlation_id: Bounded128
+    causation_id: Bounded128 | None
+    control_component: Bounded128
+    control_rule_id: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    control_rule_version: Bounded128
+    reason_codes: list[Bounded128]
+    severity: Literal["info", "low", "medium", "high", "critical"]
+    category: Bounded128
+    control_outcome: Literal["blocked", "allowed", "not_applicable", "unknown"]
+    impact: Literal["none", "attempted", "suspected", "confirmed", "unknown"]
+    disposition: Literal["open", "contained", "escalated", "resolved", "false_positive"]
+    data_classification: DataClassification
+    policy_decision_id: (
+        Annotated[str, StringConstraints(pattern=r"^pd_[A-Za-z0-9_-]{8,128}$")] | None
+    )
+    audit_event_id: Annotated[
+        str, StringConstraints(pattern=r"^evt_[A-Za-z0-9_-]{8,128}$")
+    ]
+    event_hash: Sha256
+
+
+class PolicyVersionPageBody(StrictModel):
+    items: list[PolicyVersionBody]
+    next_cursor: (
+        Annotated[str, StringConstraints(pattern=r"^gcur_[A-Za-z0-9_-]{24,508}$")]
+        | None
+    )
+
+
+class GovernancePolicyDecisionPageBody(StrictModel):
+    items: list[GovernancePolicyDecisionBody]
+    next_cursor: (
+        Annotated[str, StringConstraints(pattern=r"^gcur_[A-Za-z0-9_-]{24,508}$")]
+        | None
+    )
+
+
+class GovernanceAuditEventPageBody(StrictModel):
+    items: list[GovernanceAuditEventBody]
+    next_cursor: (
+        Annotated[str, StringConstraints(pattern=r"^gcur_[A-Za-z0-9_-]{24,508}$")]
+        | None
+    )
+
+
+class GovernanceSecurityEventPageBody(StrictModel):
+    items: list[GovernanceSecurityEventBody]
+    next_cursor: (
+        Annotated[str, StringConstraints(pattern=r"^gcur_[A-Za-z0-9_-]{24,508}$")]
+        | None
+    )
+
+
+class GovernanceCorrelationBody(StrictModel):
+    correlation_id: Bounded128
+    policy_decisions: list[GovernancePolicyDecisionBody]
+    audit_events: list[GovernanceAuditEventBody]
+    security_events: list[GovernanceSecurityEventBody]
+
+
 class ErrorBody(StrictModel):
     code: str
     message: str

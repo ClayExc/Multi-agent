@@ -7,7 +7,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from flowpilot_api import TrustedRequestIdentity, create_product_app
+import pytest
+from flowpilot_api import (
+    GovernanceAccessPolicy,
+    TrustedRequestIdentity,
+    create_product_app,
+)
 from flowpilot_api.testing import StaticRequestSecurity
 from flowpilot_application import ErrorCode
 from flowpilot_application.testing import (
@@ -124,9 +129,12 @@ def test_product_app_composes_command_runtime_and_replays_idempotently(
         "message://tenant-a/knowledge-question-zh-001"
     )
     assert len(security.command_calls) == 2
-    assert unit_of_work.store.commands_by_id[
-        (command["tenant_id"], command["command_id"])
-    ].accepted_at == NOW
+    assert (
+        unit_of_work.store.commands_by_id[
+            (command["tenant_id"], command["command_id"])
+        ].accepted_at
+        == NOW
+    )
 
 
 def test_product_app_does_not_trust_browser_tenant_header(
@@ -227,3 +235,24 @@ def test_product_composition_remains_port_only() -> None:
     }
 
     assert all(module_name not in composition_source for module_name in forbidden)
+
+
+def test_product_composition_requires_governance_port_and_access_policy_together(
+    valid_create_mapping: dict[str, Any],
+) -> None:
+    unit_of_work = FakeUnitOfWorkFactory()
+    with pytest.raises(ValueError, match="configured together"):
+        create_product_app(
+            command_unit_of_work=unit_of_work,
+            task_query_unit_of_work=unit_of_work,
+            task_event_unit_of_work=MemoryDataUnitOfWorkFactory(),
+            execution=FakeExecutionPort(),
+            task_initialization=FAKE_TASK_INITIALIZATION,
+            thread_id_factory=FakeThreadIdFactory(),
+            request_security=StaticRequestSecurity(_identity(valid_create_mapping)),
+            governance_access=GovernanceAccessPolicy(
+                allowed_roles=frozenset({"governance-reader"}),
+                allowed_purposes=frozenset({"security_review"}),
+            ),
+            clock=lambda: NOW,
+        )

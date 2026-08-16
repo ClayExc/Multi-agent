@@ -63,6 +63,23 @@ class TrustedRequestIdentity:
             raise ValueError("trusted request identity does not match its context")
 
 
+@dataclass(frozen=True, slots=True)
+class GovernanceAccessPolicy:
+    """Composition-owned role and purpose allowlist for governance reads."""
+
+    allowed_roles: frozenset[str]
+    allowed_purposes: frozenset[str]
+
+    def __post_init__(self) -> None:
+        if (
+            not self.allowed_roles
+            or not self.allowed_purposes
+            or any(not value or len(value) > 256 for value in self.allowed_roles)
+            or any(not value or len(value) > 256 for value in self.allowed_purposes)
+        ):
+            raise ValueError("governance access allowlists must be non-empty")
+
+
 class RequestSecurityPort(Protocol):
     """Authentication/authorization boundary supplied by the API composition."""
 
@@ -76,10 +93,15 @@ class RequestSecurityPort(Protocol):
         self, identity: TrustedRequestIdentity, task_id: str
     ) -> None: ...
 
-    async def authorize_event_stream(
-        self, identity: TrustedRequestIdentity
-    ) -> None:
+    async def authorize_event_stream(self, identity: TrustedRequestIdentity) -> None:
         """Authorize a tenant-scoped subscription to the task event stream."""
+
+    async def authorize_governance_read(
+        self,
+        identity: TrustedRequestIdentity,
+        access: GovernanceAccessPolicy,
+    ) -> None:
+        """Revalidate identity and apply an explicit governance allowlist."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,10 +198,24 @@ class OidcRequestSecurity(RequestSecurityPort):
     ) -> None:
         await self._reverify_identity(identity)
 
-    async def authorize_event_stream(
-        self, identity: TrustedRequestIdentity
-    ) -> None:
+    async def authorize_event_stream(self, identity: TrustedRequestIdentity) -> None:
         await self._reverify_identity(identity)
+
+    async def authorize_governance_read(
+        self,
+        identity: TrustedRequestIdentity,
+        access: GovernanceAccessPolicy,
+    ) -> None:
+        trusted = await self._reverify_identity(identity)
+        if (
+            trusted.context.purpose not in access.allowed_purposes
+            or not trusted.roles.intersection(access.allowed_roles)
+        ):
+            raise ApiError(
+                ApiErrorCode.AUTHORIZATION_DENIED,
+                "trusted identity is not authorized for governance reads",
+                status_code=403,
+            )
 
     async def _reverify_identity(
         self,

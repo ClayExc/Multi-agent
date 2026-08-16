@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from flowpilot_application import (
     ApprovalDecisionService,
     ExecutionPort,
+    GovernanceQueryService,
+    GovernanceQueryUnitOfWorkFactory,
     TaskEventStreamConfig,
     TaskEventSubscriptionService,
     TaskEventUnitOfWorkFactory,
@@ -19,7 +21,7 @@ from flowpilot_application import (
 
 from .app import create_app
 from .oidc import OidcApiSecurityBundle, OidcBffService
-from .security import RequestSecurityPort
+from .security import GovernanceAccessPolicy, RequestSecurityPort
 from .stream import InMemoryEventStream
 
 
@@ -38,6 +40,8 @@ def create_product_app(
     clock: Callable[[], datetime] | None = None,
     oidc_bff: OidcBffService | None = None,
     oidc_security: OidcApiSecurityBundle | None = None,
+    governance_query_unit_of_work: GovernanceQueryUnitOfWorkFactory | None = None,
+    governance_access: GovernanceAccessPolicy | None = None,
 ) -> FastAPI:
     """Create the fully port-bound local-product API.
 
@@ -55,6 +59,10 @@ def create_product_app(
         oidc_bff = oidc_security.bff
     if request_security is None:
         raise ValueError("product request security must be configured")
+    if (governance_query_unit_of_work is None) != (governance_access is None):
+        raise ValueError(
+            "governance query transaction and access policy must be configured together"
+        )
 
     services = compose_core_application(
         command_unit_of_work=command_unit_of_work,
@@ -79,4 +87,10 @@ def create_product_app(
         event_stream=effective_stream,
         approval_decisions=approval_decisions,
         oidc_bff=oidc_bff,
+        governance_queries=(
+            GovernanceQueryService(governance_query_unit_of_work)
+            if governance_query_unit_of_work is not None
+            else None
+        ),
+        governance_access=governance_access,
     )

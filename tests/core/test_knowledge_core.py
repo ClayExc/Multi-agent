@@ -6,15 +6,18 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from functools import wraps
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import pytest
 from flowpilot_application import (
+    KNOWLEDGE_APPLICATION_PORT_VERSION,
     ApplicationError,
     ErrorCode,
     KnowledgeAuthorizationDecision,
     KnowledgeAuthorizationRequest,
+    KnowledgeCitationResolution,
     KnowledgeCommandService,
+    KnowledgeContentProjection,
     KnowledgeDiagnostic,
     KnowledgeIdempotencyClaim,
     KnowledgeIdempotencyDisposition,
@@ -61,6 +64,10 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 TENANT = "tenant-knowledge-a"
 DOCUMENT_ID = "doc_knowledge0001"
 BODY = "Approved runbook\nUse the documented recovery sequence."
+
+
+def test_knowledge_projection_port_version_is_explicitly_upgraded() -> None:
+    assert KNOWLEDGE_APPLICATION_PORT_VERSION == "flowpilot.knowledge-ports.m10.v2"
 
 
 def _async_test[**P, T](
@@ -206,6 +213,9 @@ class _Store:
     documents: dict[tuple[str, str], KnowledgeDocument] = field(default_factory=dict)
     versions: dict[tuple[str, str, int], DocumentVersion] = field(default_factory=dict)
     bodies: dict[tuple[str, str, int], str] = field(default_factory=dict)
+    projections: dict[tuple[str, str, int], KnowledgeContentProjection] = field(
+        default_factory=dict
+    )
     inbox: dict[
         tuple[str, str],
         tuple[str, KnowledgeOperationReceipt | None],
@@ -221,6 +231,7 @@ class _Store:
             documents=dict(self.documents),
             versions=dict(self.versions),
             bodies=dict(self.bodies),
+            projections=dict(self.projections),
             inbox=dict(self.inbox),
             events=list(self.events),
             jobs=dict(self.jobs),
@@ -231,6 +242,7 @@ class _Store:
         self.documents = other.documents
         self.versions = other.versions
         self.bodies = other.bodies
+        self.projections = other.projections
         self.inbox = other.inbox
         self.events = other.events
         self.jobs = other.jobs
@@ -276,6 +288,7 @@ class _Repository:
         version_key = (*key, version.version)
         self._store.versions[version_key] = version
         self._store.bodies[version_key] = content.text
+        self._store.projections[version_key] = _content_projection(version, content)
         return KnowledgeRepositoryDisposition.APPLIED
 
     async def update(
@@ -294,6 +307,7 @@ class _Repository:
         version_key = (*key, version.version)
         self._store.versions[version_key] = version
         self._store.bodies[version_key] = content.text
+        self._store.projections[version_key] = _content_projection(version, content)
         return KnowledgeRepositoryDisposition.APPLIED
 
     async def retire(
@@ -328,7 +342,23 @@ class _Repository:
             for body_key in tuple(self._store.bodies):
                 if body_key[:2] == key:
                     del self._store.bodies[body_key]
+                    self._store.projections.pop(body_key, None)
         return KnowledgeRepositoryDisposition.APPLIED
+
+
+def _content_projection(
+    version: DocumentVersion,
+    content: KnowledgeContent,
+) -> KnowledgeContentProjection:
+    return KnowledgeContentProjection(
+        tenant_id=version.tenant_id,
+        document_id=version.document_id,
+        document_version=version.version,
+        content_ref=version.content_ref,
+        content_hash=version.content_hash,
+        data_classification=version.data_classification,
+        content_excerpt=content.text[:2048],
+    )
 
 
 class _Inbox:
@@ -411,6 +441,31 @@ class _IndexJobs:
         return self._store.diagnostics.get((tenant_id, document_id, document_version))
 
 
+_NO_PROJECTION_OVERRIDE = object()
+
+
+class _ContentProjections:
+    def __init__(self, store: _Store, factory: _UnitOfWorkFactory) -> None:
+        self._store = store
+        self._factory = factory
+
+    async def get_exact(
+        self,
+        tenant_id: str,
+        document_id: str,
+        document_version: int,
+    ) -> KnowledgeContentProjection | None:
+        self._factory.projection_calls += 1
+        if self._factory.projection_failure:
+            raise RuntimeError(f"projection leaked hidden body: {BODY}")
+        if self._factory.projection_override is not _NO_PROJECTION_OVERRIDE:
+            return cast(
+                KnowledgeContentProjection | None,
+                self._factory.projection_override,
+            )
+        return self._store.projections.get((tenant_id, document_id, document_version))
+
+
 class _UnitOfWork:
     def __init__(self, factory: _UnitOfWorkFactory) -> None:
         self._factory = factory
@@ -420,6 +475,7 @@ class _UnitOfWork:
         self.inbox: _Inbox
         self.outbox: _Outbox
         self.index_jobs: _IndexJobs
+        self.content_projections: _ContentProjections
 
     async def __aenter__(self) -> Self:
         self._working = self._factory.store.clone()
@@ -427,6 +483,7 @@ class _UnitOfWork:
         self.inbox = _Inbox(self._working)
         self.outbox = _Outbox(self._working, self._factory)
         self.index_jobs = _IndexJobs(self._working)
+        self.content_projections = _ContentProjections(self._working, self._factory)
         self._committed = False
         self._factory.entries += 1
         return self
@@ -451,6 +508,9 @@ class _UnitOfWorkFactory:
         self.entries = 0
         self.outbox_failure = False
         self.cross_tenant_projection = False
+        self.projection_calls = 0
+        self.projection_failure = False
+        self.projection_override: object = _NO_PROJECTION_OVERRIDE
 
     def __call__(self) -> _UnitOfWork:
         return _UnitOfWork(self)
@@ -584,6 +644,37 @@ def test_stable_citation_requires_exact_version_and_hash() -> None:
     assert exc_info.value.code is DomainErrorCode.KNOWLEDGE_REFERENCE_MISMATCH
 
 
+def test_content_projection_and_resolution_repr_never_expose_excerpt() -> None:
+    excerpt = "confidential exact-version excerpt"
+    projection = KnowledgeContentProjection(
+        tenant_id=TENANT,
+        document_id=DOCUMENT_ID,
+        document_version=0,
+        content_ref="knowledge-content://" + "a" * 64,
+        content_hash="sha256:" + "b" * 64,
+        data_classification=DataClassification.CONFIDENTIAL,
+        content_excerpt=excerpt,
+    )
+    resolution = KnowledgeCitationResolution(
+        citation=StableCitation(
+            tenant_id=TENANT,
+            document_id=DOCUMENT_ID,
+            document_version=0,
+            section_id="section.recovery",
+            content_hash=projection.content_hash,
+        ),
+        content_ref=projection.content_ref,
+        data_classification=projection.data_classification,
+        content_excerpt=excerpt,
+    )
+
+    assert excerpt not in repr(projection)
+    assert excerpt not in repr(resolution)
+    with pytest.raises(ValueError) as exc_info:
+        replace(projection, content_excerpt="x" * 2049)
+    assert "x" * 32 not in str(exc_info.value)
+
+
 @_async_test
 async def test_import_is_atomic_and_emits_metadata_only() -> None:
     harness = _harness()
@@ -641,7 +732,11 @@ async def test_update_appends_version_and_old_citation_never_redirects() -> None
     old_citation = old_version.citation("recovery.step")
 
     receipt = await harness.commands.update_document(_update_request())
-    resolution = await harness.queries.resolve_citation(_context(), old_citation)
+    resolution = await harness.queries.resolve_citation(
+        _context(),
+        old_citation,
+        action_classification_ceiling=DataClassification.CONFIDENTIAL,
+    )
 
     assert (receipt.revision, receipt.document_version) == (1, 1)
     assert resolution.content_ref == old_version.content_ref
@@ -649,6 +744,184 @@ async def test_update_appends_version_and_old_citation_never_redirects() -> None
         resolution.content_ref
         != harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 1)].content_ref
     )
+    assert resolution.content_excerpt == BODY
+    assert BODY not in repr(resolution)
+
+
+@_async_test
+async def test_action_ceiling_is_required_and_bound_to_trusted_context() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    citation = harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 0)].citation(
+        "recovery"
+    )
+
+    with pytest.raises(TypeError):
+        _ = harness.queries.resolve_citation(  # type: ignore[call-arg]
+            _context(),
+            citation,
+        )
+    with pytest.raises(ApplicationError) as forged:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=cast(
+                DataClassification,
+                "confidential",
+            ),
+        )
+    assert forged.value.code is ErrorCode.KNOWLEDGE_CONTRACT_INVALID
+
+    with pytest.raises(ApplicationError) as over_context:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.RESTRICTED,
+        )
+    assert over_context.value.code is ErrorCode.KNOWLEDGE_CLASSIFICATION_DENIED
+    assert harness.unit_of_work.projection_calls == 0
+
+
+@_async_test
+async def test_document_classification_must_fit_action_ceiling() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    citation = harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 0)].citation(
+        "recovery"
+    )
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.INTERNAL,
+        )
+
+    assert exc_info.value.code is ErrorCode.KNOWLEDGE_CLASSIFICATION_DENIED
+    assert harness.unit_of_work.projection_calls == 0
+    assert len(harness.authorization.calls) == 1
+
+
+@_async_test
+async def test_citation_hash_is_verified_before_authorization_or_projection() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    citation = harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 0)].citation(
+        "recovery"
+    )
+    tampered = replace(citation, content_hash="sha256:" + "f" * 64)
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await harness.queries.resolve_citation(
+            _context(),
+            tampered,
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
+
+    assert exc_info.value.code is ErrorCode.KNOWLEDGE_REFERENCE_MISMATCH
+    assert len(harness.authorization.calls) == 1
+    assert harness.unit_of_work.projection_calls == 0
+
+
+@_async_test
+async def test_content_projection_all_bindings_are_reverified() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    version = harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 0)]
+    citation = version.citation("recovery")
+    projection = harness.unit_of_work.store.projections[(TENANT, DOCUMENT_ID, 0)]
+    mismatches = (
+        replace(projection, tenant_id="tenant-projection-mismatch"),
+        replace(projection, document_id="doc_other0001"),
+        replace(projection, document_version=1),
+        replace(projection, content_ref="knowledge-content://mismatch"),
+        replace(projection, content_hash="sha256:" + "f" * 64),
+        replace(projection, data_classification=DataClassification.INTERNAL),
+    )
+
+    for mismatch in mismatches:
+        harness.unit_of_work.projection_override = mismatch
+        with pytest.raises(ApplicationError) as exc_info:
+            await harness.queries.resolve_citation(
+                _context(),
+                citation,
+                action_classification_ceiling=DataClassification.CONFIDENTIAL,
+            )
+        assert exc_info.value.code is (
+            ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_PROTOCOL_ERROR
+        )
+        assert BODY not in exc_info.value.safe_message
+
+
+@_async_test
+async def test_missing_or_failed_content_projection_is_safe_and_stable() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    citation = harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 0)].citation(
+        "recovery"
+    )
+    harness.unit_of_work.projection_override = None
+
+    with pytest.raises(ApplicationError) as missing:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
+    assert missing.value.code is ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_UNAVAILABLE
+    assert not missing.value.retryable
+
+    harness.unit_of_work.projection_override = _NO_PROJECTION_OVERRIDE
+    harness.unit_of_work.projection_failure = True
+    with pytest.raises(ApplicationError) as failed:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
+    assert failed.value.code is ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_UNAVAILABLE
+    assert failed.value.retryable
+    assert failed.value.__cause__ is None
+    assert BODY not in str(failed.value)
+
+
+@_async_test
+async def test_projection_is_never_read_before_authorization() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    citation = harness.unit_of_work.store.versions[(TENANT, DOCUMENT_ID, 0)].citation(
+        "recovery"
+    )
+    harness.authorization.allowed = False
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
+
+    assert exc_info.value.code is ErrorCode.KNOWLEDGE_AUTHORIZATION_DENIED
+    assert harness.unit_of_work.projection_calls == 0
+
+
+@_async_test
+async def test_expired_version_fails_before_content_projection() -> None:
+    harness = _harness()
+    await harness.commands.import_document(_import_request())
+    key = (TENANT, DOCUMENT_ID, 0)
+    expired = replace(harness.unit_of_work.store.versions[key], expires_at=NOW)
+    harness.unit_of_work.store.versions[key] = expired
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await harness.queries.resolve_citation(
+            _context(),
+            expired.citation("recovery"),
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
+
+    assert exc_info.value.code is ErrorCode.KNOWLEDGE_REFERENCE_UNAVAILABLE
+    assert harness.unit_of_work.projection_calls == 0
 
 
 @_async_test
@@ -684,10 +957,17 @@ async def test_retire_then_delete_is_explicit_and_delete_erases_bodies() -> None
             idempotency_digit="6",
         )
     )
+    authorization_calls = len(harness.authorization.calls)
 
     with pytest.raises(ApplicationError) as query_error:
-        await harness.queries.resolve_citation(_context(), citation)
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
     assert query_error.value.code is ErrorCode.KNOWLEDGE_REFERENCE_UNAVAILABLE
+    assert harness.unit_of_work.projection_calls == 0
+    assert len(harness.authorization.calls) == authorization_calls
 
     deleted = await harness.commands.delete_document(
         _lifecycle_request(
@@ -698,9 +978,18 @@ async def test_retire_then_delete_is_explicit_and_delete_erases_bodies() -> None
     )
     assert (retired.revision, deleted.revision) == (1, 2)
     assert not harness.unit_of_work.store.bodies
+    assert not harness.unit_of_work.store.projections
     assert harness.unit_of_work.store.documents[(TENANT, DOCUMENT_ID)].lifecycle is (
         KnowledgeLifecycle.DELETED
     )
+    with pytest.raises(ApplicationError) as deleted_error:
+        await harness.queries.resolve_citation(
+            _context(),
+            citation,
+            action_classification_ceiling=DataClassification.CONFIDENTIAL,
+        )
+    assert deleted_error.value.code is ErrorCode.KNOWLEDGE_REFERENCE_UNAVAILABLE
+    assert harness.unit_of_work.projection_calls == 0
 
 
 @_async_test

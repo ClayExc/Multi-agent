@@ -12,6 +12,7 @@ from flowpilot_domain import (
 from .knowledge_models import (
     KnowledgeAuthorizationDecision,
     KnowledgeAuthorizationRequest,
+    KnowledgeContentProjection,
     KnowledgeDiagnostic,
     KnowledgeIdempotencyClaim,
     KnowledgeIndexJob,
@@ -129,6 +130,17 @@ class KnowledgeIndexJobPort(Protocol):
     ) -> KnowledgeDiagnostic | None: ...
 
 
+class KnowledgeContentProjectionPort(Protocol):
+    """Load one tenant-bound exact-version excerpt after authorization."""
+
+    async def get_exact(
+        self,
+        tenant_id: str,
+        document_id: str,
+        document_version: int,
+    ) -> KnowledgeContentProjection | None: ...
+
+
 class KnowledgeUnitOfWork(Protocol):
     """One DB transaction for document, inbox, outbox, and index job writes."""
 
@@ -168,6 +180,9 @@ class KnowledgeQueryUnitOfWork(Protocol):
 
     @property
     def index_jobs(self) -> KnowledgeIndexJobPort: ...
+
+    @property
+    def content_projections(self) -> KnowledgeContentProjectionPort: ...
 
     async def __aenter__(self) -> Self: ...
 

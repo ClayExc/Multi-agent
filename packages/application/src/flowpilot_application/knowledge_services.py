@@ -21,6 +21,7 @@ from .knowledge_models import (
     KnowledgeAuthorizationDecision,
     KnowledgeAuthorizationRequest,
     KnowledgeCitationResolution,
+    KnowledgeContentProjection,
     KnowledgeDiagnostic,
     KnowledgeDocumentProjection,
     KnowledgeEventType,
@@ -684,6 +685,8 @@ class KnowledgeQueryService:
         self,
         context: KnowledgeRequestContext,
         citation: StableCitation,
+        *,
+        action_classification_ceiling: DataClassification,
     ) -> KnowledgeCitationResolution:
         now = self._now()
         KnowledgeCommandService._assert_context(context, now)
@@ -692,6 +695,7 @@ class KnowledgeQueryService:
                 ErrorCode.KNOWLEDGE_TENANT_MISMATCH,
                 "citation tenant does not match the trusted context",
             )
+        self._assert_action_ceiling(context, action_classification_ceiling)
         try:
             async with self._unit_of_work() as unit_of_work:
                 document = await unit_of_work.documents.get_document(
@@ -719,6 +723,14 @@ class KnowledgeQueryService:
                         ErrorCode.KNOWLEDGE_REFERENCE_MISMATCH,
                         "stable citation integrity verification failed",
                     ) from None
+                if not classification_allows(
+                    action_classification_ceiling,
+                    version.data_classification,
+                ):
+                    raise ApplicationError(
+                        ErrorCode.KNOWLEDGE_CLASSIFICATION_DENIED,
+                        "citation classification exceeds the action ceiling",
+                    )
                 await self._authorize_read(
                     context,
                     KnowledgeOperation.QUERY,
@@ -726,10 +738,29 @@ class KnowledgeQueryService:
                     version,
                     now,
                 )
+                try:
+                    projection = await unit_of_work.content_projections.get_exact(
+                        context.tenant_id,
+                        citation.document_id,
+                        citation.document_version,
+                    )
+                except Exception:
+                    raise ApplicationError(
+                        ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_UNAVAILABLE,
+                        "knowledge content projection is unavailable",
+                        retryable=True,
+                    ) from None
+                if projection is None:
+                    raise ApplicationError(
+                        ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_UNAVAILABLE,
+                        "knowledge content projection was not found",
+                    )
+                self._assert_content_projection(projection, version, citation)
                 return KnowledgeCitationResolution(
                     citation=citation,
-                    content_ref=version.content_ref,
-                    data_classification=version.data_classification,
+                    content_ref=projection.content_ref,
+                    data_classification=projection.data_classification,
+                    content_excerpt=projection.content_excerpt,
                 )
         except ApplicationError:
             raise
@@ -823,6 +854,44 @@ class KnowledgeQueryService:
             target_acl=version.access_control,
             now=now,
         )
+
+    @staticmethod
+    def _assert_action_ceiling(
+        context: KnowledgeRequestContext,
+        action_classification_ceiling: object,
+    ) -> None:
+        if not isinstance(action_classification_ceiling, DataClassification):
+            raise ApplicationError(
+                ErrorCode.KNOWLEDGE_CONTRACT_INVALID,
+                "action classification ceiling is invalid",
+            )
+        if not classification_allows(
+            context.security_context.data_classification_ceiling,
+            action_classification_ceiling,
+        ):
+            raise ApplicationError(
+                ErrorCode.KNOWLEDGE_CLASSIFICATION_DENIED,
+                "action classification ceiling exceeds the trusted context",
+            )
+
+    @staticmethod
+    def _assert_content_projection(
+        projection: object,
+        version: DocumentVersion,
+        citation: StableCitation,
+    ) -> None:
+        if not isinstance(projection, KnowledgeContentProjection) or (
+            projection.tenant_id != citation.tenant_id
+            or projection.document_id != citation.document_id
+            or projection.document_version != citation.document_version
+            or projection.content_ref != version.content_ref
+            or projection.content_hash != citation.content_hash
+            or projection.data_classification is not version.data_classification
+        ):
+            raise ApplicationError(
+                ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_PROTOCOL_ERROR,
+                "knowledge content projection binding is invalid",
+            )
 
     @staticmethod
     def _assert_available(

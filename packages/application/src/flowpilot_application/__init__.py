@@ -45,6 +45,7 @@ from .knowledge_models import (
     KnowledgeAuthorizationDecision,
     KnowledgeAuthorizationRequest,
     KnowledgeCitationResolution,
+    KnowledgeContentProjection,
     KnowledgeDiagnostic,
     KnowledgeDocumentProjection,
     KnowledgeEventType,
@@ -67,6 +68,7 @@ from .knowledge_models import (
 )
 from .knowledge_ports import (
     KnowledgeAuthorizationPort,
+    KnowledgeContentProjectionPort,
     KnowledgeContentSafetyPort,
     KnowledgeIndexJobPort,
     KnowledgeOperationInboxPort,
@@ -170,6 +172,8 @@ __all__ = [
     "KnowledgeCitationResolution",
     "KnowledgeCommandService",
     "KnowledgeContentSafetyPort",
+    "KnowledgeContentProjection",
+    "KnowledgeContentProjectionPort",
     "KnowledgeDiagnostic",
     "KnowledgeDocumentProjection",
     "KnowledgeEventType",

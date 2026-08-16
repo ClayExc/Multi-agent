@@ -16,7 +16,7 @@ from flowpilot_domain import (
     canonical_sha256,
 )
 
-KNOWLEDGE_APPLICATION_PORT_VERSION = "flowpilot.knowledge-ports.m10.v1"
+KNOWLEDGE_APPLICATION_PORT_VERSION = "flowpilot.knowledge-ports.m10.v2"
 
 _CLASSIFICATION_RANK = {
     DataClassification.PUBLIC: 0,
@@ -415,13 +415,40 @@ class KnowledgeDocumentProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class KnowledgeContentProjection:
+    """Exact-version content excerpt loaded only after citation authorization."""
+
+    tenant_id: str
+    document_id: str
+    document_version: int
+    content_ref: str
+    content_hash: str
+    data_classification: DataClassification
+    content_excerpt: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        _require_text(self.tenant_id, "content_projection.tenant_id", 128)
+        _require_document_id(self.document_id)
+        _require_revision(self.document_version, "content_projection.document_version")
+        _require_text(self.content_ref, "content_projection.content_ref", 512)
+        _require_sha256(self.content_hash, "content_projection.content_hash")
+        if not isinstance(self.data_classification, DataClassification):
+            raise ValueError("content_projection.data_classification is invalid")
+        _require_text(self.content_excerpt, "content_projection.content_excerpt", 2048)
+
+
+@dataclass(frozen=True, slots=True)
 class KnowledgeCitationResolution:
     citation: StableCitation
     content_ref: str
     data_classification: DataClassification
+    content_excerpt: str = field(repr=False)
 
     def __post_init__(self) -> None:
         _require_text(self.content_ref, "citation_resolution.content_ref", 512)
+        if not isinstance(self.data_classification, DataClassification):
+            raise ValueError("citation_resolution.data_classification is invalid")
+        _require_text(self.content_excerpt, "citation_resolution.content_excerpt", 2048)
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import Any, Self
 
 from flowpilot_application import (
+    KnowledgeContentProjection,
     KnowledgeDiagnostic,
     KnowledgeIdempotencyClaim,
     KnowledgeIdempotencyDisposition,
@@ -463,6 +464,58 @@ class PostgresKnowledgeIndexJobs:
         )
 
 
+class PostgresKnowledgeContentProjections:
+    """Exact-version excerpt projection, evaluated only inside a bound Query UoW."""
+
+    def __init__(self, transaction: _TenantTransaction) -> None:
+        self._transaction = transaction
+
+    async def get_exact(
+        self,
+        tenant_id: str,
+        document_id: str,
+        document_version: int,
+    ) -> KnowledgeContentProjection | None:
+        await self._transaction.bind(tenant_id)
+        row = await self._transaction.connection.fetch_one(
+            """SELECT b.tenant_id,b.document_id,b.document_version,
+                      v.content_ref,v.content_hash,v.data_classification,
+                      left(b.content_body,2048) AS content_excerpt
+               FROM flowpilot.knowledge_content_bodies b
+               JOIN flowpilot.knowledge_document_versions v
+                 ON (v.tenant_id,v.document_id,v.document_version)=
+                    (b.tenant_id,b.document_id,b.document_version)
+               JOIN flowpilot.knowledge_documents d
+                 ON (d.tenant_id,d.document_id)=(b.tenant_id,b.document_id)
+               WHERE b.tenant_id=%(tenant_id)s
+                 AND b.document_id=%(document_id)s
+                 AND b.document_version=%(document_version)s
+                 AND v.tenant_id=%(tenant_id)s
+                 AND v.document_id=%(document_id)s
+                 AND v.document_version=%(document_version)s
+                 AND b.content_hash=v.content_hash
+                 AND d.lifecycle='active'
+                 AND v.effective_at<=transaction_timestamp()
+                 AND (v.expires_at IS NULL OR v.expires_at>transaction_timestamp())""",
+            {
+                "tenant_id": tenant_id,
+                "document_id": document_id,
+                "document_version": document_version,
+            },
+        )
+        if row is None:
+            return None
+        return KnowledgeContentProjection(
+            tenant_id=str(row["tenant_id"]),
+            document_id=str(row["document_id"]),
+            document_version=int(row["document_version"]),
+            content_ref=str(row["content_ref"]),
+            content_hash=str(row["content_hash"]),
+            data_classification=DataClassification(str(row["data_classification"])),
+            content_excerpt=str(row["content_excerpt"]),
+        )
+
+
 class PostgresKnowledgeUnitOfWork:
     def __init__(
         self,
@@ -492,6 +545,7 @@ class PostgresKnowledgeUnitOfWork:
         self.inbox = PostgresKnowledgeInbox(transaction)
         self.outbox = PostgresKnowledgeOutbox(transaction)
         self.index_jobs = PostgresKnowledgeIndexJobs(transaction)
+        self.content_projections = PostgresKnowledgeContentProjections(transaction)
         return self
 
     async def __aexit__(

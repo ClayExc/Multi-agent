@@ -9,6 +9,7 @@ from .governance import (
     PostgresGovernanceQueryUnitOfWorkFactory,
 )
 from .knowledge import (
+    PostgresKnowledgeContentProjections,
     PostgresKnowledgeUnitOfWork,
     PostgresKnowledgeUnitOfWorkFactory,
 )
@@ -108,6 +109,7 @@ __all__ = [
     "PostgresKnowledgeUnitOfWork",
     "PostgresKnowledgeUnitOfWorkFactory",
     "PostgresKnowledgeCandidateRepository",
+    "PostgresKnowledgeContentProjections",
     "PostgresKnowledgeIndexer",
     "PostgresSecurityContextSource",
     "RedisCoordinationAdapter",

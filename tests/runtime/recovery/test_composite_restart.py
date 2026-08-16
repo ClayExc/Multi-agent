@@ -26,8 +26,9 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
-from identity_helpers import MutableSecurityContextValidator
-from onboarding_harness import (
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
+from tests.runtime.recovery.onboarding_harness import (
     MANAGER,
     TENANT_A,
     approve_and_resume,

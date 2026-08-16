@@ -23,7 +23,8 @@ from flowpilot_graph import (
     TICKET_CREATE_TOOL,
     GraphStatus,
 )
-from onboarding_harness import (
+
+from tests.runtime.recovery.onboarding_harness import (
     MANAGER,
     TENANT_A,
     OnboardingCrash,
@@ -92,7 +93,9 @@ def test_crash_between_sub_actions_replays_idempotency_key_with_zero_duplicates(
     """
 
     async def scenario() -> None:
-        from onboarding_harness import OnboardingProbeOptions
+        from tests.runtime.recovery.onboarding_harness import (
+            OnboardingProbeOptions,
+        )
 
         harness_a = await build_harness(
             task_id="task_onbnorerun002",
@@ -163,7 +166,9 @@ def test_crash_after_verified_sub_action_skips_it_and_never_duplicates_ticket() 
     """
 
     async def scenario() -> None:
-        from onboarding_harness import OnboardingProbeOptions
+        from tests.runtime.recovery.onboarding_harness import (
+            OnboardingProbeOptions,
+        )
 
         harness_a = await build_harness(
             task_id="task_onbnorerun003",

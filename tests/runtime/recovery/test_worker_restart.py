@@ -33,7 +33,8 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
-from identity_helpers import MutableSecurityContextValidator
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 
 def _request_id(command_id: str, attempt: int) -> str:

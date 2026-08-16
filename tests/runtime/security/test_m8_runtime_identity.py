@@ -30,7 +30,8 @@ from flowpilot_worker import (
     RuntimeSecurityContextValidator,
     RuntimeWorker,
 )
-from identity_helpers import MutableSecurityContextValidator
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 NOW = datetime(2026, 8, 11, 8, 0, tzinfo=UTC)
 ISSUER = "https://identity.fixture.local/realms/flowpilot"

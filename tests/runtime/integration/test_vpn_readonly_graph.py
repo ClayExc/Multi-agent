@@ -53,8 +53,9 @@ from flowpilot_worker import (
     vpn_debug_projection,
 )
 from flowpilot_worker.studio import create_studio_graph_definition
-from identity_helpers import MutableSecurityContextValidator
 from langgraph.checkpoint.memory import InMemorySaver
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 FIXED_NOW = datetime(2026, 7, 28, 8, 30, tzinfo=UTC)

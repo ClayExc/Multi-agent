@@ -65,7 +65,10 @@ from flowpilot_worker import (  # noqa: E402
     RuntimeWorker,
     TaskEventPublisher,
 )
-from identity_helpers import MutableSecurityContextValidator  # noqa: E402
+
+from tests.runtime.identity_helpers import (  # noqa: E402
+    MutableSecurityContextValidator,
+)
 
 
 class FaultyUnitOfWork:

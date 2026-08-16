@@ -16,7 +16,8 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
-from identity_helpers import MutableSecurityContextValidator
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 
 def test_s5_execution_port_to_worker_graph_and_fake_runtime(

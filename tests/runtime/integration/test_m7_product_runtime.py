@@ -68,8 +68,9 @@ from flowpilot_worker import (
     compose_local_product_runtime,
     compose_postgres_local_product_runtime,
 )
-from identity_helpers import MutableSecurityContextValidator
 from langgraph.checkpoint.memory import InMemorySaver
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 
 class _ThreadFactory:

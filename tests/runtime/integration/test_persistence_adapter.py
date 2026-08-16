@@ -39,7 +39,8 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
-from identity_helpers import MutableSecurityContextValidator
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 
 class BrokenUnitOfWorkFactory:

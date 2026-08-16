@@ -69,7 +69,8 @@ from flowpilot_security import (
     trusted_context_snapshot_hash,
 )
 from flowpilot_tool_contracts import AgentPrincipal, ToolContract, ToolRequest
-from onboarding_harness import (
+
+from tests.runtime.recovery.onboarding_harness import (
     MANAGER,
     TENANT_A,
     build_approval_from_card,
@@ -455,7 +456,10 @@ def test_recovery_revalidates_approval_before_any_write() -> None:
     """A crash between sub-actions re-runs the approval validation."""
 
     async def scenario() -> None:
-        from onboarding_harness import OnboardingCrash, OnboardingProbeOptions
+        from tests.runtime.recovery.onboarding_harness import (
+            OnboardingCrash,
+            OnboardingProbeOptions,
+        )
 
         harness_a = await build_harness(
             task_id="task_onbreauth001",
@@ -503,7 +507,10 @@ def test_recovery_rejects_tampered_security_binding() -> None:
     """A replayed approval command with a tampered purpose is rejected."""
 
     async def scenario() -> None:
-        from onboarding_harness import OnboardingCrash, OnboardingProbeOptions
+        from tests.runtime.recovery.onboarding_harness import (
+            OnboardingCrash,
+            OnboardingProbeOptions,
+        )
 
         harness_a = await build_harness(
             task_id="task_onbreauth002",

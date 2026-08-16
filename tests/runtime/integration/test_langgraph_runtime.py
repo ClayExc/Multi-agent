@@ -11,7 +11,8 @@ from flowpilot_worker import (
     RuntimeExecutionAdapter,
     RuntimeWorker,
 )
-from identity_helpers import MutableSecurityContextValidator
+
+from tests.runtime.identity_helpers import MutableSecurityContextValidator
 
 
 def test_state_graph_owns_runtime_node_routing(

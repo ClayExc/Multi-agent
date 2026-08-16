@@ -9,6 +9,20 @@ from .approvals import Approval, ApprovalStatus
 from .canonical import canonical_sha256
 from .commands import CommandType, TaskCommand
 from .errors import DomainErrorCode, DomainViolation
+from .knowledge import (
+    AclPrincipal,
+    AclPrincipalType,
+    DocumentVersion,
+    KnowledgeAccessControl,
+    KnowledgeContent,
+    KnowledgeDocument,
+    KnowledgeLifecycle,
+    KnowledgeSource,
+    KnowledgeSourceType,
+    StableCitation,
+    knowledge_content_hash,
+    normalize_knowledge_text,
+)
 from .security import (
     ActorType,
     AssuranceLevel,
@@ -33,6 +47,8 @@ __all__ = [
     "ActionAgent",
     "ActionResource",
     "ActionTool",
+    "AclPrincipal",
+    "AclPrincipalType",
     "ActorType",
     "Approval",
     "ApprovalStatus",
@@ -44,10 +60,18 @@ __all__ = [
     "DataClassification",
     "DomainErrorCode",
     "DomainViolation",
+    "DocumentVersion",
+    "KnowledgeAccessControl",
+    "KnowledgeContent",
+    "KnowledgeDocument",
+    "KnowledgeLifecycle",
+    "KnowledgeSource",
+    "KnowledgeSourceType",
     "PlannedAction",
     "ReleaseRef",
     "RiskLevel",
     "SecurityContextRef",
+    "StableCitation",
     "Task",
     "TaskCommand",
     "TaskFailure",
@@ -57,4 +81,6 @@ __all__ = [
     "WaitingType",
     "assert_task_transition",
     "canonical_sha256",
+    "knowledge_content_hash",
+    "normalize_knowledge_text",
 ]

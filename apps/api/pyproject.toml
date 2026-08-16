@@ -7,6 +7,10 @@ dependencies = [
     "fastapi>=0.115,<1",
     "flowpilot-application",
     "flowpilot-domain",
+    "flowpilot-mcp-gateway",
+    "flowpilot-mcp-knowledge",
+    "flowpilot-persistence",
+    "flowpilot-retrieval",
     "flowpilot-security",
     "httpx>=0.28,<1",
     "pydantic>=2.10,<3",
@@ -22,4 +26,8 @@ packages = ["src/flowpilot_api"]
 [tool.uv.sources]
 flowpilot-application = { workspace = true }
 flowpilot-domain = { workspace = true }
+flowpilot-mcp-gateway = { workspace = true }
+flowpilot-mcp-knowledge = { workspace = true }
+flowpilot-persistence = { workspace = true }
+flowpilot-retrieval = { workspace = true }
 flowpilot-security = { workspace = true }

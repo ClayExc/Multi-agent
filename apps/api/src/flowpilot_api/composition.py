@@ -20,6 +20,11 @@ from flowpilot_application import (
 )
 
 from .app import create_app
+from .knowledge import (
+    KnowledgeAccessControlFactory,
+    KnowledgeAccessPolicy,
+    KnowledgeApiServiceFactory,
+)
 from .oidc import OidcApiSecurityBundle, OidcBffService
 from .security import GovernanceAccessPolicy, RequestSecurityPort
 from .stream import InMemoryEventStream
@@ -42,6 +47,9 @@ def create_product_app(
     oidc_security: OidcApiSecurityBundle | None = None,
     governance_query_unit_of_work: GovernanceQueryUnitOfWorkFactory | None = None,
     governance_access: GovernanceAccessPolicy | None = None,
+    knowledge_services: KnowledgeApiServiceFactory | None = None,
+    knowledge_access: KnowledgeAccessPolicy | None = None,
+    knowledge_access_control: KnowledgeAccessControlFactory | None = None,
 ) -> FastAPI:
     """Create the fully port-bound local-product API.
 
@@ -62,6 +70,17 @@ def create_product_app(
     if (governance_query_unit_of_work is None) != (governance_access is None):
         raise ValueError(
             "governance query transaction and access policy must be configured together"
+        )
+    knowledge_dependencies = (
+        knowledge_services,
+        knowledge_access,
+        knowledge_access_control,
+    )
+    if any(item is not None for item in knowledge_dependencies) and not all(
+        item is not None for item in knowledge_dependencies
+    ):
+        raise ValueError(
+            "knowledge services, access, and ACL factory must be configured together"
         )
 
     services = compose_core_application(
@@ -93,4 +112,7 @@ def create_product_app(
             else None
         ),
         governance_access=governance_access,
+        knowledge_services=knowledge_services,
+        knowledge_access=knowledge_access,
+        knowledge_access_control=knowledge_access_control,
     )

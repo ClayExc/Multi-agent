@@ -17,6 +17,7 @@ from flowpilot_security import (
 )
 
 from .errors import ApiError, ApiErrorCode
+from .knowledge import KnowledgeAccessKind, KnowledgeAccessPolicy
 
 _FORBIDDEN_IDENTITY_HEADERS = frozenset(
     {
@@ -44,13 +45,22 @@ class TrustedRequestIdentity:
     security_context_ref: str
     security_context_hash: str
     security_context: SecurityContextRef | None = None
+    trusted_security_context: TrustedSecurityContext | None = None
     roles: frozenset[str] = frozenset()
     scopes: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if self.security_context is None:
+            if self.trusted_security_context is not None:
+                raise ValueError("trusted identity requires its security context")
             return
         context = self.security_context
+        if self.trusted_security_context is not None and (
+            self.trusted_security_context.context != context
+            or self.roles != self.trusted_security_context.roles
+            or self.scopes != self.trusted_security_context.scopes
+        ):
+            raise ValueError("trusted identity context projection is inconsistent")
         if (
             self.tenant_id != context.tenant_id
             or self.subject_id != context.subject_id
@@ -102,6 +112,14 @@ class RequestSecurityPort(Protocol):
         access: GovernanceAccessPolicy,
     ) -> None:
         """Revalidate identity and apply an explicit governance allowlist."""
+
+    async def authorize_knowledge_access(
+        self,
+        identity: TrustedRequestIdentity,
+        access: KnowledgeAccessPolicy,
+        kind: KnowledgeAccessKind,
+    ) -> TrustedSecurityContext:
+        """Revalidate identity, apply duties, and return the current trusted context."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +202,7 @@ class OidcRequestSecurity(RequestSecurityPort):
             security_context_ref=context.context_ref,
             security_context_hash=context.context_hash,
             security_context=context,
+            trusted_security_context=trusted,
             roles=trusted.roles,
             scopes=trusted.scopes,
         )
@@ -216,6 +235,24 @@ class OidcRequestSecurity(RequestSecurityPort):
                 "trusted identity is not authorized for governance reads",
                 status_code=403,
             )
+
+    async def authorize_knowledge_access(
+        self,
+        identity: TrustedRequestIdentity,
+        access: KnowledgeAccessPolicy,
+        kind: KnowledgeAccessKind,
+    ) -> TrustedSecurityContext:
+        trusted = await self._reverify_identity(identity)
+        if (
+            trusted.context.purpose not in access.allowed_purposes
+            or not trusted.roles.intersection(access.roles_for(kind))
+        ):
+            raise ApiError(
+                ApiErrorCode.AUTHORIZATION_DENIED,
+                "trusted identity is not authorized for knowledge access",
+                status_code=403,
+            )
+        return trusted
 
     async def _reverify_identity(
         self,

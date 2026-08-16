@@ -24,6 +24,7 @@ members = [
     "flowpilot-model-gateway",
     "flowpilot-persistence",
     "flowpilot-policy",
+    "flowpilot-retrieval",
     "flowpilot-security",
     "flowpilot-tool-contracts",
     "flowpilot-worker",
@@ -720,6 +721,10 @@ dependencies = [
     { name = "fastapi" },
     { name = "flowpilot-application" },
     { name = "flowpilot-domain" },
+    { name = "flowpilot-mcp-gateway" },
+    { name = "flowpilot-mcp-knowledge" },
+    { name = "flowpilot-persistence" },
+    { name = "flowpilot-retrieval" },
     { name = "flowpilot-security" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -730,6 +735,10 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "flowpilot-application", editable = "packages/application" },
     { name = "flowpilot-domain", editable = "packages/domain" },
+    { name = "flowpilot-mcp-gateway", editable = "apps/mcp-gateway" },
+    { name = "flowpilot-mcp-knowledge", editable = "mcp-servers/knowledge" },
+    { name = "flowpilot-persistence", editable = "packages/persistence" },
+    { name = "flowpilot-retrieval", editable = "packages/retrieval" },
     { name = "flowpilot-security", editable = "packages/security" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "pydantic", specifier = ">=2.10,<3" },
@@ -824,14 +833,20 @@ name = "flowpilot-mcp-knowledge"
 version = "0.1.0"
 source = { editable = "mcp-servers/knowledge" }
 dependencies = [
+    { name = "flowpilot-application" },
+    { name = "flowpilot-domain" },
     { name = "flowpilot-mcp-gateway" },
+    { name = "flowpilot-retrieval" },
     { name = "flowpilot-security" },
     { name = "flowpilot-tool-contracts" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "flowpilot-application", editable = "packages/application" },
+    { name = "flowpilot-domain", editable = "packages/domain" },
     { name = "flowpilot-mcp-gateway", editable = "apps/mcp-gateway" },
+    { name = "flowpilot-retrieval", editable = "packages/retrieval" },
     { name = "flowpilot-security", editable = "packages/security" },
     { name = "flowpilot-tool-contracts", editable = "packages/tool-contracts" },
 ]
@@ -895,6 +910,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "flowpilot-retrieval"
+version = "0.1.0"
+source = { editable = "packages/retrieval" }
+dependencies = [
+    { name = "flowpilot-application" },
+    { name = "flowpilot-domain" },
+    { name = "flowpilot-persistence" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "flowpilot-application", editable = "packages/application" },
+    { name = "flowpilot-domain", editable = "packages/domain" },
+    { name = "flowpilot-persistence", editable = "packages/persistence" },
+]
+
+[[package]]
 name = "flowpilot-security"
 version = "0.1.0"
 source = { editable = "packages/security" }
@@ -950,6 +982,10 @@ dependencies = [
     { name = "flowpilot-api" },
     { name = "flowpilot-application" },
     { name = "flowpilot-domain" },
+    { name = "flowpilot-mcp-gateway" },
+    { name = "flowpilot-mcp-knowledge" },
+    { name = "flowpilot-persistence" },
+    { name = "flowpilot-retrieval" },
     { name = "langgraph" },
     { name = "litellm" },
     { name = "openai-agents" },
@@ -979,6 +1015,10 @@ requires-dist = [
     { name = "flowpilot-api", editable = "apps/api" },
     { name = "flowpilot-application", editable = "packages/application" },
     { name = "flowpilot-domain", editable = "packages/domain" },
+    { name = "flowpilot-mcp-gateway", editable = "apps/mcp-gateway" },
+    { name = "flowpilot-mcp-knowledge", editable = "mcp-servers/knowledge" },
+    { name = "flowpilot-persistence", editable = "packages/persistence" },
+    { name = "flowpilot-retrieval", editable = "packages/retrieval" },
     { name = "langgraph", specifier = ">=1.2,<2" },
     { name = "litellm", specifier = "==1.95.0" },
     { name = "openai-agents", specifier = "==0.19.4" },

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from fastapi import Request
 from flowpilot_domain import TaskCommand
+from flowpilot_security import TrustedSecurityContext
 
 from .errors import ApiError, ApiErrorCode
+from .knowledge import KnowledgeAccessKind, KnowledgeAccessPolicy
 from .security import (
     GovernanceAccessPolicy,
     RequestSecurityPort,
@@ -18,6 +20,7 @@ class StaticRequestSecurity(RequestSecurityPort):
         self.task_read_calls: list[str] = []
         self.event_stream_calls: list[str] = []
         self.governance_read_calls: list[str] = []
+        self.knowledge_access_calls: list[tuple[str, KnowledgeAccessKind]] = []
         self.failure: ApiError | None = None
 
     async def authenticate(self, _request: Request) -> TrustedRequestIdentity:
@@ -61,3 +64,29 @@ class StaticRequestSecurity(RequestSecurityPort):
                 status_code=403,
             )
         self.governance_read_calls.append(identity.tenant_id)
+
+    async def authorize_knowledge_access(
+        self,
+        identity: TrustedRequestIdentity,
+        access: KnowledgeAccessPolicy,
+        kind: KnowledgeAccessKind,
+    ) -> TrustedSecurityContext:
+        if self.failure is not None:
+            raise self.failure
+        if (
+            identity.purpose not in access.allowed_purposes
+            or not identity.roles.intersection(access.roles_for(kind))
+        ):
+            raise ApiError(
+                ApiErrorCode.AUTHORIZATION_DENIED,
+                "trusted identity is not authorized for knowledge access",
+                status_code=403,
+            )
+        self.knowledge_access_calls.append((identity.tenant_id, kind))
+        if identity.trusted_security_context is None:
+            raise ApiError(
+                ApiErrorCode.AUTHORIZATION_DENIED,
+                "trusted knowledge context is required",
+                status_code=403,
+            )
+        return identity.trusted_security_context

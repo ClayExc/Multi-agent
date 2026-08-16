@@ -7,7 +7,8 @@ MYPY_SOURCES := apps/api/src apps/mcp-gateway/src apps/worker/src \
 	packages/agent-runtime/src packages/application/src packages/context/src \
 	packages/domain/src packages/engineering-control/src packages/graph/src \
 	packages/model-gateway/src \
-	packages/persistence/src packages/policy/src packages/security/src \
+	packages/persistence/src packages/policy/src packages/retrieval/src \
+	packages/security/src \
 	packages/tool-contracts/src web/src
 
 .PHONY: bootstrap studio studio-smoke engineering-control-test \
@@ -31,7 +32,7 @@ engineering-control-smoke:
 	$(UV) run --locked flowpilot-eng --help
 
 test:
-	$(UV) run --all-packages --all-groups --locked python -B -m pytest
+	$(UV) run --all-packages --all-groups --locked python -B -m pytest --import-mode=importlib
 
 test-all: test test-contract
 
@@ -49,7 +50,7 @@ test-identity:
 	$(UV) run --all-packages --all-groups --locked python -B -m pytest tests/core/test_oidc_api.py tests/platform/test_identity_boundary.py
 
 test-coverage:
-	$(UV) run --all-packages --all-groups --locked python -B -m pytest --cov --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml
+	$(UV) run --all-packages --all-groups --locked python -B -m pytest --import-mode=importlib --cov --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml
 
 audit:
 	$(UV) run --all-packages --all-groups --locked pip-audit --local --skip-editable --progress-spinner off

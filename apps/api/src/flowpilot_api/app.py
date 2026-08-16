@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from flowpilot_application import (
@@ -23,6 +23,16 @@ from flowpilot_application import (
     GovernanceQueryContext,
     GovernanceQueryService,
     GovernanceTimeWindow,
+    KnowledgeDiagnostic,
+    KnowledgeDocumentProjection,
+    KnowledgeImportRequest,
+    KnowledgeLifecycleRequest,
+    KnowledgeOperation,
+    KnowledgeOperationReceipt,
+    KnowledgeReadRequest,
+    KnowledgeRebuildRequest,
+    KnowledgeRequestContext,
+    KnowledgeUpdateRequest,
     PolicyDecisionQuery,
     PolicyDecisionView,
     SecurityEventView,
@@ -37,15 +47,31 @@ from flowpilot_domain import (
     CommandType,
     DomainErrorCode,
     DomainViolation,
+    KnowledgeAccessControl,
+    KnowledgeContent,
+    KnowledgeSource,
+    KnowledgeSourceType,
     Task,
     TaskCommand,
 )
+from flowpilot_domain import (
+    DataClassification as DomainDataClassification,
+)
+from flowpilot_security import TrustedSecurityContext
 
 from .errors import ApiError, ApiErrorCode
+from .knowledge import (
+    KnowledgeAccessControlFactory,
+    KnowledgeAccessKind,
+    KnowledgeAccessPolicy,
+    KnowledgeApiServiceFactory,
+    KnowledgeApiServices,
+)
 from .models import (
     ApprovalDecisionBody,
     AuthSessionBody,
     CommandAcceptanceBody,
+    DocumentId,
     ErrorBody,
     ErrorEnvelope,
     ExecutionReceiptBody,
@@ -57,6 +83,13 @@ from .models import (
     GovernanceSecurityEventBody,
     GovernanceSecurityEventPageBody,
     HealthBody,
+    KnowledgeDiagnosticBody,
+    KnowledgeDocumentBody,
+    KnowledgeImportBody,
+    KnowledgeLifecycleBody,
+    KnowledgeOperationReceiptBody,
+    KnowledgeRebuildBody,
+    KnowledgeUpdateBody,
     PolicyVersionBody,
     PolicyVersionPageBody,
     TaskBody,
@@ -102,6 +135,10 @@ _AUTH_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 _GOVERNANCE_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     status: {"model": ErrorEnvelope} for status in (400, 401, 403, 404, 500, 502, 503)
 }
+_KNOWLEDGE_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status: {"model": ErrorEnvelope}
+    for status in (400, 401, 403, 404, 409, 422, 500, 502, 503)
+}
 _INTEGER = re.compile(r"^[1-9][0-9]{0,2}$")
 _TASK_FILTER = re.compile(r"^task_[A-Za-z0-9_-]{8,128}$")
 _CORRELATION_FILTER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -118,7 +155,21 @@ def create_app(
     oidc_bff: OidcBffService | None = None,
     governance_queries: GovernanceQueryService | None = None,
     governance_access: GovernanceAccessPolicy | None = None,
+    knowledge_services: KnowledgeApiServiceFactory | None = None,
+    knowledge_access: KnowledgeAccessPolicy | None = None,
+    knowledge_access_control: KnowledgeAccessControlFactory | None = None,
 ) -> FastAPI:
+    knowledge_dependencies = (
+        knowledge_services,
+        knowledge_access,
+        knowledge_access_control,
+    )
+    if any(item is not None for item in knowledge_dependencies) and not all(
+        item is not None for item in knowledge_dependencies
+    ):
+        raise ValueError(
+            "knowledge services, access, and ACL factory must be configured together"
+        )
     app = FastAPI(
         title="FlowPilot API",
         version="0.1.0",
@@ -127,12 +178,21 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(
-        _request: Request, _error: RequestValidationError
+        request: Request, _error: RequestValidationError
     ) -> JSONResponse:
+        is_knowledge = request.url.path.startswith("/v1/knowledge/")
         return _error_response(
             status_code=422,
-            code=ErrorCode.CONTRACT_INVALID.value,
-            message="request does not match the TaskCommand v1 contract",
+            code=(
+                ErrorCode.KNOWLEDGE_CONTRACT_INVALID.value
+                if is_knowledge
+                else ErrorCode.CONTRACT_INVALID.value
+            ),
+            message=(
+                "request does not match the Knowledge API contract"
+                if is_knowledge
+                else "request does not match the TaskCommand v1 contract"
+            ),
         )
 
     @app.exception_handler(ApplicationError)
@@ -421,6 +481,236 @@ def create_app(
         task = await query.get(identity.tenant_id, task_id)
         return _task_body(task)
 
+    async def knowledge_context(
+        request: Request,
+        kind: KnowledgeAccessKind,
+    ) -> tuple[
+        KnowledgeApiServices,
+        KnowledgeRequestContext,
+        TrustedSecurityContext,
+    ]:
+        security = _require_dependency(
+            request_security, "request security is not configured"
+        )
+        access = _require_dependency(
+            knowledge_access, "knowledge access policy is not configured"
+        )
+        factory = _require_dependency(
+            knowledge_services, "knowledge services are not configured"
+        )
+        identity = await security.authenticate(request)
+        trusted = await security.authorize_knowledge_access(identity, access, kind)
+        services = factory.create(trusted)
+        return (
+            services,
+            KnowledgeRequestContext(
+                tenant_id=trusted.context.tenant_id,
+                purpose=trusted.context.purpose,
+                security_context=trusted.context,
+            ),
+            trusted,
+        )
+
+    @app.post(
+        "/v1/knowledge/documents",
+        response_model=KnowledgeOperationReceiptBody,
+        status_code=201,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="importKnowledgeDocumentV1",
+    )
+    async def import_knowledge_document(
+        body: KnowledgeImportBody,
+        request: Request,
+        idempotency_key: Annotated[
+            str,
+            Header(alias="Idempotency-Key", pattern=r"^sha256:[a-f0-9]{64}$"),
+        ],
+    ) -> KnowledgeOperationReceiptBody:
+        services, context, trusted = await knowledge_context(
+            request, KnowledgeAccessKind.MANAGE
+        )
+        acl_factory = _require_dependency(
+            knowledge_access_control,
+            "knowledge ACL factory is not configured",
+        )
+        command = _knowledge_import_request(
+            body,
+            context=context,
+            access_control=acl_factory.create(trusted),
+            idempotency_key=idempotency_key,
+        )
+        return _knowledge_receipt_body(await services.commands.import_document(command))
+
+    @app.put(
+        "/v1/knowledge/documents/{document_id}",
+        response_model=KnowledgeOperationReceiptBody,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="updateKnowledgeDocumentV1",
+    )
+    async def update_knowledge_document(
+        document_id: DocumentId,
+        body: KnowledgeUpdateBody,
+        request: Request,
+        idempotency_key: Annotated[
+            str,
+            Header(alias="Idempotency-Key", pattern=r"^sha256:[a-f0-9]{64}$"),
+        ],
+    ) -> KnowledgeOperationReceiptBody:
+        services, context, trusted = await knowledge_context(
+            request, KnowledgeAccessKind.MANAGE
+        )
+        acl_factory = _require_dependency(
+            knowledge_access_control,
+            "knowledge ACL factory is not configured",
+        )
+        command = _knowledge_update_request(
+            body,
+            document_id=document_id,
+            context=context,
+            access_control=acl_factory.create(trusted),
+            idempotency_key=idempotency_key,
+        )
+        return _knowledge_receipt_body(await services.commands.update_document(command))
+
+    @app.post(
+        "/v1/knowledge/documents/{document_id}/retire",
+        response_model=KnowledgeOperationReceiptBody,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="retireKnowledgeDocumentV1",
+    )
+    async def retire_knowledge_document(
+        document_id: DocumentId,
+        body: KnowledgeLifecycleBody,
+        request: Request,
+        idempotency_key: Annotated[
+            str,
+            Header(alias="Idempotency-Key", pattern=r"^sha256:[a-f0-9]{64}$"),
+        ],
+    ) -> KnowledgeOperationReceiptBody:
+        services, context, _trusted = await knowledge_context(
+            request, KnowledgeAccessKind.MANAGE
+        )
+        command = _knowledge_lifecycle_request(
+            body,
+            document_id=document_id,
+            context=context,
+            idempotency_key=idempotency_key,
+            operation=KnowledgeOperation.RETIRE,
+        )
+        return _knowledge_receipt_body(await services.commands.retire_document(command))
+
+    @app.delete(
+        "/v1/knowledge/documents/{document_id}",
+        response_model=KnowledgeOperationReceiptBody,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="deleteKnowledgeDocumentV1",
+    )
+    async def delete_knowledge_document(
+        document_id: DocumentId,
+        body: KnowledgeLifecycleBody,
+        request: Request,
+        idempotency_key: Annotated[
+            str,
+            Header(alias="Idempotency-Key", pattern=r"^sha256:[a-f0-9]{64}$"),
+        ],
+    ) -> KnowledgeOperationReceiptBody:
+        services, context, _trusted = await knowledge_context(
+            request, KnowledgeAccessKind.MANAGE
+        )
+        command = _knowledge_lifecycle_request(
+            body,
+            document_id=document_id,
+            context=context,
+            idempotency_key=idempotency_key,
+            operation=KnowledgeOperation.DELETE,
+        )
+        return _knowledge_receipt_body(await services.commands.delete_document(command))
+
+    @app.post(
+        "/v1/knowledge/documents/{document_id}/rebuild",
+        response_model=KnowledgeOperationReceiptBody,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="rebuildKnowledgeIndexV1",
+    )
+    async def rebuild_knowledge_index(
+        document_id: DocumentId,
+        body: KnowledgeRebuildBody,
+        request: Request,
+        idempotency_key: Annotated[
+            str,
+            Header(alias="Idempotency-Key", pattern=r"^sha256:[a-f0-9]{64}$"),
+        ],
+    ) -> KnowledgeOperationReceiptBody:
+        services, context, _trusted = await knowledge_context(
+            request, KnowledgeAccessKind.MANAGE
+        )
+        command = _knowledge_rebuild_request(
+            body,
+            document_id=document_id,
+            context=context,
+            idempotency_key=idempotency_key,
+        )
+        return _knowledge_receipt_body(
+            await services.commands.rebuild_document(command)
+        )
+
+    @app.get(
+        "/v1/knowledge/documents/{document_id}",
+        response_model=KnowledgeDocumentBody,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="getKnowledgeDocumentV1",
+    )
+    async def get_knowledge_document(
+        document_id: DocumentId,
+        request: Request,
+        response: Response,
+        document_version: Annotated[int | None, Query(ge=0, le=2**53 - 1)] = None,
+    ) -> KnowledgeDocumentBody:
+        services, context, _trusted = await knowledge_context(
+            request, KnowledgeAccessKind.READ
+        )
+        projection = await services.queries.get_document(
+            KnowledgeReadRequest(
+                context=context,
+                document_id=document_id,
+                document_version=document_version,
+            )
+        )
+        _set_knowledge_headers(response)
+        return _knowledge_document_body(projection)
+
+    @app.get(
+        "/v1/knowledge/documents/{document_id}/diagnostic",
+        response_model=KnowledgeDiagnosticBody,
+        responses=_KNOWLEDGE_ERROR_RESPONSES,
+        tags=["knowledge"],
+        operation_id="diagnoseKnowledgeDocumentV1",
+    )
+    async def diagnose_knowledge_document(
+        document_id: DocumentId,
+        request: Request,
+        response: Response,
+        document_version: Annotated[int | None, Query(ge=0, le=2**53 - 1)] = None,
+    ) -> KnowledgeDiagnosticBody:
+        services, context, _trusted = await knowledge_context(
+            request, KnowledgeAccessKind.DIAGNOSTIC
+        )
+        diagnostic = await services.queries.diagnose(
+            KnowledgeReadRequest(
+                context=context,
+                document_id=document_id,
+                document_version=document_version,
+            )
+        )
+        _set_knowledge_headers(response)
+        return _knowledge_diagnostic_body(diagnostic)
+
     async def governance_context(
         request: Request,
     ) -> tuple[GovernanceQueryService, GovernanceQueryContext]:
@@ -565,6 +855,201 @@ def create_app(
         )
 
     return app
+
+
+_EMPTY_SHA256 = "sha256:" + "0" * 64
+_KNOWLEDGE_RECEIPT_OPERATIONS: dict[
+    KnowledgeOperation,
+    Literal["import", "update", "retire", "delete", "rebuild"],
+] = {
+    KnowledgeOperation.IMPORT: "import",
+    KnowledgeOperation.UPDATE: "update",
+    KnowledgeOperation.RETIRE: "retire",
+    KnowledgeOperation.DELETE: "delete",
+    KnowledgeOperation.REBUILD: "rebuild",
+}
+
+
+def _knowledge_import_request(
+    body: KnowledgeImportBody,
+    *,
+    context: KnowledgeRequestContext,
+    access_control: KnowledgeAccessControl,
+    idempotency_key: str,
+) -> KnowledgeImportRequest:
+    source, content, classification = _knowledge_version_input(body)
+    try:
+        command = KnowledgeImportRequest(
+            context=context,
+            document_id=body.document_id,
+            source=source,
+            access_control=access_control,
+            data_classification=classification,
+            effective_at=body.effective_at,
+            expires_at=body.expires_at,
+            content=content,
+            idempotency_key=idempotency_key,
+            request_digest=_EMPTY_SHA256,
+        )
+        return replace(command, request_digest=command.recompute_digest())
+    except (DomainViolation, TypeError, ValueError) as exc:
+        raise _knowledge_contract_error() from exc
+
+
+def _knowledge_update_request(
+    body: KnowledgeUpdateBody,
+    *,
+    document_id: str,
+    context: KnowledgeRequestContext,
+    access_control: KnowledgeAccessControl,
+    idempotency_key: str,
+) -> KnowledgeUpdateRequest:
+    source, content, classification = _knowledge_version_input(body)
+    try:
+        command = KnowledgeUpdateRequest(
+            context=context,
+            document_id=document_id,
+            expected_revision=body.expected_revision,
+            source=source,
+            access_control=access_control,
+            data_classification=classification,
+            effective_at=body.effective_at,
+            expires_at=body.expires_at,
+            content=content,
+            idempotency_key=idempotency_key,
+            request_digest=_EMPTY_SHA256,
+        )
+        return replace(command, request_digest=command.recompute_digest())
+    except (DomainViolation, TypeError, ValueError) as exc:
+        raise _knowledge_contract_error() from exc
+
+
+def _knowledge_version_input(
+    body: KnowledgeImportBody | KnowledgeUpdateBody,
+) -> tuple[KnowledgeSource, KnowledgeContent, DomainDataClassification]:
+    try:
+        return (
+            KnowledgeSource.build(
+                source_type=KnowledgeSourceType(body.source_type),
+                source_ref=body.source_ref,
+                source_version=body.source_version,
+            ),
+            KnowledgeContent.from_text(body.content),
+            DomainDataClassification(body.data_classification),
+        )
+    except (DomainViolation, TypeError, ValueError) as exc:
+        raise _knowledge_contract_error() from exc
+
+
+def _knowledge_lifecycle_request(
+    body: KnowledgeLifecycleBody,
+    *,
+    document_id: str,
+    context: KnowledgeRequestContext,
+    idempotency_key: str,
+    operation: KnowledgeOperation,
+) -> KnowledgeLifecycleRequest:
+    try:
+        command = KnowledgeLifecycleRequest(
+            context=context,
+            document_id=document_id,
+            expected_revision=body.expected_revision,
+            idempotency_key=idempotency_key,
+            request_digest=_EMPTY_SHA256,
+        )
+        return replace(
+            command,
+            request_digest=command.recompute_digest(operation),
+        )
+    except (DomainViolation, TypeError, ValueError) as exc:
+        raise _knowledge_contract_error() from exc
+
+
+def _knowledge_rebuild_request(
+    body: KnowledgeRebuildBody,
+    *,
+    document_id: str,
+    context: KnowledgeRequestContext,
+    idempotency_key: str,
+) -> KnowledgeRebuildRequest:
+    try:
+        command = KnowledgeRebuildRequest(
+            context=context,
+            document_id=document_id,
+            expected_revision=body.expected_revision,
+            document_version=body.document_version,
+            idempotency_key=idempotency_key,
+            request_digest=_EMPTY_SHA256,
+        )
+        return replace(command, request_digest=command.recompute_digest())
+    except (DomainViolation, TypeError, ValueError) as exc:
+        raise _knowledge_contract_error() from exc
+
+
+def _knowledge_receipt_body(
+    receipt: KnowledgeOperationReceipt,
+) -> KnowledgeOperationReceiptBody:
+    return KnowledgeOperationReceiptBody(
+        document_id=receipt.document_id,
+        operation=_KNOWLEDGE_RECEIPT_OPERATIONS[receipt.operation],
+        revision=receipt.revision,
+        document_version=receipt.document_version,
+        disposition=receipt.disposition.value,
+        event_id=receipt.event_id,
+        index_job_id=receipt.index_job_id,
+    )
+
+
+def _knowledge_document_body(
+    projection: KnowledgeDocumentProjection,
+) -> KnowledgeDocumentBody:
+    document = projection.document
+    version = projection.version
+    source = version.source.safe_mapping()
+    return KnowledgeDocumentBody(
+        document_id=document.document_id,
+        revision=document.revision,
+        current_version=document.current_version,
+        lifecycle=document.lifecycle.value,
+        document_version=version.version,
+        source_type=version.source.source_type.value,
+        source_version=source["source_version"],
+        source_digest=version.source.source_digest,
+        acl_digest=version.access_control.digest(),
+        data_classification=version.data_classification.value,
+        effective_at=version.effective_at,
+        expires_at=version.expires_at,
+        content_hash=version.content_hash,
+        created_at=document.created_at,
+        updated_at=document.updated_at,
+    )
+
+
+def _knowledge_diagnostic_body(
+    diagnostic: KnowledgeDiagnostic,
+) -> KnowledgeDiagnosticBody:
+    return KnowledgeDiagnosticBody(
+        document_id=diagnostic.document_id,
+        document_version=diagnostic.document_version,
+        document_revision=diagnostic.document_revision,
+        content_hash=diagnostic.content_hash,
+        index_state=diagnostic.index_state.value,
+        last_job_id=diagnostic.last_job_id,
+        indexed_at=diagnostic.indexed_at,
+        failure_code=diagnostic.failure_code,
+    )
+
+
+def _knowledge_contract_error() -> ApplicationError:
+    return ApplicationError(
+        ErrorCode.KNOWLEDGE_CONTRACT_INVALID,
+        "request does not match the Knowledge API contract",
+    )
+
+
+def _set_knowledge_headers(response: Response) -> None:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Vary"] = "Cookie"
 
 
 def _to_domain_command(body: TaskCommandBody) -> TaskCommand:
@@ -859,25 +1344,43 @@ def _require_dependency[T](dependency: T | None, message: str) -> T:
 
 
 def _application_status(code: ErrorCode) -> int:
-    if code in _BAD_REQUEST_CODES:
+    if code in _BAD_REQUEST_CODES or code in {
+        ErrorCode.KNOWLEDGE_CONTRACT_INVALID,
+        ErrorCode.KNOWLEDGE_CONTENT_UNSAFE,
+    }:
         return 400
     if code in {
         ErrorCode.SECURITY_BINDING_MISMATCH,
         ErrorCode.APPROVAL_DUTIES_VIOLATION,
+        ErrorCode.KNOWLEDGE_AUTHORIZATION_DENIED,
+        ErrorCode.KNOWLEDGE_TENANT_MISMATCH,
+        ErrorCode.KNOWLEDGE_PURPOSE_DENIED,
+        ErrorCode.KNOWLEDGE_CLASSIFICATION_DENIED,
     }:
         return 403
     if code in {
         ErrorCode.TASK_NOT_FOUND,
         ErrorCode.APPROVAL_NOT_FOUND,
         ErrorCode.GOVERNANCE_NOT_FOUND,
+        ErrorCode.KNOWLEDGE_NOT_FOUND,
+        ErrorCode.KNOWLEDGE_REFERENCE_UNAVAILABLE,
     }:
         return 404
     if code in _CONFLICT_CODES or code in {
         ErrorCode.APPROVAL_CONFLICT,
         ErrorCode.APPROVAL_EXPIRED,
+        ErrorCode.KNOWLEDGE_IDEMPOTENCY_CONFLICT,
+        ErrorCode.KNOWLEDGE_ALREADY_EXISTS,
+        ErrorCode.KNOWLEDGE_VERSION_CONFLICT,
+        ErrorCode.KNOWLEDGE_LIFECYCLE_CONFLICT,
+        ErrorCode.KNOWLEDGE_REFERENCE_MISMATCH,
     }:
         return 409
-    if code in _UNAVAILABLE_CODES:
+    if code in _UNAVAILABLE_CODES or code in {
+        ErrorCode.KNOWLEDGE_AUTHORIZATION_UNAVAILABLE,
+        ErrorCode.KNOWLEDGE_REPOSITORY_UNAVAILABLE,
+        ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_UNAVAILABLE,
+    }:
         return 503
     if code in {
         ErrorCode.EXECUTION_PROTOCOL_ERROR,
@@ -885,6 +1388,9 @@ def _application_status(code: ErrorCode) -> int:
         ErrorCode.TASK_INITIALIZATION_PROTOCOL_ERROR,
         ErrorCode.GOVERNANCE_REPOSITORY_PROTOCOL_ERROR,
         ErrorCode.GOVERNANCE_UNSAFE_PROJECTION,
+        ErrorCode.KNOWLEDGE_AUTHORIZATION_PROTOCOL_ERROR,
+        ErrorCode.KNOWLEDGE_REPOSITORY_PROTOCOL_ERROR,
+        ErrorCode.KNOWLEDGE_CONTENT_PROJECTION_PROTOCOL_ERROR,
     }:
         return 502
     return 500

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 Sha256 = Annotated[str, StringConstraints(pattern=r"^sha256:[a-f0-9]{64}$")]
 CommandId = Annotated[str, StringConstraints(pattern=r"^cmd_[A-Za-z0-9_-]{8,128}$")]
 TaskId = Annotated[str, StringConstraints(pattern=r"^task_[A-Za-z0-9_-]{8,128}$")]
+DocumentId = Annotated[str, StringConstraints(pattern=r"^doc_[A-Za-z0-9_-]{8,128}$")]
 ThreadId = Annotated[str, StringConstraints(pattern=r"^thread_[A-Za-z0-9_-]{8,128}$")]
 RunId = Annotated[str, StringConstraints(pattern=r"^run_[A-Za-z0-9_-]{8,128}$")]
 MessageId = Annotated[str, StringConstraints(pattern=r"^msg_[A-Za-z0-9_-]{8,128}$")]
@@ -359,6 +360,78 @@ class GovernanceCorrelationBody(StrictModel):
     policy_decisions: list[GovernancePolicyDecisionBody]
     audit_events: list[GovernanceAuditEventBody]
     security_events: list[GovernanceSecurityEventBody]
+
+
+class KnowledgeVersionWriteBody(StrictModel):
+    source_type: Literal["file", "uri", "connector", "manual"]
+    source_ref: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
+    source_version: (
+        Annotated[str, StringConstraints(min_length=1, max_length=256)] | None
+    ) = None
+    data_classification: DataClassification
+    effective_at: datetime
+    expires_at: datetime | None = None
+    content: Annotated[
+        str, StringConstraints(min_length=1, max_length=20 * 1024 * 1024)
+    ]
+
+
+class KnowledgeImportBody(KnowledgeVersionWriteBody):
+    document_id: DocumentId
+
+
+class KnowledgeUpdateBody(KnowledgeVersionWriteBody):
+    expected_revision: SafeVersion
+
+
+class KnowledgeLifecycleBody(StrictModel):
+    expected_revision: SafeVersion
+
+
+class KnowledgeRebuildBody(StrictModel):
+    expected_revision: SafeVersion
+    document_version: SafeVersion
+
+
+class KnowledgeOperationReceiptBody(StrictModel):
+    document_id: DocumentId
+    operation: Literal["import", "update", "retire", "delete", "rebuild"]
+    revision: SafeVersion
+    document_version: SafeVersion
+    disposition: Literal["applied", "duplicate"]
+    event_id: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+    index_job_id: Annotated[str, StringConstraints(min_length=1, max_length=256)]
+
+
+class KnowledgeDocumentBody(StrictModel):
+    document_id: DocumentId
+    revision: SafeVersion
+    current_version: SafeVersion
+    lifecycle: Literal["active", "retired", "deleted"]
+    document_version: SafeVersion
+    source_type: Literal["file", "uri", "connector", "manual"]
+    source_version: (
+        Annotated[str, StringConstraints(min_length=1, max_length=256)] | None
+    )
+    source_digest: Sha256
+    acl_digest: Sha256
+    data_classification: DataClassification
+    effective_at: datetime
+    expires_at: datetime | None
+    content_hash: Sha256
+    created_at: datetime
+    updated_at: datetime
+
+
+class KnowledgeDiagnosticBody(StrictModel):
+    document_id: DocumentId
+    document_version: SafeVersion
+    document_revision: SafeVersion
+    content_hash: Sha256
+    index_state: Literal["missing", "pending", "ready", "failed", "stale", "removed"]
+    last_job_id: Annotated[str, StringConstraints(min_length=1, max_length=256)] | None
+    indexed_at: datetime | None
+    failure_code: Annotated[str, StringConstraints(min_length=1, max_length=128)] | None
 
 
 class ErrorBody(StrictModel):

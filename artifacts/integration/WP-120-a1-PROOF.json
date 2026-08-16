@@ -1,0 +1,91 @@
+{
+  "checks": [
+    {
+      "check_id": "repository.final_delta",
+      "detail": "paths=['tests/acceptance/m10/evidence/WP-119-a1-HANDOFF.md', 'tests/acceptance/m10/evidence/WP-119-a1-PROOF.json']",
+      "passed": true
+    },
+    {
+      "check_id": "repository.protected_objects",
+      "detail": "drift=[]",
+      "passed": true
+    },
+    {
+      "check_id": "contract.digest",
+      "detail": "digest=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+      "passed": true
+    },
+    {
+      "check_id": "migrations.linear_0001_0007",
+      "detail": "chain=['0001_persistence_baseline', '0002_checkpoint_sequence_cas', '0003_api_task_initialization', '0004_security_context_rls_binding', '0005_governance_audit_query', '0006_knowledge_document_facts', '0007_pgvector_knowledge_index']",
+      "passed": true
+    },
+    {
+      "check_id": "upstream.handoff_proof",
+      "detail": "pinned input revision bytes",
+      "passed": true
+    },
+    {
+      "check_id": "registry.current_recomputation",
+      "detail": "cases=156 matched=40",
+      "passed": true
+    },
+    {
+      "check_id": "bundle.identity",
+      "detail": "head=df2283049d717e62cf16ff6361de5d04ac2e4203",
+      "passed": true
+    },
+    {
+      "check_id": "denominator.fixed",
+      "detail": "pass=40 fail=116",
+      "passed": true
+    },
+    {
+      "check_id": "registry.four_unique",
+      "detail": "identities=(('flowpilot.m7.enterprise-knowledge', '1.0.0', 24), ('flowpilot.m8.identity-tenancy', '1.0.0', 6), ('flowpilot.m9.governance-security', '1.0.0', 9), ('flowpilot.m10.knowledge-security', '1.0.0', 1)) unique=40",
+      "passed": true
+    },
+    {
+      "check_id": "execution.closed",
+      "detail": "completed=40 not_executed=116",
+      "passed": true
+    },
+    {
+      "check_id": "artifacts.hash_closure",
+      "detail": "hashes=55 mismatches=[]",
+      "passed": true
+    },
+    {
+      "check_id": "engineering.six_gates",
+      "detail": "passed=6/6",
+      "passed": true
+    },
+    {
+      "check_id": "manifest.release_blocked",
+      "detail": "gate=fail",
+      "passed": true
+    },
+    {
+      "check_id": "m10.safety_observation",
+      "detail": "zero security counters and deterministic rejection",
+      "passed": true
+    }
+  ],
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "input_head": "ba725376af0bc8e8b7d118f3b965f35dd542682c",
+  "runner_head": "df2283049d717e62cf16ff6361de5d04ac2e4203",
+  "schema": "flowpilot.wp120-composition-proof.v1",
+  "summary": {
+    "artifact_hashes": 55,
+    "completed": 40,
+    "declared": 156,
+    "explicit_failed": 116,
+    "failed_checks": [],
+    "frozen_claimed": false,
+    "manifest_gate": "fail",
+    "quarantined": 0,
+    "release_claimed": false,
+    "skipped": 0,
+    "verdict": "PASS"
+  }
+}

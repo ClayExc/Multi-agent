@@ -62,7 +62,12 @@ def test_package_change_selects_targeted_tests(
     assert plan.commands[0].argv == (
         "uv",
         "run",
+        "--all-packages",
+        "--all-groups",
         "--locked",
+        "python",
+        "-B",
+        "-m",
         "pytest",
         "-q",
         "tests/core/engineering_control",
@@ -85,6 +90,59 @@ def test_public_signature_change_upgrades_shared(
     )
     assert plan.tier is EngineeringTestTier.SHARED
     assert plan.commands[0].command_id == "pytest-shared"
+    assert plan.commands[0].argv == (
+        "uv",
+        "run",
+        "--all-packages",
+        "--all-groups",
+        "--locked",
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/core",
+        "tests/runtime",
+        "tests/data",
+        "tests/platform",
+    )
+
+
+def test_pytest_runner_change_invalidates_legacy_plan_hash(
+    example_repository: ExampleRepository,
+) -> None:
+    base = example_repository.git("rev-parse", "HEAD")
+    example_repository.write(
+        "packages/engineering-control/src/flowpilot_engineering_control/ports.py",
+        "class PublicPort:\n    value: str\n",
+    )
+    target = example_repository.commit("public runner change")
+    repository_map, capsule = _capsule(example_repository, base, target)
+    plan = EngineeringTestSelector(repository_map).select(
+        SelectionRequest(capsule=capsule)
+    )
+    legacy = replace(
+        plan,
+        commands=(
+            CommandSpec(
+                "pytest-shared",
+                (
+                    "uv",
+                    "run",
+                    "--locked",
+                    "pytest",
+                    "-q",
+                    "tests/core",
+                    "tests/runtime",
+                    "tests/data",
+                    "tests/platform",
+                ),
+            ),
+        ),
+    )
+
+    assert plan.digest != legacy.digest
+    assert plan.commands[0].argv_sha256 != legacy.commands[0].argv_sha256
 
 
 def test_package_change_selects_transitive_dependent_tests(
@@ -183,6 +241,24 @@ def test_protected_changes_upgrade_without_empty_plan(
     command_ids = {command.command_id for command in plan.commands}
     if tag == "migration":
         assert "migration-real" in command_ids
+        migration = next(
+            command
+            for command in plan.commands
+            if command.command_id == "migration-real"
+        )
+        assert migration.argv == (
+            "uv",
+            "run",
+            "--all-packages",
+            "--all-groups",
+            "--locked",
+            "python",
+            "-B",
+            "-m",
+            "pytest",
+            "-q",
+            "tests/data/integration",
+        )
     else:
         assert "migration-real" not in command_ids
 

@@ -126,6 +126,59 @@ def test_cli_select_and_attempt_report_are_nonempty_and_deterministic(
     assert report["estimated_usage"]["tokens"] >= 0
 
 
+def test_cli_targeted_plan_uses_workspace_python_module_runner(
+    example_repository: ExampleRepository,
+    capfd: object,
+) -> None:
+    base = example_repository.git("rev-parse", "HEAD")
+    example_repository.write(
+        "packages/engineering-control/src/flowpilot_engineering_control/private.py",
+        "VALUE = 'changed'\n",
+    )
+    example_repository.commit("targeted cli selection")
+
+    assert (
+        main(
+            [
+                "--repo",
+                str(example_repository.root),
+                "tests",
+                "select",
+                "--base",
+                base,
+                "--owner",
+                "S5-CORE",
+                "--work-package",
+                "WP-092",
+                "--attempt",
+                "WP-092-test",
+                "--risk",
+                "R2",
+                "--contract-digest",
+                "sha256:" + "a" * 64,
+                "--write-scope",
+                "packages/engineering-control/**",
+            ]
+        )
+        == 0
+    )
+    plan = json.loads(capfd.readouterr().out)  # type: ignore[attr-defined]
+    assert plan["tier"] == "TARGETED"
+    assert plan["commands"][0]["argv"] == [
+        "uv",
+        "run",
+        "--all-packages",
+        "--all-groups",
+        "--locked",
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/core/engineering_control",
+    ]
+
+
 def test_cli_evidence_record_and_check_round_trip(
     example_repository: ExampleRepository,
     capfd: object,

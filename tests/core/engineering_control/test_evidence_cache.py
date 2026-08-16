@@ -23,7 +23,19 @@ def _key_input(example_repository: ExampleRepository) -> CacheKeyInput:
     return CacheKeyInput.from_repository_map(
         command=CommandSpec(
             "targeted-tests",
-            ("uv", "run", "--locked", "pytest", "-q", "tests/core"),
+            (
+                "uv",
+                "run",
+                "--all-packages",
+                "--all-groups",
+                "--locked",
+                "python",
+                "-B",
+                "-m",
+                "pytest",
+                "-q",
+                "tests/core",
+            ),
         ),
         repository_map=repository_map,
         contract_digest="sha256:" + "a" * 64,
@@ -220,7 +232,10 @@ def test_cache_explains_environment_toolchain_and_argv_drift(
     ).build()
     argv_key = replace(
         key_input,
-        command=CommandSpec("targeted-tests", ("python", "-c", "; | >")),
+        command=CommandSpec(
+            "targeted-tests",
+            ("uv", "run", "--locked", "pytest", "-q", "tests/core"),
+        ),
     ).build()
     contract_key = replace(
         key_input,

@@ -17,6 +17,18 @@ from flowpilot_engineering_control.serialization import (
 
 SCHEMA_VERSION = "flowpilot.test-plan.v1"
 _COMMAND_ID = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
+_PYTEST_ARGV_PREFIX = (
+    "uv",
+    "run",
+    "--all-packages",
+    "--all-groups",
+    "--locked",
+    "python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+)
 
 
 class TestTier(IntEnum):
@@ -237,7 +249,7 @@ class TestSelector:
             return tuple(
                 CommandSpec(
                     command_id=f"pytest-targeted-{index}",
-                    argv=("uv", "run", "--locked", "pytest", "-q", prefix),
+                    argv=(*_PYTEST_ARGV_PREFIX, prefix),
                 )
                 for index, prefix in enumerate(sorted(selected_prefixes), start=1)
             )
@@ -246,11 +258,7 @@ class TestSelector:
                 CommandSpec(
                     command_id="pytest-shared",
                     argv=(
-                        "uv",
-                        "run",
-                        "--locked",
-                        "pytest",
-                        "-q",
+                        *_PYTEST_ARGV_PREFIX,
                         "tests/core",
                         "tests/runtime",
                         "tests/data",
@@ -281,11 +289,7 @@ class TestSelector:
                 CommandSpec(
                     command_id="migration-real",
                     argv=(
-                        "uv",
-                        "run",
-                        "--locked",
-                        "pytest",
-                        "-q",
+                        *_PYTEST_ARGV_PREFIX,
                         "tests/data/integration",
                     ),
                 ),

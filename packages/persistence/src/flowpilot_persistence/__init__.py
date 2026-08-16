@@ -8,6 +8,10 @@ from .governance import (
     PostgresGovernanceQueryUnitOfWork,
     PostgresGovernanceQueryUnitOfWorkFactory,
 )
+from .knowledge import (
+    PostgresKnowledgeUnitOfWork,
+    PostgresKnowledgeUnitOfWorkFactory,
+)
 from .memory import (
     MemoryDatabase,
     MemoryDataUnitOfWork,
@@ -89,6 +93,8 @@ __all__ = [
     "PostgresContextBoundDataUnitOfWorkFactory",
     "PostgresGovernanceQueryUnitOfWork",
     "PostgresGovernanceQueryUnitOfWorkFactory",
+    "PostgresKnowledgeUnitOfWork",
+    "PostgresKnowledgeUnitOfWorkFactory",
     "PostgresSecurityContextSource",
     "RedisCoordinationAdapter",
     "RecoverySignalPort",

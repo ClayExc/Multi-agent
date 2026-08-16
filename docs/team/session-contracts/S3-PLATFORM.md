@@ -9,8 +9,8 @@ FEATURE_IDS=FP-CTX-002,FP-CTX-003,FP-SEC-003,FP-SEC-005
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：ACTIVE / WP-122
-- 当前工作：实现 Working Memory 集中内容安全表面，不提前实现 Context 或持久化。
+- 契约状态：READY_NOT_DISPATCHED / WP-122
+- 下一工作：用户明确唤醒后实现 Working Memory 集中内容安全表面，不提前实现 Context 或持久化。
 
 ## 使命
 

@@ -223,8 +223,8 @@ WP-110～WP-120 已完成并合入主分支；固定分母新增 1 条知识安�
 ## 9. M11：短期记忆
 
 状态：`ACTIVE`。执行链为 `CHAIN-M11-SHORT-TERM-MEMORY-01`，工作包 WP-121～WP-129；
-当前从 WP-122 集中内容安全表面开始，后续按 Context、Persistence、Runtime、API、Web、
-Acceptance 和 Integration 线性推进。详细边界见
+下一工作包是 WP-122 集中内容安全表面，当前为 `READY_NOT_DISPATCHED`；用户明确唤醒后，
+再按 Context、Persistence、Runtime、API、Web、Acceptance 和 Integration 线性推进。详细边界见
 [`SHORT_TERM_MEMORY.md`](../architecture/SHORT_TERM_MEMORY.md)。
 
 目标：保存当前任务真正需要的临时信息，降低长对话膨胀，同时保持可恢复。

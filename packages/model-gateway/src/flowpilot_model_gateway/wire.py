@@ -33,6 +33,11 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from flowpilot_domain import DataClassification
+from flowpilot_security import (
+    ContentSurface,
+    SecurityError,
+    assert_content_safe,
+)
 
 # Provider names are stable registry keys (vendor-neutral spelling).
 SANDBOX_PROVIDER = "sandbox"
@@ -49,14 +54,19 @@ _FORBIDDEN_KEYS = frozenset(
         "client_secret",
         "credential",
         "credentials",
+        "chain_of_thought",
         "private_key",
+        "hidden_reasoning",
         "password",
         "provider_session",
         "session_ref",
         "refresh_token",
+        "reasoning",
+        "reasoning_content",
         "secret",
         "session_token",
         "token",
+        "thinking",
     }
 )
 
@@ -69,6 +79,7 @@ class WireToolOperation(StrEnum):
 class ProviderWireErrorCode(StrEnum):
     PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
     BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+    CONTENT_BLOCKED = "CONTENT_BLOCKED"
     INVALID_OUTPUT = "INVALID_OUTPUT"
 
 
@@ -86,6 +97,45 @@ class ProviderWireError(RuntimeError):
         self.code = code
         self.safe_message = safe_message
         self.retryable = retryable
+
+
+def assert_provider_input_safe(value: object) -> None:
+    _assert_provider_content_safe(
+        value,
+        surface=ContentSurface.MCP_CONTENT,
+        field="provider_input",
+    )
+
+
+def assert_provider_output_safe(value: object) -> None:
+    _assert_provider_content_safe(
+        value,
+        surface=ContentSurface.TOOL_RESULT,
+        field="provider_output",
+    )
+
+
+def assert_provider_tool_safe(value: object) -> None:
+    _assert_provider_content_safe(
+        value,
+        surface=ContentSurface.TOOL_ARGUMENTS,
+        field="provider_tool_proposal",
+    )
+
+
+def _assert_provider_content_safe(
+    value: object,
+    *,
+    surface: ContentSurface,
+    field: str,
+) -> None:
+    try:
+        assert_content_safe(value, surface=surface, field=field)
+    except SecurityError:
+        raise ProviderWireError(
+            ProviderWireErrorCode.CONTENT_BLOCKED,
+            "provider content failed centralized safety validation",
+        ) from None
 
 
 @dataclass(frozen=True, slots=True)

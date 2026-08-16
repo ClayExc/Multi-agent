@@ -4,6 +4,12 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 from flowpilot_context import CLASSIFICATION_RANK, LayerName
+from flowpilot_security import (
+    ContentSurface,
+    SecurityError,
+    SecurityErrorCode,
+    assert_content_safe,
+)
 
 from .models import AgentRunRequest, RuntimeUsage, ToolProposal
 
@@ -17,14 +23,19 @@ FORBIDDEN_SENSITIVE_FIELD_NAMES = frozenset(
         "client_secret",
         "credential",
         "credentials",
+        "chain_of_thought",
         "private_key",
+        "hidden_reasoning",
         "password",
         "provider_session",
         "session_ref",
         "refresh_token",
+        "reasoning",
+        "reasoning_content",
         "secret",
         "session_token",
         "token",
+        "thinking",
     }
 )
 
@@ -35,6 +46,12 @@ class RequestConsistencyError(ValueError):
 
 class ToolScopeError(ValueError):
     pass
+
+
+class ContentSafetyError(ValueError):
+    def __init__(self, code: SecurityErrorCode) -> None:
+        super().__init__("runtime content failed centralized safety validation")
+        self.code = code
 
 
 def _find_forbidden_key(value: object) -> str | None:
@@ -106,6 +123,11 @@ def validate_request(
         raise RequestConsistencyError("context layer exceeds an effective ceiling")
     if contains_forbidden_sensitive_field(context.to_mapping()):
         raise RequestConsistencyError("context contains a forbidden sensitive field")
+    _assert_runtime_content_safe(
+        context.to_mapping(),
+        surface=ContentSurface.MCP_CONTENT,
+        field="runtime_context",
+    )
     # Accessing each base layer makes the exactly-one invariant explicit at the port.
     for layer_name in (
         LayerName.SYSTEM_POLICY,
@@ -127,6 +149,60 @@ def validate_tool_proposals(
             raise ToolScopeError("runtime proposal contains forbidden credential data")
         if contains_forbidden_sensitive_field(proposal.resource):
             raise ToolScopeError("runtime proposal contains forbidden credential data")
+        _assert_runtime_content_safe(
+            proposal.arguments,
+            surface=ContentSurface.TOOL_ARGUMENTS,
+            field="tool_proposal_arguments",
+        )
+        _assert_runtime_content_safe(
+            proposal.resource,
+            surface=ContentSurface.TOOL_ARGUMENTS,
+            field="tool_proposal_resource",
+        )
+
+
+def validate_runtime_output(
+    *,
+    structured_output: Mapping[str, object],
+    public_reasoning_summary: str | None,
+    tool_proposals: Sequence[ToolProposal],
+) -> None:
+    if contains_forbidden_sensitive_field(structured_output):
+        raise ContentSafetyError(SecurityErrorCode.DLP_BLOCKED)
+    _assert_runtime_content_safe(
+        structured_output,
+        surface=ContentSurface.TOOL_RESULT,
+        field="runtime_structured_output",
+    )
+    if public_reasoning_summary is not None:
+        _assert_runtime_content_safe(
+            public_reasoning_summary,
+            surface=ContentSurface.TOOL_RESULT,
+            field="runtime_public_summary",
+        )
+    for proposal in tool_proposals:
+        _assert_runtime_content_safe(
+            proposal.arguments,
+            surface=ContentSurface.TOOL_ARGUMENTS,
+            field="runtime_tool_arguments",
+        )
+        _assert_runtime_content_safe(
+            proposal.resource,
+            surface=ContentSurface.TOOL_ARGUMENTS,
+            field="runtime_tool_resource",
+        )
+
+
+def _assert_runtime_content_safe(
+    value: object,
+    *,
+    surface: ContentSurface,
+    field: str,
+) -> None:
+    try:
+        assert_content_safe(value, surface=surface, field=field)
+    except SecurityError as exc:
+        raise ContentSafetyError(exc.code) from None
 
 
 def usage_exceeds_budget(request: AgentRunRequest, usage: RuntimeUsage) -> bool:

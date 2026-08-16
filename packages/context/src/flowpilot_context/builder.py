@@ -8,6 +8,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from flowpilot_domain import DataClassification, SecurityContextRef
+from flowpilot_security import (
+    ContentSurface,
+    SecurityError,
+    assert_content_safe,
+)
 
 from .errors import ContextError, ContextErrorCode
 from .models import (
@@ -65,6 +70,11 @@ def build_summary_layer(
             ContextErrorCode.INVALID_CONTEXT,
             "summary layer requires a non-empty reference",
         )
+    _assert_context_content_safe(
+        summary.to_mapping(),
+        field="conversation_summary",
+        code=ContextErrorCode.CONTENT_UNSAFE,
+    )
     return ContextLayer(
         name=LayerName.CONVERSATION_SUMMARY,
         trust=TrustLevel.DERIVED_DATA,
@@ -171,7 +181,7 @@ class ContextBuilder:
         estimated = estimate_tokens(
             [layer.to_mapping() for layer in kept_layers]
         )
-        return ContextEnvelope(
+        context = ContextEnvelope(
             context_id=request.context_id,
             task_id=request.task_id,
             tenant_id=request.security_context.tenant_id,
@@ -192,6 +202,12 @@ class ContextBuilder:
                 ),
             ),
         )
+        _assert_context_content_safe(
+            context.to_mapping(),
+            field="provider_context",
+            code=ContextErrorCode.CONTENT_UNSAFE,
+        )
+        return context
 
     def rebuild_for_handoff(
         self,
@@ -204,6 +220,11 @@ class ContextBuilder:
         allowed_tools: Sequence[str],
         target_tool_allowlist: Sequence[str] | None = None,
     ) -> HandoffBundle:
+        _assert_context_content_safe(
+            source.to_mapping(),
+            field="handoff_source",
+            code=ContextErrorCode.HANDOFF_DENIED,
+        )
         if target_agent_id == source.agent_id:
             raise ContextError(
                 ContextErrorCode.HANDOFF_DENIED,
@@ -283,6 +304,11 @@ class ContextBuilder:
                 ContextErrorCode.HANDOFF_DENIED,
                 "handoff bundle carries forbidden fields",
             )
+        _assert_context_content_safe(
+            bundle.to_mapping(),
+            field="handoff_bundle",
+            code=ContextErrorCode.HANDOFF_DENIED,
+        )
         return bundle
 
     @staticmethod
@@ -361,3 +387,22 @@ class ContextBuilder:
             kept.remove(drop)
             removed.append(drop.name)
         return kept, removed
+
+
+def _assert_context_content_safe(
+    value: object,
+    *,
+    field: str,
+    code: ContextErrorCode,
+) -> None:
+    try:
+        assert_content_safe(
+            value,
+            surface=ContentSurface.MCP_CONTENT,
+            field=field,
+        )
+    except SecurityError:
+        raise ContextError(
+            code,
+            "context content failed centralized safety validation",
+        ) from None

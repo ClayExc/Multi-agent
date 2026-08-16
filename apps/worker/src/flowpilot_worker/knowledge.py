@@ -16,10 +16,12 @@ from flowpilot_agent_runtime import (
     AgentRunRequest,
     AgentRunResult,
     AgentRuntimePort,
+    ContentSafetyError,
     OutputSchemaRef,
     ProviderSelection,
     RunStatus,
     RuntimeBudget,
+    validate_runtime_output,
 )
 from flowpilot_application import (
     ApplicationError,
@@ -63,7 +65,7 @@ from flowpilot_graph import (
     build_flowpilot_it_service_graph,
 )
 from flowpilot_model_gateway import PRIMARY_FAST_MODEL
-from flowpilot_security import SecurityError
+from flowpilot_security import ContentSurface, SecurityError, assert_content_safe
 from flowpilot_tool_contracts import (
     AgentPrincipal,
     GatewayCall,
@@ -584,6 +586,22 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
                 model_called=True,
             ) from exc
         await self._validate_current_context()
+        try:
+            validate_runtime_output(
+                structured_output=(
+                    result.structured_output
+                    if isinstance(result.structured_output, Mapping)
+                    else {}
+                ),
+                public_reasoning_summary=result.public_reasoning_summary,
+                tool_proposals=result.tool_proposals,
+            )
+        except ContentSafetyError as exc:
+            raise _KnowledgeFailure(
+                exc.code.value,
+                knowledge_called=True,
+                model_called=True,
+            ) from None
         invocation.runtime_result = result
         if (
             result.request_id != request.request_id
@@ -717,6 +735,17 @@ class EnterpriseKnowledgeGraph(GraphExecutionPort):
         result: ToolResult,
         call: GatewayCall,
     ) -> tuple[dict[str, str], ...]:
+        try:
+            assert_content_safe(
+                result.to_mapping(),
+                surface=ContentSurface.TOOL_RESULT,
+                field="knowledge_tool_result",
+            )
+        except SecurityError as exc:
+            raise _KnowledgeFailure(
+                exc.code.value,
+                knowledge_called=True,
+            ) from None
         if (
             result.request_id != call.request.request_id
             or result.policy_decision_id != call.request.policy_decision_id

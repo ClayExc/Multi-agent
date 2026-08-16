@@ -189,6 +189,6 @@ def test_tool_scope_rejects_credential_shaped_arguments(
 
     result = asyncio.run(adapter.run(build_request_factory(agent=agent)))
 
-    assert result.status is RunStatus.FAILED_FINAL
+    assert result.status is RunStatus.GUARDRAIL_BLOCKED
     assert result.error is not None
-    assert result.error.code is RuntimeErrorCode.TOOL_SCOPE_VIOLATION
+    assert result.error.code is RuntimeErrorCode.GUARDRAIL_BLOCKED

@@ -12,7 +12,13 @@ from flowpilot_agent_runtime import (
     RunStatus,
     RuntimeErrorCode,
 )
-from flowpilot_context import ContextLayer, LayerName, TrustLevel
+from flowpilot_context import (
+    ContextError,
+    ContextErrorCode,
+    ContextLayer,
+    LayerName,
+    TrustLevel,
+)
 from flowpilot_domain import DataClassification, TaskCommand
 from flowpilot_worker import (
     ExecutionSubmissionError,
@@ -88,12 +94,8 @@ def test_sensitive_context_field_fails_before_provider_result(
         content={"api_key": "must-not-pass"},
         source_refs=("message://12345678",),
     )
-    runtime = FakeAgentRuntime(clock=fixed_clock)
+    with pytest.raises(ContextError) as captured:
+        request_factory(optional_layers=(sensitive_layer,))
 
-    result = asyncio.run(
-        runtime.run(request_factory(optional_layers=(sensitive_layer,)))
-    )
-
-    assert result.status is RunStatus.FAILED_FINAL
-    assert result.error is not None
-    assert result.error.code is RuntimeErrorCode.REQUEST_INCONSISTENT
+    assert captured.value.code is ContextErrorCode.CONTENT_UNSAFE
+    assert "must-not-pass" not in str(captured.value)

@@ -36,10 +36,12 @@ from .models import (
     ToolProposal,
 )
 from .validation import (
+    ContentSafetyError,
     RequestConsistencyError,
     ToolScopeError,
     usage_exceeds_budget,
     validate_request,
+    validate_runtime_output,
     validate_tool_proposals,
 )
 
@@ -68,6 +70,15 @@ class SandboxAdapter:
         now = self._clock().astimezone(UTC)
         try:
             validate_request(request, now=now)
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                call_number,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                retryable=False,
+                now=now,
+            )
         except RequestConsistencyError:
             return self._failure(
                 request,
@@ -110,7 +121,22 @@ class SandboxAdapter:
             _runtime_proposal(proposal) for proposal in model_result.tool_proposals
         )
         try:
+            validate_runtime_output(
+                structured_output=model_result.output,
+                public_reasoning_summary=None,
+                tool_proposals=proposals,
+            )
             validate_tool_proposals(request, proposals)
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                call_number,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                retryable=False,
+                now=now,
+                usage=usage,
+            )
         except ToolScopeError:
             return self._failure(
                 request,
@@ -173,6 +199,15 @@ class SandboxAdapter:
                 call_number,
                 status=RunStatus.FAILED_FINAL,
                 code=RuntimeErrorCode.INVALID_OUTPUT,
+                retryable=False,
+                now=now,
+            )
+        if exc.code is ModelGatewayErrorCode.CONTENT_BLOCKED:
+            return self._failure(
+                request,
+                call_number,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
                 retryable=False,
                 now=now,
             )

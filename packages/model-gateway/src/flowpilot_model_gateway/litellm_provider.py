@@ -16,6 +16,8 @@ from .wire import (
     ProviderWireErrorCode,
     ProviderWireRequest,
     ProviderWireResponse,
+    assert_provider_input_safe,
+    assert_provider_output_safe,
     assert_wire_credential_free,
     meter_input_tokens,
     meter_output_tokens,
@@ -157,6 +159,7 @@ class LiteLLMProvider:
 
     async def complete(self, request: ProviderWireRequest) -> ProviderWireResponse:
         try:
+            assert_provider_input_safe(request.payload)
             assert_wire_credential_free(request.payload)
             encoded = json.dumps(
                 {"task": request.task, "payload": request.payload},
@@ -164,6 +167,8 @@ class LiteLLMProvider:
                 separators=(",", ":"),
                 sort_keys=True,
             )
+        except ProviderWireError:
+            raise
         except (TypeError, ValueError):
             raise ProviderWireError(
                 ProviderWireErrorCode.INVALID_OUTPUT,
@@ -198,7 +203,10 @@ class LiteLLMProvider:
         except LiteLLMTransportError as exc:
             raise _map_transport_error(exc) from None
         try:
+            assert_provider_output_safe(completion.output)
             assert_wire_credential_free(completion.output)
+        except ProviderWireError:
+            raise
         except ValueError:
             raise ProviderWireError(
                 ProviderWireErrorCode.INVALID_OUTPUT,

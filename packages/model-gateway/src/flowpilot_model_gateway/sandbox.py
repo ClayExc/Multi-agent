@@ -23,6 +23,9 @@ from .wire import (
     ProviderWireRequest,
     ProviderWireResponse,
     WireToolOperation,
+    assert_provider_input_safe,
+    assert_provider_output_safe,
+    assert_provider_tool_safe,
     meter_input_tokens,
     meter_output_tokens,
     stable_wire_id,
@@ -70,12 +73,17 @@ class SandboxProvider:
         self._scripts[request_id] = deque(scenarios)
 
     async def complete(self, request: ProviderWireRequest) -> ProviderWireResponse:
+        assert_provider_input_safe(request.payload)
         self.calls.append(request)
         queued = self._scripts.get(request.request_id)
         scenario = queued.popleft() if queued else self._default
         if scenario.failure is not None:
             raise scenario.failure
         output = dict(scenario.output or {"outcome": request.task})
+        assert_provider_output_safe(output)
+        for proposal in scenario.tool_proposals:
+            assert_provider_tool_safe(proposal.arguments)
+            assert_provider_tool_safe(proposal.resource)
         input_tokens = meter_input_tokens(request.payload)
         output_tokens = meter_output_tokens(output)
         if (

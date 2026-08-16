@@ -14,6 +14,9 @@ from .wire import (
     ProviderWireError,
     ProviderWireErrorCode,
     ProviderWireRequest,
+    assert_provider_input_safe,
+    assert_provider_output_safe,
+    assert_provider_tool_safe,
 )
 
 
@@ -27,6 +30,7 @@ class ModelTask(StrEnum):
 class ModelGatewayErrorCode(StrEnum):
     ROUTE_DENIED = "MODEL_ROUTE_DENIED"
     BUDGET_EXHAUSTED = "MODEL_BUDGET_EXHAUSTED"
+    CONTENT_BLOCKED = "MODEL_CONTENT_BLOCKED"
     INVALID_OUTPUT = "MODEL_INVALID_OUTPUT"
     PROVIDER_UNAVAILABLE = "MODEL_PROVIDER_UNAVAILABLE"
 
@@ -119,6 +123,7 @@ class DeterministicModelGateway:
         self.calls: list[ModelRequest] = []
 
     async def complete(self, request: ModelRequest) -> ModelResult:
+        self._assert_request_safe(request)
         self.calls.append(request)
         route = next(
             (
@@ -139,6 +144,7 @@ class DeterministicModelGateway:
         if port is not None:
             return await self._complete_via_port(port, request)
         output = self._outputs.get(request.request_id, {"outcome": request.task.value})
+        self._assert_output_safe(output, ())
         encoded_input = repr(sorted(request.payload.items())).encode()
         input_tokens = max(1, len(encoded_input) // 4)
         output_tokens = max(1, len(repr(output).encode()) // 4)
@@ -186,6 +192,7 @@ class DeterministicModelGateway:
                 ModelGatewayErrorCode.BUDGET_EXHAUSTED,
                 "provider port violated a hard token budget",
             )
+        self._assert_output_safe(response.output, response.tool_proposals)
         suffix = hashlib.sha256(request.request_id.encode()).hexdigest()[:16]
         return ModelResult(
             result_id=f"mgr_{suffix}",
@@ -213,7 +220,38 @@ class DeterministicModelGateway:
                 ModelGatewayErrorCode.BUDGET_EXHAUSTED,
                 exc.safe_message,
             )
+        if exc.code is ProviderWireErrorCode.CONTENT_BLOCKED:
+            return ModelGatewayError(
+                ModelGatewayErrorCode.CONTENT_BLOCKED,
+                "model content failed centralized safety validation",
+            )
         return ModelGatewayError(
             ModelGatewayErrorCode.INVALID_OUTPUT,
             exc.safe_message,
         )
+
+    @staticmethod
+    def _assert_request_safe(request: ModelRequest) -> None:
+        try:
+            assert_provider_input_safe(request.payload)
+        except ProviderWireError:
+            raise ModelGatewayError(
+                ModelGatewayErrorCode.CONTENT_BLOCKED,
+                "model input failed centralized safety validation",
+            ) from None
+
+    @staticmethod
+    def _assert_output_safe(
+        output: Mapping[str, Any],
+        proposals: tuple[ProviderToolProposal, ...],
+    ) -> None:
+        try:
+            assert_provider_output_safe(output)
+            for proposal in proposals:
+                assert_provider_tool_safe(proposal.arguments)
+                assert_provider_tool_safe(proposal.resource)
+        except ProviderWireError:
+            raise ModelGatewayError(
+                ModelGatewayErrorCode.CONTENT_BLOCKED,
+                "model output failed centralized safety validation",
+            ) from None

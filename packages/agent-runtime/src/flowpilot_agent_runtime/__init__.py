@@ -40,10 +40,12 @@ from .sdk import (
     SDKTransportErrorCode,
 )
 from .validation import (
+    ContentSafetyError,
     RequestConsistencyError,
     ToolScopeError,
     usage_exceeds_budget,
     validate_request,
+    validate_runtime_output,
     validate_tool_proposals,
 )
 
@@ -59,6 +61,7 @@ __all__ = [
     "CLAUDE_MODEL_ENV",
     "ClaudeAgentSDKAdapter",
     "ClaudeAgentSDKTransport",
+    "ContentSafetyError",
     "FakeAgentRuntime",
     "FakeOutcome",
     "FakeScenario",
@@ -89,5 +92,6 @@ __all__ = [
     "ToolScopeError",
     "usage_exceeds_budget",
     "validate_request",
+    "validate_runtime_output",
     "validate_tool_proposals",
 ]

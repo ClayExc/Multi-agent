@@ -82,7 +82,7 @@ def test_litellm_rejects_credential_shaped_input_before_transport() -> None:
     with pytest.raises(ProviderWireError) as captured:
         asyncio.run(provider.complete(request))
 
-    assert captured.value.code is ProviderWireErrorCode.INVALID_OUTPUT
+    assert captured.value.code is ProviderWireErrorCode.CONTENT_BLOCKED
     assert "synthetic-secret" not in captured.value.safe_message
     assert transport.calls == []
 

@@ -61,6 +61,9 @@ from flowpilot_policy import (
 from flowpilot_security import (
     AuthenticatedWorkload,
     CapabilityHandle,
+    CapabilityUse,
+    SecurityError,
+    SecurityErrorCode,
     SecurityVerifier,
     TrustedSecurityContext,
     trusted_context_snapshot_hash,
@@ -181,6 +184,9 @@ class _CredentialBroker:
         self.issue_count = 0
         self.last_ttl_seconds: int | None = None
         self.handles: list[CapabilityHandle] = []
+        self.consume_count = 0
+        self._issued: dict[str, CapabilityHandle] = {}
+        self._consumed: set[str] = set()
 
     async def issue(
         self,
@@ -193,12 +199,21 @@ class _CredentialBroker:
         workload_principal_ref: str,
         purpose: str,
         data_classification_ceiling: str,
+        context_hash: str,
+        tool_name: str,
+        resource_digest: str,
         action_digest: str,
+        policy_version: str,
+        execution_id: str,
+        use: CapabilityUse,
         ttl_seconds: int,
         now: datetime,
     ) -> CapabilityHandle:
         self.issue_count += 1
         self.last_ttl_seconds = ttl_seconds
+        token_id_hash = canonical_sha256(
+            {"capability_sequence": self.issue_count}
+        )
         handle = CapabilityHandle(
             handle_ref=f"capability://recovery/{self.issue_count}/{uuid.uuid4().hex[:8]}",
             audience=audience,
@@ -209,12 +224,39 @@ class _CredentialBroker:
             workload_principal_ref=workload_principal_ref,
             purpose=purpose,
             data_classification_ceiling=data_classification_ceiling,
+            context_hash=context_hash,
+            tool_name=tool_name,
+            resource_digest=resource_digest,
             action_digest=action_digest,
+            policy_version=policy_version,
+            execution_id=execution_id,
+            use=use,
+            token_id_hash=token_id_hash,
             issued_at=now,
             expires_at=now + timedelta(seconds=ttl_seconds),
         )
         self.handles.append(handle)
+        self._issued[token_id_hash] = handle
         return handle
+
+    async def consume(
+        self,
+        *,
+        handle: CapabilityHandle,
+        now: datetime,
+    ) -> None:
+        if (
+            self._issued.get(handle.token_id_hash) != handle
+            or handle.token_id_hash in self._consumed
+            or now < handle.issued_at
+            or now >= handle.expires_at
+        ):
+            raise SecurityError(
+                SecurityErrorCode.CAPABILITY_REPLAY,
+                "capability is unknown, expired, or already consumed",
+            )
+        self._consumed.add(handle.token_id_hash)
+        self.consume_count += 1
 
 
 class _SignalSink:
@@ -522,8 +564,13 @@ def test_restart_reissues_capability_token_with_correct_audience_scope_ttl() -> 
             _invocation(first, run_id="run_gateway_before_restart")
         )
         assert first_result.result.status.value == "verified"
-        assert first.credentials.issue_count == 1
-        token_before = first.credentials.handles[0]
+        assert first.credentials.issue_count == 2
+        assert first.credentials.consume_count == 2
+        token_before = next(
+            handle
+            for handle in first.credentials.handles
+            if handle.use is CapabilityUse.INVOKE
+        )
 
         # Worker restart: the same action/thread is re-executed by a NEW
         # gateway instance (fresh process); authorization runs again and the
@@ -533,8 +580,13 @@ def test_restart_reissues_capability_token_with_correct_audience_scope_ttl() -> 
             _invocation(second, run_id="run_gateway_after_restart")
         )
         assert second_result.result.status.value == "verified"
-        assert second.credentials.issue_count == 1
-        token_after = second.credentials.handles[0]
+        assert second.credentials.issue_count == 2
+        assert second.credentials.consume_count == 2
+        token_after = next(
+            handle
+            for handle in second.credentials.handles
+            if handle.use is CapabilityUse.INVOKE
+        )
 
         # audience / scope / action binding / subject are identical.
         assert token_after.audience == token_before.audience == AUDIENCE

@@ -23,11 +23,13 @@ from .models import (
 )
 from .validation import (
     FORBIDDEN_SENSITIVE_FIELD_NAMES,
+    ContentSafetyError,
     RequestConsistencyError,
     ToolScopeError,
     contains_forbidden_sensitive_field,
     usage_exceeds_budget,
     validate_request,
+    validate_runtime_output,
     validate_tool_proposals,
 )
 
@@ -154,6 +156,13 @@ class _SDKAdapter:
             validate_request(request, now=now)
             self._validate_selection(request)
             call = self._build_call(request)
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                now=now,
+            )
         except (RequestConsistencyError, TypeError, ValueError):
             return self._failure(
                 request,
@@ -188,6 +197,20 @@ class _SDKAdapter:
                 code=RuntimeErrorCode.INVALID_OUTPUT,
                 now=now,
             )
+        try:
+            validate_runtime_output(
+                structured_output=completion.structured_output,
+                public_reasoning_summary=None,
+                tool_proposals=completion.tool_proposals,
+            )
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                now=now,
+                usage=completion.usage,
+            )
         if usage_exceeds_budget(request, completion.usage):
             return self._failure(
                 request,
@@ -198,6 +221,14 @@ class _SDKAdapter:
             )
         try:
             validate_tool_proposals(request, completion.tool_proposals)
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                now=now,
+                usage=completion.usage,
+            )
         except ToolScopeError:
             return self._failure(
                 request,

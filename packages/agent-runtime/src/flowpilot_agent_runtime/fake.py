@@ -19,10 +19,12 @@ from .models import (
     ToolProposal,
 )
 from .validation import (
+    ContentSafetyError,
     RequestConsistencyError,
     ToolScopeError,
     usage_exceeds_budget,
     validate_request,
+    validate_runtime_output,
     validate_tool_proposals,
 )
 
@@ -84,6 +86,15 @@ class FakeAgentRuntime:
         now = self._clock().astimezone(UTC)
         try:
             validate_request(request, now=now)
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                call_number,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                retryable=False,
+                now=now,
+            )
         except RequestConsistencyError:
             return self._failure(
                 request,
@@ -135,6 +146,22 @@ class FakeAgentRuntime:
                 now=now,
                 usage=scenario.usage,
             )
+        try:
+            validate_runtime_output(
+                structured_output=scenario.structured_output,
+                public_reasoning_summary=scenario.public_summary,
+                tool_proposals=scenario.tool_proposals,
+            )
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                call_number,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                retryable=False,
+                now=now,
+                usage=scenario.usage,
+            )
         if usage_exceeds_budget(request, scenario.usage):
             return self._failure(
                 request,
@@ -147,6 +174,16 @@ class FakeAgentRuntime:
             )
         try:
             validate_tool_proposals(request, scenario.tool_proposals)
+        except ContentSafetyError:
+            return self._failure(
+                request,
+                call_number,
+                status=RunStatus.GUARDRAIL_BLOCKED,
+                code=RuntimeErrorCode.GUARDRAIL_BLOCKED,
+                retryable=False,
+                now=now,
+                usage=scenario.usage,
+            )
         except ToolScopeError:
             return self._failure(
                 request,

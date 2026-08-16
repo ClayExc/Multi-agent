@@ -6,7 +6,11 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
-from flowpilot_application import KnowledgeCitationResolution, KnowledgeRequestContext
+from flowpilot_application import (
+    KnowledgeCitationResolution,
+    KnowledgeQueryService,
+    KnowledgeRequestContext,
+)
 from flowpilot_domain import (
     AclPrincipal,
     AclPrincipalType,
@@ -32,6 +36,7 @@ from flowpilot_persistence.knowledge_index import (
 from flowpilot_retrieval import (
     HybridRankingPolicy,
     HybridRetrievalEngine,
+    KnowledgeCitationVerificationPort,
     RetrievalError,
     RetrievalErrorCode,
     RetrievalRequest,
@@ -42,7 +47,16 @@ TENANT = "tenant-alpha"
 PURPOSE = "incident-resolution"
 CONTENT_HASH = "sha256:" + "a" * 64
 CONTENT_REF = "knowledge-content://" + "b" * 64
+CONTENT_EXCERPT = "Use the approved VPN recovery runbook."
 PRINCIPAL = AclPrincipal(AclPrincipalType.SUBJECT, "user-alpha")
+
+
+def _query_service_satisfies_projection_port(
+    service: KnowledgeQueryService,
+) -> KnowledgeCitationVerificationPort:
+    """Static guard against Citation Projection signature drift."""
+
+    return service
 
 
 @dataclass(slots=True)
@@ -83,23 +97,36 @@ class FakeCitationVerifier:
     overrides: dict[StableCitation, KnowledgeCitationResolution] = field(
         default_factory=dict
     )
+    expected_citation: StableCitation | None = None
     failure: Exception | None = None
     calls: list[StableCitation] = field(default_factory=list)
+    action_ceilings: list[DataClassification] = field(default_factory=list)
+    content_reads: int = 0
 
     async def resolve_citation(
         self,
         context: KnowledgeRequestContext,
         citation: StableCitation,
+        *,
+        action_classification_ceiling: DataClassification,
     ) -> KnowledgeCitationResolution:
         self.calls.append(citation)
+        self.action_ceilings.append(action_classification_ceiling)
         if self.failure is not None:
             raise self.failure
+        if (
+            self.expected_citation is not None
+            and citation != self.expected_citation
+        ):
+            raise RuntimeError("citation rejected before content projection")
+        self.content_reads += 1
         return self.overrides.get(
             citation,
             KnowledgeCitationResolution(
                 citation=citation,
                 content_ref=CONTENT_REF,
                 data_classification=DataClassification.INTERNAL,
+                content_excerpt=CONTENT_EXCERPT,
             ),
         )
 
@@ -135,6 +162,9 @@ def _request(
     context_purpose: str = PURPOSE,
     security_context: SecurityContextRef | None = None,
     query_text: str = "vpn credential recovery",
+    action_classification_ceiling: DataClassification = (
+        DataClassification.CONFIDENTIAL
+    ),
     observed_at: datetime = NOW,
     candidate_limit: int = 50,
     result_limit: int = 10,
@@ -146,6 +176,7 @@ def _request(
             security_context=security_context or _security_context(),
         ),
         principals=(PRINCIPAL,),
+        action_classification_ceiling=action_classification_ceiling,
         query_text=query_text,
         observed_at=observed_at,
         candidate_limit=candidate_limit,
@@ -231,6 +262,11 @@ async def test_hybrid_ranking_builds_authorized_query_and_safe_diagnostics() -> 
     ]
     assert embedding.calls == 1
     assert len(verifier.calls) == 2
+    assert verifier.content_reads == 2
+    assert verifier.action_ceilings == [
+        DataClassification.CONFIDENTIAL,
+        DataClassification.CONFIDENTIAL,
+    ]
     query = port.queries[0]
     assert query.tenant_id == TENANT
     assert query.purpose == PURPOSE
@@ -248,6 +284,11 @@ async def test_hybrid_ranking_builds_authorized_query_and_safe_diagnostics() -> 
         "threshold_eligible_count": 2,
         "verified_count": 2,
     }
+    assert [hit.content_excerpt for hit in result.hits] == [
+        CONTENT_EXCERPT,
+        CONTENT_EXCERPT,
+    ]
+    assert CONTENT_EXCERPT not in repr(result)
 
 
 @pytest.mark.asyncio
@@ -325,9 +366,11 @@ async def test_low_relevance_and_empty_candidates_return_explicit_no_evidence() 
     assert low_result.hits == ()
     assert low_result.diagnostics.threshold_eligible_count == 0
     assert verifier.calls == []
+    assert verifier.content_reads == 0
     assert empty_result.hits == ()
     assert empty_result.diagnostics.candidate_count == 0
     assert empty_verifier.calls == []
+    assert empty_verifier.content_reads == 0
 
 
 @pytest.mark.asyncio
@@ -393,6 +436,78 @@ async def test_context_binding_mismatch_fails_before_embedding(
     assert caught.value.code is RetrievalErrorCode.SECURITY_BINDING_MISMATCH
     assert embedding.calls == 0
     assert port.queries == []
+
+
+@pytest.mark.asyncio
+async def test_action_ceiling_cannot_exceed_security_context_ceiling() -> None:
+    engine, embedding, port, verifier = _engine()
+
+    with pytest.raises(RetrievalError) as caught:
+        await engine.retrieve(
+            _request(
+                action_classification_ceiling=DataClassification.RESTRICTED
+            )
+        )
+
+    assert caught.value.code is RetrievalErrorCode.SECURITY_BINDING_MISMATCH
+    assert embedding.calls == 0
+    assert port.queries == []
+    assert verifier.content_reads == 0
+
+
+@pytest.mark.asyncio
+async def test_action_ceiling_rejects_candidate_before_content_resolution() -> None:
+    candidate = _candidate(
+        data_classification=DataClassification.CONFIDENTIAL
+    )
+    verifier = FakeCitationVerifier()
+    engine, _, _, _ = _engine(
+        candidates=FakeCandidatePort(items=(candidate,)),
+        verifier=verifier,
+    )
+
+    with pytest.raises(RetrievalError) as caught:
+        await engine.retrieve(
+            _request(action_classification_ceiling=DataClassification.INTERNAL)
+        )
+
+    assert caught.value.code is RetrievalErrorCode.CANDIDATE_PROTOCOL_VIOLATION
+    assert verifier.calls == []
+    assert verifier.content_reads == 0
+
+
+@pytest.mark.asyncio
+async def test_action_ceiling_is_propagated_to_content_resolution() -> None:
+    verifier = FakeCitationVerifier()
+    engine, _, port, _ = _engine(
+        candidates=FakeCandidatePort(items=(_candidate(),)),
+        verifier=verifier,
+    )
+
+    result = await engine.retrieve(
+        _request(action_classification_ceiling=DataClassification.INTERNAL)
+    )
+
+    assert result.hits[0].content_excerpt == CONTENT_EXCERPT
+    assert port.queries[0].classification_ceiling is DataClassification.INTERNAL
+    assert verifier.action_ceilings == [DataClassification.INTERNAL]
+    assert verifier.content_reads == 1
+
+
+def test_action_ceiling_has_no_compatibility_default() -> None:
+    arguments: dict[str, object] = {
+        "context": KnowledgeRequestContext(
+            tenant_id=TENANT,
+            purpose=PURPOSE,
+            security_context=_security_context(),
+        ),
+        "principals": (PRINCIPAL,),
+        "query_text": "safe query",
+        "observed_at": NOW,
+    }
+
+    with pytest.raises(TypeError):
+        RetrievalRequest(**arguments)  # type: ignore[arg-type]
 
 
 @pytest.mark.asyncio
@@ -515,6 +630,39 @@ async def test_expired_revoked_or_missing_reference_is_a_stable_failure() -> Non
     assert caught.value.code is RetrievalErrorCode.REFERENCE_REVALIDATION_FAILED
     assert str(caught.value) == "RETRIEVAL_REFERENCE_REVALIDATION_FAILED"
     assert len(verifier.calls) == 1
+    assert verifier.content_reads == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        _candidate(document_version=2),
+        _candidate(content_hash="sha256:" + "d" * 64),
+    ],
+)
+async def test_version_or_hash_rejection_never_reads_content(
+    candidate: KnowledgeCandidate,
+) -> None:
+    baseline = _candidate()
+    expected = StableCitation(
+        tenant_id=baseline.tenant_id,
+        document_id=baseline.document_id,
+        document_version=baseline.document_version,
+        section_id=baseline.section_id,
+        content_hash=baseline.content_hash,
+    )
+    verifier = FakeCitationVerifier(expected_citation=expected)
+    engine, _, _, _ = _engine(
+        candidates=FakeCandidatePort(items=(candidate,)),
+        verifier=verifier,
+    )
+
+    with pytest.raises(RetrievalError) as caught:
+        await engine.retrieve(_request())
+
+    assert caught.value.code is RetrievalErrorCode.REFERENCE_REVALIDATION_FAILED
+    assert verifier.content_reads == 0
 
 
 @pytest.mark.asyncio
@@ -549,6 +697,7 @@ async def test_reference_revalidation_must_match_exact_candidate(
                 citation=wrong_citation,
                 content_ref=content_ref,
                 data_classification=classification,
+                content_excerpt=CONTENT_EXCERPT,
             )
         }
     )
@@ -602,6 +751,7 @@ def test_ranking_policy_rejects_unversioned_or_invalid_configuration(
     "changes",
     [
         {"query_text": "   "},
+        {"action_classification_ceiling": "confidential"},
         {"observed_at": datetime(2026, 8, 16, 8, 0)},
         {"candidate_limit": 0},
         {"candidate_limit": 101},
@@ -616,6 +766,7 @@ def test_request_rejects_invalid_shape(changes: dict[str, object]) -> None:
             security_context=_security_context(),
         ),
         "principals": (PRINCIPAL,),
+        "action_classification_ceiling": DataClassification.CONFIDENTIAL,
         "query_text": "safe query",
         "observed_at": NOW,
         "candidate_limit": 50,

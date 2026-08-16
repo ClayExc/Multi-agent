@@ -79,9 +79,7 @@ class HybridRetrievalEngine:
             tenant_id=request.context.tenant_id,
             purpose=request.context.purpose,
             principals=request.principals,
-            classification_ceiling=(
-                request.context.security_context.data_classification_ceiling
-            ),
+            classification_ceiling=request.action_classification_ceiling,
             query_text=request.query_text,
             query_vector=vector,
             observed_at=request.observed_at,
@@ -112,6 +110,10 @@ class HybridRetrievalEngine:
         if (
             context.tenant_id != security_context.tenant_id
             or context.purpose != security_context.purpose
+            or _CLASSIFICATION_RANK[request.action_classification_ceiling]
+            > _CLASSIFICATION_RANK[
+                security_context.data_classification_ceiling
+            ]
         ):
             raise RetrievalError(RetrievalErrorCode.SECURITY_BINDING_MISMATCH)
         if not (
@@ -169,7 +171,7 @@ class HybridRetrievalEngine:
     ) -> tuple[_RankedCandidate, ...]:
         exact: dict[tuple[str, int, str], KnowledgeCandidate] = {}
         ranked: list[_RankedCandidate] = []
-        ceiling = request.context.security_context.data_classification_ceiling
+        ceiling = request.action_classification_ceiling
         for candidate in candidates:
             self._validate_candidate(candidate, request.context.tenant_id, ceiling)
             existing = exact.get(candidate.stable_sort_key)
@@ -267,6 +269,9 @@ class HybridRetrievalEngine:
                 resolution = await self._citations.resolve_citation(
                     request.context,
                     item.citation,
+                    action_classification_ceiling=(
+                        request.action_classification_ceiling
+                    ),
                 )
             except Exception:
                 raise RetrievalError(
@@ -286,6 +291,7 @@ class HybridRetrievalEngine:
                     citation=item.citation,
                     content_ref=resolution.content_ref,
                     data_classification=resolution.data_classification,
+                    content_excerpt=resolution.content_excerpt,
                     score=item.score,
                     vector_score=item.vector_score,
                     keyword_score=item.keyword_score,

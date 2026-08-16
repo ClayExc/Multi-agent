@@ -45,6 +45,7 @@ class RetrievalRequest:
 
     context: KnowledgeRequestContext
     principals: tuple[AclPrincipal, ...]
+    action_classification_ceiling: DataClassification
     query_text: str = field(repr=False)
     observed_at: datetime
     candidate_limit: int = 50
@@ -60,6 +61,10 @@ class RetrievalRequest:
         if len(self.principals) != len(set(self.principals)):
             raise ValueError("retrieval principals must be unique")
         object.__setattr__(self, "principals", tuple(sorted(self.principals)))
+        if not isinstance(
+            self.action_classification_ceiling, DataClassification
+        ):
+            raise ValueError("retrieval action classification ceiling is invalid")
         if not isinstance(self.query_text, str) or not self.query_text.strip():
             raise ValueError("retrieval query must not be empty")
         if len(self.query_text.encode("utf-8")) > 16 * 1024:
@@ -78,6 +83,7 @@ class RetrievalHit:
     citation: StableCitation
     content_ref: str
     data_classification: DataClassification
+    content_excerpt: str = field(repr=False)
     score: float
     vector_score: float
     keyword_score: float

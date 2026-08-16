@@ -67,7 +67,12 @@ def render_task_error_panel(task: TaskView) -> str:
             f'data-action="retry">重试该任务</button>'
             f"</form>"
         )
-    return (
+    no_evidence = ""
+    if code == "RUNTIME_KNOWLEDGE_NO_RESULT":
+        from .knowledge import render_no_evidence_notice
+
+        no_evidence = render_no_evidence_notice()
+    return no_evidence + (
         f'<section class="error-panel task-error" '
         f'data-error-code="{esc(code)}">'
         f"<h3>任务失败 · {esc(code)}</h3>"

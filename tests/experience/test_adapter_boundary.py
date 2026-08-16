@@ -221,12 +221,15 @@ def test_adapter_has_no_approval_write_capability() -> None:
     assert methods == {
         "get_audit_events",
         "get_governance_correlation",
+        "get_knowledge_diagnostic",
+        "get_knowledge_document",
         "get_policy_decisions",
         "get_policy_versions",
         "get_security_events",
         "get_task",
         "get_task_mapping",
         "submit_command",
+        "submit_knowledge_operation",
     }
     assert not any("approv" in name.lower() for name in methods)
 

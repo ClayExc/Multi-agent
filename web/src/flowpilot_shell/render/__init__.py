@@ -16,6 +16,11 @@ from .governance import (
     render_governance_dashboard,
     render_governance_demo_notice,
 )
+from .knowledge import (
+    render_knowledge_dashboard,
+    render_knowledge_demo_notice,
+    render_no_evidence_notice,
+)
 from .progress import render_studio_progress
 from .task_detail import render_task_detail
 from .task_list import render_task_list
@@ -28,6 +33,9 @@ __all__ = [
     "render_governance_correlation",
     "render_governance_dashboard",
     "render_governance_demo_notice",
+    "render_knowledge_dashboard",
+    "render_knowledge_demo_notice",
+    "render_no_evidence_notice",
     "render_result_artifact",
     "render_studio_progress",
     "render_task_detail",

@@ -48,6 +48,7 @@ from flowpilot_shell import (  # noqa: E402
     ShellAuthenticationError,
     ShellAuthorizationError,
     ShellContractError,
+    ShellError,
     ShellNotFoundError,
     ShellUnavailableError,
     TaskView,
@@ -62,6 +63,15 @@ from flowpilot_shell.governance import (  # noqa: E402
     GovernanceSnapshot,
     parse_correlation_id,
 )
+from flowpilot_shell.knowledge import (  # noqa: E402
+    KnowledgeConflictError,
+    KnowledgeDocumentView,
+    KnowledgeOperationReceiptView,
+    KnowledgeSnapshot,
+    parse_document_id,
+    parse_document_version,
+    parse_expected_hash,
+)
 from flowpilot_shell.models import (  # noqa: E402
     ApprovalView,
     PlannedActionView,
@@ -72,6 +82,8 @@ from flowpilot_shell.render import (  # noqa: E402
     render_governance_correlation,
     render_governance_dashboard,
     render_governance_demo_notice,
+    render_knowledge_dashboard,
+    render_knowledge_demo_notice,
     render_task_detail,
     render_task_list,
 )
@@ -352,6 +364,9 @@ class LiveBackend:
         self._api = ApiClient(self._api_base)
         self._stores: dict[str, ShellStore] = {}
         self._tasks: dict[str, dict[str, dict[str, Any]]] = {}
+        self._knowledge: dict[
+            str, dict[tuple[str, int], KnowledgeDocumentView]
+        ] = {}
         self._active_sessions: set[str] = set()
 
     def task_projection(
@@ -463,6 +478,112 @@ class LiveBackend:
             correlation_id,
             cookie_header=cookie_header,
         )
+
+    def knowledge_snapshot(
+        self,
+        *,
+        document_id: str | None,
+        document_version: int | None,
+        expected_hash: str | None,
+        cookie_header: str | None,
+    ) -> KnowledgeSnapshot:
+        key = self._session_key(cookie_header)
+        selected = None
+        diagnostic = None
+        if document_id is not None:
+            selected = self._api.get_knowledge_document(
+                document_id,
+                document_version=document_version,
+                cookie_header=cookie_header,
+            )
+            diagnostic = self._api.get_knowledge_diagnostic(
+                document_id,
+                document_version=selected.document_version,
+                cookie_header=cookie_header,
+            )
+            if diagnostic.content_hash != selected.content_hash:
+                raise ShellContractError(
+                    "knowledge diagnostic hash differs from document projection"
+                )
+            self._knowledge.setdefault(key, {})[
+                (selected.document_id, selected.document_version)
+            ] = selected
+        documents = tuple(
+            sorted(
+                self._knowledge.get(key, {}).values(),
+                key=lambda item: (item.document_id, item.document_version),
+            )
+        )
+        return KnowledgeSnapshot(
+            documents=documents,
+            selected=selected,
+            diagnostic=diagnostic,
+            expected_hash=expected_hash,
+        )
+
+    def submit_knowledge_operation(
+        self,
+        operation: str,
+        payload: dict[str, object],
+        *,
+        cookie_header: str | None,
+    ) -> KnowledgeOperationReceiptView:
+        key = self._session_key(cookie_header)
+        document_id = parse_document_id(str(payload["document_id"]))
+        quoted = urllib.parse.quote(document_id, safe="")
+        if operation == "import":
+            method, path = "POST", "/v1/knowledge/documents"
+            upstream = dict(payload)
+        elif operation == "update":
+            method, path = "PUT", f"/v1/knowledge/documents/{quoted}"
+            upstream = dict(payload)
+            upstream.pop("document_id")
+        elif operation in {"retire", "rebuild"}:
+            method, path = "POST", f"/v1/knowledge/documents/{quoted}/{operation}"
+            upstream = dict(payload)
+            upstream.pop("document_id")
+        else:
+            raise ShellContractError("knowledge operation is not registered")
+        canonical = json.dumps(
+            {
+                "document_id": document_id,
+                "operation": operation,
+                "payload": upstream,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        receipt = self._api.submit_knowledge_operation(
+            method,
+            path,
+            upstream,
+            idempotency_key="sha256:" + hashlib.sha256(canonical).hexdigest(),
+            cookie_header=cookie_header,
+        )
+        if receipt.document_id != document_id or receipt.operation != operation:
+            raise ShellContractError(
+                "knowledge receipt differs from the requested operation"
+            )
+        if operation == "retire":
+            session_documents = self._knowledge.get(key, {})
+            for binding in tuple(session_documents):
+                if binding[0] == document_id:
+                    session_documents.pop(binding, None)
+        else:
+            selected = self._api.get_knowledge_document(
+                document_id,
+                document_version=receipt.document_version,
+                cookie_header=cookie_header,
+            )
+            if selected.revision != receipt.revision:
+                raise ShellContractError(
+                    "knowledge receipt differs from the authoritative projection"
+                )
+            self._knowledge.setdefault(key, {})[
+                (selected.document_id, selected.document_version)
+            ] = selected
+        return receipt
 
     def accept_command(
         self,
@@ -632,6 +753,7 @@ class LiveBackend:
         if store is not None:
             store.clear()
         self._tasks.pop(key, None)
+        self._knowledge.pop(key, None)
 
     @classmethod
     def _session_key(cls, cookie_header: str | None) -> str:
@@ -661,6 +783,11 @@ class LiveBackend:
                     code="API_AUTHENTICATION_REQUIRED",
                 )
             return None
+        if cookie_header == "":
+            raise ShellAuthenticationError(
+                "browser session cookie is invalid",
+                code="API_AUTHENTICATION_INVALID",
+            )
         cls._cookie_headers(cookie_header)
         pairs: list[str] = []
         for item in cookie_header.split(";"):
@@ -831,6 +958,16 @@ def _safe_governance_error(title: str, message: str) -> str:
     )
 
 
+def _safe_knowledge_error(title: str, message: str) -> str:
+    return (
+        '<section class="error-panel" role="alert">'
+        f"<h2>{html.escape(title, quote=True)}</h2>"
+        f"<p>{html.escape(message, quote=True)}</p>"
+        '<a class="btn" href="#/knowledge">返回知识控制台</a>'
+        "</section>"
+    )
+
+
 def _safe_refresh_body(body: bytes) -> bytes:
     try:
         payload: object = json.loads(body.decode("utf-8"))
@@ -989,6 +1126,8 @@ class ShellHandler(BaseHTTPRequestHandler):
                 self._handle_view_governance_correlation(
                     path.removeprefix("/views/governance/correlations/")
                 )
+            elif path == "/views/knowledge":
+                self._handle_view_knowledge(query)
             elif path == "/api/v1/tasks/events":
                 self._handle_sse(query)
             elif path.startswith("/api/v1/tasks/"):
@@ -1098,6 +1237,10 @@ class ShellHandler(BaseHTTPRequestHandler):
                     {"accepted": True, "receipt": receipt},
                     no_store=True,
                 )
+            elif parsed.path.startswith("/shell/knowledge/"):
+                self._handle_knowledge_operation(
+                    parsed.path.removeprefix("/shell/knowledge/")
+                )
             else:
                 self._send_json(404, ERROR_NOT_FOUND)
         except (BrokenPipeError, ConnectionResetError):
@@ -1140,6 +1283,269 @@ class ShellHandler(BaseHTTPRequestHandler):
             )
 
     # -- view handlers -------------------------------------------------
+
+    def _handle_view_knowledge(self, query: dict[str, list[str]]) -> None:
+        backend = self.server.backend
+        if isinstance(backend, DemoBackend):
+            self._send_text(
+                render_knowledge_demo_notice(),
+                "text/html; charset=utf-8",
+                no_store=True,
+            )
+            return
+        allowed = {"document_id", "document_version", "expected_hash"}
+        if set(query) - allowed or any(len(values) != 1 for values in query.values()):
+            self._send_text(
+                _safe_knowledge_error(
+                    "查询条件无效",
+                    "文档、版本或引用摘要格式无效，请清除后重试。",
+                ),
+                "text/html; charset=utf-8",
+                status=422,
+                no_store=True,
+            )
+            return
+        try:
+            raw_document = query.get("document_id", [None])[0]
+            document_id = (
+                parse_document_id(raw_document)
+                if raw_document is not None and raw_document != ""
+                else None
+            )
+            document_version = parse_document_version(
+                query.get("document_version", [None])[0]
+            )
+            expected_hash = parse_expected_hash(
+                query.get("expected_hash", [None])[0]
+            )
+            if document_id is None and (
+                document_version is not None or expected_hash is not None
+            ):
+                raise ShellContractError(
+                    "knowledge version and hash require a document id"
+                )
+        except ShellContractError:
+            self._send_text(
+                _safe_knowledge_error(
+                    "查询条件无效",
+                    "文档、版本或引用摘要格式无效，请清除后重试。",
+                ),
+                "text/html; charset=utf-8",
+                status=422,
+                no_store=True,
+            )
+            return
+        try:
+            snapshot = backend.knowledge_snapshot(
+                document_id=document_id,
+                document_version=document_version,
+                expected_hash=expected_hash,
+                cookie_header=self._browser_cookie(),
+            )
+        except (ShellAuthenticationError, ShellAuthorizationError):
+            raise
+        except ShellNotFoundError:
+            self._send_text(
+                _safe_knowledge_error(
+                    "知识版本不存在",
+                    "当前会话无法读取该文档或精确版本；未尝试重定向到其他版本。",
+                ),
+                "text/html; charset=utf-8",
+                status=404,
+                no_store=True,
+            )
+            return
+        except ShellUnavailableError:
+            self._send_text(
+                _safe_knowledge_error(
+                    "知识服务暂时不可用",
+                    "未展示缓存或替代数据，请稍后重新复验。",
+                ),
+                "text/html; charset=utf-8",
+                status=503,
+                no_store=True,
+            )
+            return
+        except ShellContractError:
+            self._send_text(
+                _safe_knowledge_error(
+                    "知识投影不可用",
+                    "服务返回的数据未通过版本、摘要或安全投影校验。",
+                ),
+                "text/html; charset=utf-8",
+                status=502,
+                no_store=True,
+            )
+            return
+        self._send_text(
+            render_knowledge_dashboard(snapshot),
+            "text/html; charset=utf-8",
+            no_store=True,
+        )
+
+    def _handle_knowledge_operation(self, operation: str) -> None:
+        backend = self.server.backend
+        if isinstance(backend, DemoBackend):
+            raise ShellAuthorizationError(
+                "knowledge mutations require a live session",
+                code="API_AUTHORIZATION_DENIED",
+            )
+        try:
+            payload = self._knowledge_operation_payload(operation)
+            receipt = backend.submit_knowledge_operation(
+                operation,
+                payload,
+                cookie_header=self._browser_cookie(),
+            )
+        except (ShellAuthenticationError, ShellAuthorizationError):
+            raise
+        except KnowledgeConflictError:
+            self._send_json(
+                409,
+                {
+                    "error": {
+                        "code": "KNOWLEDGE_REVISION_CONFLICT",
+                        "message": "知识修订已变化，请刷新后基于最新修订重试。",
+                        "retryable": False,
+                        "detail_ref": None,
+                    }
+                },
+                no_store=True,
+            )
+            return
+        except ShellNotFoundError:
+            self._send_json(
+                404,
+                {
+                    "error": {
+                        "code": "KNOWLEDGE_NOT_FOUND",
+                        "message": "当前会话无法读取该知识文档。",
+                        "retryable": False,
+                        "detail_ref": None,
+                    }
+                },
+                no_store=True,
+            )
+            return
+        except ShellContractError:
+            self._send_json(
+                502,
+                {
+                    "error": {
+                        "code": "KNOWLEDGE_PROJECTION_INVALID",
+                        "message": "知识服务响应未通过安全校验。",
+                        "retryable": False,
+                        "detail_ref": None,
+                    }
+                },
+                no_store=True,
+            )
+            return
+        except ShellError:
+            self._send_json(
+                502,
+                {
+                    "error": {
+                        "code": "KNOWLEDGE_SERVICE_INVALID",
+                        "message": "知识服务未返回可接受的结果。",
+                        "retryable": False,
+                        "detail_ref": None,
+                    }
+                },
+                no_store=True,
+            )
+            return
+        self._send_json(
+            200,
+            {
+                "accepted": True,
+                "receipt": {
+                    "document_id": receipt.document_id,
+                    "operation": receipt.operation,
+                    "revision": receipt.revision,
+                    "document_version": receipt.document_version,
+                    "disposition": receipt.disposition,
+                    "event_id": receipt.event_id,
+                    "index_job_id": receipt.index_job_id,
+                },
+            },
+            no_store=True,
+        )
+
+    def _knowledge_operation_payload(self, operation: str) -> dict[str, object]:
+        version_fields = {
+            "document_id",
+            "source_type",
+            "source_ref",
+            "source_version",
+            "data_classification",
+            "effective_at",
+            "expires_at",
+            "content",
+        }
+        expected = {
+            "import": version_fields,
+            "update": version_fields | {"expected_revision"},
+            "retire": {"document_id", "expected_revision"},
+            "rebuild": {"document_id", "expected_revision", "document_version"},
+        }.get(operation)
+        if expected is None:
+            raise ValueError("knowledge operation is not registered")
+        form = self._read_strict_form(expected, maximum=21 * 1024 * 1024)
+        document_id = _form_document_id(form["document_id"])
+        if operation in {"retire", "rebuild"}:
+            payload: dict[str, object] = {
+                "document_id": document_id,
+                "expected_revision": _form_version(
+                    form["expected_revision"], "expected_revision"
+                ),
+            }
+            if operation == "rebuild":
+                payload["document_version"] = _form_version(
+                    form["document_version"], "document_version"
+                )
+            return payload
+        source_type = form["source_type"]
+        classification = form["data_classification"]
+        if source_type not in {"file", "uri", "connector", "manual"}:
+            raise ValueError("source_type is invalid")
+        if classification not in {
+            "public",
+            "internal",
+            "confidential",
+            "restricted",
+        }:
+            raise ValueError("data_classification is invalid")
+        content = form["content"]
+        if not content or len(content) > 20 * 1024 * 1024:
+            raise ValueError("knowledge content is invalid")
+        effective_at = _form_timestamp(form["effective_at"], "effective_at")
+        expires_at = (
+            _form_timestamp(form["expires_at"], "expires_at")
+            if form["expires_at"]
+            else None
+        )
+        if expires_at is not None and expires_at <= effective_at:
+            raise ValueError("knowledge expiry must follow effective time")
+        payload = {
+            "document_id": document_id,
+            "source_type": source_type,
+            "source_ref": _bounded_form_text(form["source_ref"], 1024),
+            "source_version": (
+                _bounded_form_text(form["source_version"], 256)
+                if form["source_version"]
+                else None
+            ),
+            "data_classification": classification,
+            "effective_at": form["effective_at"],
+            "expires_at": form["expires_at"] or None,
+            "content": content,
+        }
+        if operation == "update":
+            payload["expected_revision"] = _form_version(
+                form["expected_revision"], "expected_revision"
+            )
+        return payload
 
     def _handle_view_governance(self, query: dict[str, list[str]]) -> None:
         backend = self.server.backend
@@ -1536,6 +1942,39 @@ class ShellHandler(BaseHTTPRequestHandler):
         body = self._read_body().decode("utf-8")
         return dict(urllib.parse.parse_qsl(body, keep_blank_values=True))
 
+    def _read_strict_form(
+        self,
+        expected: set[str],
+        *,
+        maximum: int,
+    ) -> dict[str, str]:
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type.lower().startswith("application/x-www-form-urlencoded"):
+            raise ValueError("form content type is invalid")
+        raw_length = self.headers.get("Content-Length", "0")
+        if not raw_length.isascii() or not raw_length.isdecimal():
+            raise ValueError("form content length is invalid")
+        length = int(raw_length)
+        if length <= 0 or length > maximum:
+            raise ValueError("form content length is invalid")
+        body = self.rfile.read(length).decode("utf-8")
+        pairs = urllib.parse.parse_qsl(
+            body,
+            keep_blank_values=True,
+            strict_parsing=True,
+            max_num_fields=16,
+        )
+        if len(pairs) != len(expected):
+            raise ValueError("form fields are invalid")
+        form: dict[str, str] = {}
+        for name, value in pairs:
+            if name not in expected or name in form:
+                raise ValueError("form fields are invalid")
+            form[name] = value
+        if set(form) != expected:
+            raise ValueError("form fields are invalid")
+        return form
+
     def _submit_completion(
         self, backend: DemoBackend | LiveBackend, form: dict[str, str]
     ) -> dict[str, Any]:
@@ -1588,6 +2027,41 @@ class ShellHandler(BaseHTTPRequestHandler):
             reason="demo retry",
         )
         return backend.accept_command(command, cookie_header=cookie_header)
+
+
+def _bounded_form_text(value: str, maximum: int) -> str:
+    if not value or len(value) > maximum or "\x00" in value:
+        raise ValueError("form text is invalid")
+    return value
+
+
+def _form_document_id(value: str) -> str:
+    try:
+        return parse_document_id(value)
+    except ShellContractError as exc:
+        raise ValueError("document_id is invalid") from exc
+
+
+def _form_version(value: str, label: str) -> int:
+    try:
+        parsed = parse_document_version(value)
+    except ShellContractError as exc:
+        raise ValueError(f"{label} is invalid") from exc
+    if parsed is None:
+        raise ValueError(f"{label} is invalid")
+    return parsed
+
+
+def _form_timestamp(value: str, label: str) -> datetime:
+    if not value or len(value) > 64:
+        raise ValueError(f"{label} is invalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{label} is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{label} is invalid")
+    return parsed.astimezone(UTC)
 
 
 def _guess_content_type(path: str) -> str:

@@ -31,6 +31,13 @@ from .governance import (
     parse_policy_version_page,
     parse_security_event_page,
 )
+from .knowledge import (
+    KnowledgeConflictError,
+    KnowledgeDiagnosticView,
+    KnowledgeDocumentView,
+    KnowledgeInputError,
+    KnowledgeOperationReceiptView,
+)
 from .models import (
     ShellAuthenticationError,
     ShellAuthorizationError,
@@ -238,6 +245,91 @@ class ApiClient:
             )
         return result
 
+    def get_knowledge_document(
+        self,
+        document_id: str,
+        *,
+        document_version: int | None,
+        cookie_header: str | None,
+    ) -> KnowledgeDocumentView:
+        quoted = urllib.parse.quote(document_id, safe="")
+        query = (
+            "?" + urllib.parse.urlencode({"document_version": document_version})
+            if document_version is not None
+            else ""
+        )
+        payload = self._get_knowledge(
+            f"/v1/knowledge/documents/{quoted}{query}",
+            cookie_header=cookie_header,
+        )
+        result = KnowledgeDocumentView.from_mapping(payload)
+        if result.document_id != document_id or (
+            document_version is not None
+            and result.document_version != document_version
+        ):
+            raise ShellContractError(
+                "knowledge document response differs from the requested binding"
+            )
+        return result
+
+    def get_knowledge_diagnostic(
+        self,
+        document_id: str,
+        *,
+        document_version: int | None,
+        cookie_header: str | None,
+    ) -> KnowledgeDiagnosticView:
+        quoted = urllib.parse.quote(document_id, safe="")
+        query = (
+            "?" + urllib.parse.urlencode({"document_version": document_version})
+            if document_version is not None
+            else ""
+        )
+        payload = self._get_knowledge(
+            f"/v1/knowledge/documents/{quoted}/diagnostic{query}",
+            cookie_header=cookie_header,
+        )
+        result = KnowledgeDiagnosticView.from_mapping(payload)
+        if result.document_id != document_id or (
+            document_version is not None
+            and result.document_version != document_version
+        ):
+            raise ShellContractError(
+                "knowledge diagnostic response differs from the requested binding"
+            )
+        return result
+
+    def submit_knowledge_operation(
+        self,
+        method: str,
+        path: str,
+        payload: dict[str, object],
+        *,
+        idempotency_key: str,
+        cookie_header: str | None,
+    ) -> KnowledgeOperationReceiptView:
+        if method not in {"POST", "PUT"} or not path.startswith(
+            "/v1/knowledge/documents"
+        ):
+            raise ShellContractError("knowledge operation is not registered")
+        headers = {
+            **_browser_session_headers(cookie_header),
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotency_key,
+        }
+        body = json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+        status, _response_headers, raw = self._transport(method, path, headers, body)
+        response = _parse_json_body(status, raw)
+        if status in {200, 201, 202}:
+            return KnowledgeOperationReceiptView.from_mapping(response)
+        if status == 409:
+            raise KnowledgeConflictError("knowledge revision conflict")
+        if status in {400, 422}:
+            raise KnowledgeInputError("knowledge request was rejected")
+        raise _map_error(status, response)
+
     def _get_governance(
         self,
         path: str,
@@ -256,6 +348,21 @@ class ApiClient:
         if status == 200:
             _require_private_json_headers(response_headers)
             return _require_json_object(payload, "governance projection")
+        raise _map_error(status, payload)
+
+    def _get_knowledge(
+        self,
+        path: str,
+        *,
+        cookie_header: str | None,
+    ) -> dict[str, Any]:
+        status, response_headers, body = self._transport(
+            "GET", path, _browser_session_headers(cookie_header), None
+        )
+        payload = _parse_json_body(status, body)
+        if status == 200:
+            _require_private_json_headers(response_headers)
+            return _require_json_object(payload, "knowledge projection")
         raise _map_error(status, payload)
 
 

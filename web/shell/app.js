@@ -125,14 +125,15 @@ function currentRoute() {
   const governanceRoute = /^\/governance(?:\/correlations\/[A-Za-z0-9_.:-]{1,128})?$/.test(
     parsed.pathname,
   );
-  if (!taskRoute && !governanceRoute) {
+  const knowledgeRoute = parsed.pathname === "/knowledge";
+  if (!taskRoute && !governanceRoute && !knowledgeRoute) {
     return "/tasks";
   }
   const safeQuery = new URLSearchParams();
   const seen = new Set();
   for (const [name, value] of parsed.searchParams) {
     if (seen.has(name)) {
-      return governanceRoute ? "/governance" : "/tasks";
+      return governanceRoute ? "/governance" : knowledgeRoute ? "/knowledge" : "/tasks";
     }
     seen.add(name);
     if (taskRoute && name === "demo" && ["unavailable", "missing"].includes(value)) {
@@ -183,8 +184,27 @@ function currentRoute() {
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
     ) {
       safeQuery.set(name, value);
+    } else if (
+      knowledgeRoute &&
+      name === "document_id" &&
+      /^doc_[A-Za-z0-9_-]{8,128}$/.test(value)
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      knowledgeRoute &&
+      name === "document_version" &&
+      /^\d{1,16}$/.test(value) &&
+      Number.isSafeInteger(Number(value))
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      knowledgeRoute &&
+      name === "expected_hash" &&
+      /^sha256:[a-f0-9]{64}$/.test(value)
+    ) {
+      safeQuery.set(name, value);
     } else {
-      return governanceRoute ? "/governance" : "/tasks";
+      return governanceRoute ? "/governance" : knowledgeRoute ? "/knowledge" : "/tasks";
     }
   }
   const query = safeQuery.toString();
@@ -471,7 +491,11 @@ async function refreshIfVisible(event, operation) {
   ticker.textContent =
     "最近事件：" + envelope.event_type + " · " + envelope.task_id;
   const route = currentRoute();
-  if (route.startsWith("/tasks/") || route.startsWith("/governance")) {
+  if (
+    route.startsWith("/tasks/") ||
+    route.startsWith("/governance") ||
+    route.startsWith("/knowledge")
+  ) {
     await loadRoute(route, operation);
   }
 }
@@ -549,8 +573,22 @@ async function submitForm(form) {
       return;
     }
     if (response.ok && payload.accepted) {
-      ticker.textContent = "已受理：" + payload.receipt.command_id;
-      await loadRoute(currentRoute(), operation);
+      const receiptId = payload.receipt.command_id || payload.receipt.event_id;
+      ticker.textContent = "已受理：" + receiptId;
+      if (payload.receipt.document_id) {
+        const target =
+          payload.receipt.operation === "retire"
+            ? "/knowledge"
+            : "/knowledge?" +
+              new URLSearchParams({
+                document_id: payload.receipt.document_id,
+                document_version: String(payload.receipt.document_version),
+              }).toString();
+        location.hash = target;
+        await loadRoute(target, operation);
+      } else {
+        await loadRoute(currentRoute(), operation);
+      }
     } else {
       ticker.textContent = "提交失败：请求未被受理";
     }
@@ -564,6 +602,19 @@ async function submitForm(form) {
 
 document.addEventListener("submit", function (event) {
   const form = event.target;
+  if (form.id === "knowledge-lookup") {
+    event.preventDefault();
+    const data = new FormData(form);
+    const query = new URLSearchParams();
+    for (const name of ["document_id", "document_version", "expected_hash"]) {
+      const value = String(data.get(name) || "").trim();
+      if (value) {
+        query.set(name, value);
+      }
+    }
+    location.hash = "/knowledge" + (query.size ? "?" + query.toString() : "");
+    return;
+  }
   if (form.id === "governance-filter") {
     event.preventDefault();
     const data = new FormData(form);
@@ -586,7 +637,11 @@ document.addEventListener("submit", function (event) {
     location.hash = "/governance?" + query.toString();
     return;
   }
-  if (form.id === "completion-form" || form.classList.contains("retry-form")) {
+  if (
+    form.id === "completion-form" ||
+    form.classList.contains("retry-form") ||
+    form.id.startsWith("knowledge-")
+  ) {
     event.preventDefault();
     submitForm(form);
   }

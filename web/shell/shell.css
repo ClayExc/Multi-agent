@@ -280,6 +280,60 @@ h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
 .pagination { margin-bottom: 0; text-align: right; }
 .governance-demo h2 { font-size: 16px; }
 
+/* 知识管理、安全引用复验与索引诊断 */
+.knowledge-header,
+.knowledge-list,
+.knowledge-detail,
+.knowledge-management,
+.citation-check,
+.knowledge-no-evidence { margin-block: 16px; }
+.knowledge-header > p { color: var(--muted); font-size: 13px; }
+.knowledge-form fieldset {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-block: 16px;
+  padding: 16px 20px;
+}
+.knowledge-form label { color: var(--muted); display: grid; font-size: 12px; gap: 4px; }
+.knowledge-form input, .knowledge-form select, .knowledge-form textarea {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  padding: 7px 10px;
+}
+.knowledge-form textarea { resize: vertical; }
+.knowledge-form.compact { display: inline-block; margin-inline-end: 8px; }
+.knowledge-detail > dl, .knowledge-diagnostic {
+  display: grid;
+  gap: 6px 16px;
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.knowledge-detail dt, .knowledge-diagnostic dt { color: var(--muted); }
+.knowledge-detail dd, .knowledge-diagnostic dd { margin: 0; overflow-wrap: anywhere; }
+.knowledge-list table {
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 760px;
+  width: 100%;
+}
+.knowledge-list caption { color: var(--muted); padding-bottom: 8px; text-align: left; }
+.knowledge-list th, .knowledge-list td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.citation-verified { border-inline-start: 6px solid var(--done); padding-inline-start: 16px; }
+.citation-drift, .knowledge-no-evidence {
+  border-inline-start: 6px solid var(--wait);
+  padding-inline-start: 16px;
+}
+
 @media (max-width: 720px) {
   .app-header { align-items: flex-start; padding: 12px 16px; }
   .app-nav { width: 100%; }
@@ -292,4 +346,5 @@ h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
   .session-status { flex: 1; }
   .app-view { padding: 0 16px; }
   .governance-filter { grid-template-columns: 1fr; }
+  .knowledge-detail > dl, .knowledge-diagnostic { grid-template-columns: 1fr; }
 }

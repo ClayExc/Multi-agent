@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import sys
 from pathlib import Path
@@ -19,6 +20,40 @@ def _module() -> ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _valid_oracle(module: ModuleType) -> dict[str, object]:
+    return {
+        "result": {
+            "declared_cases": 156,
+            "unique_case_ids": 156,
+            "collection_errors": 0,
+            "completed": 39,
+            "explicit_failed": 117,
+            "skipped": 0,
+            "quarantined": 0,
+            "duplicate_matches": 0,
+            "dangerous_output_count": 0,
+            "cross_tenant_success_count": 0,
+            "judge_scores_used": 0,
+            "manifest_gate": "FAIL",
+            "release_claimed": False,
+            "frozen_claimed": False,
+        },
+        "registration": {
+            "schema": "flowpilot.product-executor-registry.v1",
+            "match_policy": "unique_exact_case_digest",
+            "executor_count": 3,
+            "executors": [
+                {
+                    "executor_id": executor_id,
+                    "executor_version": version,
+                    "supported_case_count": count,
+                }
+                for executor_id, version, count in module.EXPECTED_EXECUTORS
+            ],
+        },
+    }
 
 
 def test_wp109_recomputes_unique_official_registry() -> None:
@@ -45,6 +80,28 @@ def test_wp109_accepts_recorded_historical_candidate() -> None:
     module = _module()
 
     assert module._validate_candidate(module.HISTORICAL_CANDIDATE_HEAD) == (0, 0)
+
+
+@pytest.mark.parametrize("field", ["executor_id", "executor_version"])
+def test_wp109_rejects_historical_registry_identity_drift(field: str) -> None:
+    module = _module()
+    oracle = copy.deepcopy(_valid_oracle(module))
+    registration = cast(dict[str, object], oracle["registration"])
+    executors = cast(list[dict[str, object]], registration["executors"])
+    executors[0][field] = "drifted"
+
+    with pytest.raises(AssertionError, match="registry identity drifted"):
+        module._validate_historical_oracle(oracle)
+
+
+def test_wp109_rejects_historical_duplicate_match() -> None:
+    module = _module()
+    oracle = copy.deepcopy(_valid_oracle(module))
+    result = cast(dict[str, object], oracle["result"])
+    result["duplicate_matches"] = 1
+
+    with pytest.raises(AssertionError, match="execution oracle drifted"):
+        module._validate_historical_oracle(oracle)
 
 
 def test_wp109_rejects_non_ancestor_candidate(

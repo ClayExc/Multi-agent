@@ -52,7 +52,7 @@ from flowpilot_graph import (
 )
 from flowpilot_mcp_gateway import GatewayAdapterDisposition, GatewayAdapterError
 from flowpilot_mcp_ticket import TICKET_UPDATE_SCOPE, TicketMcpAdapter
-from flowpilot_security import CapabilityHandle
+from flowpilot_security import CapabilityHandle, CapabilityUse
 from flowpilot_tool_contracts import (
     GatewayCall,
     ToolResult,
@@ -76,6 +76,7 @@ PURPOSE = "it_support"
 TRIED_STEPS = "restarted the VPN client and rebooted the laptop"
 
 CONFIG = VpnTicketWriteConfig()
+TICKET_EXECUTION_ID = "tex_ticketprobe01"
 
 
 class RepoApprovalSource:
@@ -95,9 +96,11 @@ def _stable_id(prefix: str, value: str) -> str:
     return f"{prefix}_{hashlib.sha256(value.encode()).hexdigest()[:20]}"
 
 
-def _capability() -> CapabilityHandle:
+def _capability(call: GatewayCall, *, use: CapabilityUse) -> CapabilityHandle:
+    request = call.request
+    action = request.planned_action
     return CapabilityHandle(
-        handle_ref="capability://ticket/vpn-write",
+        handle_ref=f"capability://ticket/vpn-write/{use.value}",
         audience="mcp://flowpilot-gateway",
         scopes=frozenset({TICKET_UPDATE_SCOPE}),
         tenant_id=TENANT_A,
@@ -106,7 +109,20 @@ def _capability() -> CapabilityHandle:
         workload_principal_ref=AGENT_PRINCIPAL,
         purpose=PURPOSE,
         data_classification_ceiling="confidential",
-        action_digest=canonical_sha256({"ticket": "vpn-write"}),
+        context_hash=request.security_context.context_hash,
+        tool_name=action.tool.name,
+        resource_digest=canonical_sha256(action.resource.to_mapping()),
+        action_digest=request.action_digest,
+        policy_version=action.policy_version,
+        execution_id=TICKET_EXECUTION_ID,
+        use=use,
+        token_id_hash=canonical_sha256(
+            {
+                "execution_id": TICKET_EXECUTION_ID,
+                "use": use.value,
+                "action_digest": request.action_digest,
+            }
+        ),
         issued_at=FIXED_NOW - timedelta(seconds=1),
         expires_at=FIXED_NOW + timedelta(minutes=5),
     )
@@ -118,12 +134,10 @@ class TicketGatewayProbe:
     def __init__(
         self,
         adapter: TicketMcpAdapter,
-        capability: CapabilityHandle,
         *,
         result_mode: str = "verified",
     ) -> None:
         self.adapter = adapter
-        self.capability = capability
         self.result_mode = result_mode
         self.calls: list[GatewayCall] = []
         self.logical_execution_count = 0
@@ -138,22 +152,32 @@ class TicketGatewayProbe:
         if cached is not None:
             return cached
         self.logical_execution_count += 1
+        invoke_capability = _capability(call, use=CapabilityUse.INVOKE)
+        _assert_capability_binding(
+            invoke_capability, call, use=CapabilityUse.INVOKE
+        )
         try:
             invocation = await self.adapter.invoke(
                 arguments=action.arguments,
-                capability=self.capability,
+                capability=invoke_capability,
                 idempotency_key=request.idempotency_key,
+            )
+            readback_capability = _capability(
+                call, use=CapabilityUse.READBACK
+            )
+            _assert_capability_binding(
+                readback_capability, call, use=CapabilityUse.READBACK
             )
             readback = await self.adapter.readback(
                 arguments=action.arguments,
                 invocation=invocation,
-                capability=self.capability,
+                capability=readback_capability,
                 idempotency_key=request.idempotency_key,
             )
         except GatewayAdapterError as exc:
             if exc.disposition is GatewayAdapterDisposition.OUTCOME_UNKNOWN:
                 result = ToolResult(
-                    execution_id="tex_ticketunknown01",
+                    execution_id=TICKET_EXECUTION_ID,
                     request_id=request.request_id,
                     operation=ToolOperation.WRITE,
                     status=ToolResultStatus.UNKNOWN,
@@ -179,7 +203,7 @@ class TicketGatewayProbe:
                 )
             else:
                 result = ToolResult(
-                    execution_id="tex_ticketdenied01",
+                    execution_id=TICKET_EXECUTION_ID,
                     request_id=request.request_id,
                     operation=ToolOperation.WRITE,
                     status=ToolResultStatus.FAILED_FINAL,
@@ -202,7 +226,7 @@ class TicketGatewayProbe:
                 else request.request_id
             )
             result = ToolResult(
-                execution_id="tex_ticketprobe01",
+                execution_id=TICKET_EXECUTION_ID,
                 request_id=request_id,
                 operation=ToolOperation.WRITE,
                 status=(
@@ -231,6 +255,33 @@ class TicketGatewayProbe:
             )
         self._cache[key] = result
         return result
+
+
+def _assert_capability_binding(
+    capability: CapabilityHandle,
+    call: GatewayCall,
+    *,
+    use: CapabilityUse,
+) -> None:
+    request = call.request
+    action = request.planned_action
+    expected_token_hash = canonical_sha256(
+        {
+            "execution_id": TICKET_EXECUTION_ID,
+            "use": use.value,
+            "action_digest": request.action_digest,
+        }
+    )
+    assert capability.context_hash == request.security_context.context_hash
+    assert capability.tool_name == action.tool.name
+    assert capability.resource_digest == canonical_sha256(
+        action.resource.to_mapping()
+    )
+    assert capability.action_digest == request.action_digest
+    assert capability.policy_version == action.policy_version
+    assert capability.execution_id == TICKET_EXECUTION_ID
+    assert capability.use is use
+    assert capability.token_id_hash == expected_token_hash
 
 
 @dataclass(frozen=True, slots=True)
@@ -464,7 +515,6 @@ async def _build_harness(*, result_mode: str = "verified") -> WriteLoopHarness:
     adapter.mode = "verified"
     probe = TicketGatewayProbe(
         adapter,
-        _capability(),
         result_mode=result_mode,
     )
     artifacts = FakeResultArtifactPort()

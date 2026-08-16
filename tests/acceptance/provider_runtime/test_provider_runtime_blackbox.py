@@ -459,7 +459,7 @@ async def test_litellm_rejects_credential_shaped_wire_values_without_leak() -> N
                 payload={"private": [{"api_key": SYNTHETIC_SECRET}]}
             )
         )
-    assert input_error.value.code is ProviderWireErrorCode.INVALID_OUTPUT
+    assert input_error.value.code is ProviderWireErrorCode.CONTENT_BLOCKED
     assert input_transport.calls == []
     assert SYNTHETIC_SECRET not in repr(input_error.value)
 
@@ -470,7 +470,7 @@ async def test_litellm_rejects_credential_shaped_wire_values_without_leak() -> N
     )
     with pytest.raises(ProviderWireError) as output_error:
         await LiteLLMProvider(output_transport).complete(wire_request())
-    assert output_error.value.code is ProviderWireErrorCode.INVALID_OUTPUT
+    assert output_error.value.code is ProviderWireErrorCode.CONTENT_BLOCKED
     assert SYNTHETIC_SECRET not in repr(output_error.value)
 
 

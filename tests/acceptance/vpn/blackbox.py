@@ -40,7 +40,7 @@ from flowpilot_mcp_knowledge import (
     KnowledgeMcpAdapter,
     KnowledgeRecord,
 )
-from flowpilot_security import CapabilityHandle
+from flowpilot_security import CapabilityHandle, CapabilityUse
 from flowpilot_tool_contracts import (
     GatewayCall,
     ToolResult,
@@ -57,6 +57,7 @@ ROOT = Path(__file__).resolve().parents[3]
 FIXED_NOW = datetime(2026, 7, 28, 8, 30, tzinfo=UTC)
 AGENT_PRINCIPAL = "workload://flowpilot/vpn-support/p1"
 FORBIDDEN_PROJECTION_VALUE = "vpn-private-value-must-not-appear"
+KNOWLEDGE_EXECUTION_ID = "tex_vpnprobe01"
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,11 +89,11 @@ class KnowledgeGatewayProbe:
         self,
         *,
         adapter: KnowledgeMcpAdapter,
-        capability: CapabilityHandle,
+        scenario: str,
         result_mode: str = "verified",
     ) -> None:
         self.adapter = adapter
-        self.capability = capability
+        self.scenario = scenario
         self.result_mode = result_mode
         self.calls: list[GatewayCall] = []
         self.logical_execution_count = 0
@@ -107,15 +108,17 @@ class KnowledgeGatewayProbe:
         if cached is not None:
             return cached
         self.logical_execution_count += 1
+        capability = _capability(self.scenario, call)
+        _assert_capability_binding(capability, call, self.scenario)
         try:
             invocation = await self.adapter.invoke(
                 arguments=action.arguments,
-                capability=self.capability,
+                capability=capability,
                 idempotency_key=request.idempotency_key,
             )
         except GatewayAdapterError as exc:
             result = ToolResult(
-                execution_id="tex_vpndenied01",
+                execution_id=KNOWLEDGE_EXECUTION_ID,
                 request_id=request.request_id,
                 operation=ToolOperation.READ,
                 status=ToolResultStatus.FAILED_FINAL,
@@ -140,7 +143,7 @@ class KnowledgeGatewayProbe:
             if self.result_mode == "malformed_citation_hash" and data["records"]:
                 data["records"][0]["content_hash"] = "sha256:not-a-valid-digest"
             result = ToolResult(
-                execution_id="tex_vpnprobe01",
+                execution_id=KNOWLEDGE_EXECUTION_ID,
                 request_id=request_id,
                 operation=ToolOperation.READ,
                 status=ToolResultStatus.VERIFIED,
@@ -180,7 +183,7 @@ async def run_vpn_case(case: VpnCaseDefinition) -> VpnBlackBoxObservation:
     )
     probe = KnowledgeGatewayProbe(
         adapter=adapter,
-        capability=_capability(case.scenario),
+        scenario=case.scenario,
         result_mode=_result_mode(case.scenario),
     )
     artifacts = FakeResultArtifactPort()
@@ -278,7 +281,7 @@ async def _run_clarification_case(
     adapter = KnowledgeMcpAdapter((_knowledge_record(),), clock=lambda: FIXED_NOW)
     probe = KnowledgeGatewayProbe(
         adapter=adapter,
-        capability=_capability(case.scenario),
+        scenario=case.scenario,
     )
     artifacts = FakeResultArtifactPort()
     checkpoints = InMemoryCheckpointStore()
@@ -548,7 +551,9 @@ def _complete_inputs(scenario: str) -> tuple[TaskCommand, ResolvedRequestReferen
     return command, _resolved(mapping)
 
 
-def _capability(scenario: str) -> CapabilityHandle:
+def _capability(scenario: str, call: GatewayCall) -> CapabilityHandle:
+    request = call.request
+    action = request.planned_action
     tenant_id = "tenant-b" if scenario == "wrong_tenant_knowledge_acl" else "tenant-a"
     subject_acl = (
         frozenset({"subject:user-123"})
@@ -579,10 +584,51 @@ def _capability(scenario: str) -> CapabilityHandle:
         workload_principal_ref=workload,
         purpose=purpose,
         data_classification_ceiling=classification,
-        action_digest=canonical_sha256({"case": scenario}),
+        context_hash=request.security_context.context_hash,
+        tool_name=action.tool.name,
+        resource_digest=canonical_sha256(action.resource.to_mapping()),
+        action_digest=request.action_digest,
+        policy_version=action.policy_version,
+        execution_id=KNOWLEDGE_EXECUTION_ID,
+        use=CapabilityUse.INVOKE,
+        token_id_hash=canonical_sha256(
+            {
+                "execution_id": KNOWLEDGE_EXECUTION_ID,
+                "use": CapabilityUse.INVOKE.value,
+                "action_digest": request.action_digest,
+                "case": scenario,
+            }
+        ),
         issued_at=FIXED_NOW - timedelta(seconds=1),
         expires_at=FIXED_NOW + timedelta(minutes=5),
     )
+
+
+def _assert_capability_binding(
+    capability: CapabilityHandle,
+    call: GatewayCall,
+    scenario: str,
+) -> None:
+    request = call.request
+    action = request.planned_action
+    expected_token_hash = canonical_sha256(
+        {
+            "execution_id": KNOWLEDGE_EXECUTION_ID,
+            "use": CapabilityUse.INVOKE.value,
+            "action_digest": request.action_digest,
+            "case": scenario,
+        }
+    )
+    assert capability.context_hash == request.security_context.context_hash
+    assert capability.tool_name == action.tool.name
+    assert capability.resource_digest == canonical_sha256(
+        action.resource.to_mapping()
+    )
+    assert capability.action_digest == request.action_digest
+    assert capability.policy_version == action.policy_version
+    assert capability.execution_id == KNOWLEDGE_EXECUTION_ID
+    assert capability.use is CapabilityUse.INVOKE
+    assert capability.token_id_hash == expected_token_hash
 
 
 def _knowledge_record(*, expired: bool = False) -> KnowledgeRecord:

@@ -119,15 +119,72 @@ function currentRoute() {
   } catch (_error) {
     return "/tasks";
   }
-  if (!/^\/tasks(?:\/[A-Za-z0-9_-]{8,128})?$/.test(parsed.pathname)) {
+  const taskRoute = /^\/tasks(?:\/[A-Za-z0-9_-]{8,128})?$/.test(
+    parsed.pathname,
+  );
+  const governanceRoute = /^\/governance(?:\/correlations\/[A-Za-z0-9_.:-]{1,128})?$/.test(
+    parsed.pathname,
+  );
+  if (!taskRoute && !governanceRoute) {
     return "/tasks";
   }
   const safeQuery = new URLSearchParams();
+  const seen = new Set();
   for (const [name, value] of parsed.searchParams) {
-    if (name === "demo" && ["unavailable", "missing"].includes(value)) {
+    if (seen.has(name)) {
+      return governanceRoute ? "/governance" : "/tasks";
+    }
+    seen.add(name);
+    if (taskRoute && name === "demo" && ["unavailable", "missing"].includes(value)) {
       safeQuery.set(name, value);
-    } else if (name === "rebuild" && value === "1") {
+    } else if (taskRoute && name === "rebuild" && value === "1") {
       safeQuery.set(name, value);
+    } else if (
+      governanceRoute &&
+      parsed.pathname === "/governance" &&
+      name === "tab" &&
+      ["versions", "decisions", "audit", "security"].includes(value)
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      governanceRoute &&
+      parsed.pathname === "/governance" &&
+      name === "limit" &&
+      /^\d{1,3}$/.test(value) &&
+      Number(value) >= 1 &&
+      Number(value) <= 100
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      governanceRoute &&
+      parsed.pathname === "/governance" &&
+      name === "cursor" &&
+      /^gcur_[A-Za-z0-9_-]{24,508}$/.test(value)
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      governanceRoute &&
+      parsed.pathname === "/governance" &&
+      name === "task_id" &&
+      /^task_[A-Za-z0-9_-]{8,128}$/.test(value)
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      governanceRoute &&
+      parsed.pathname === "/governance" &&
+      name === "correlation_id" &&
+      /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$/.test(value)
+    ) {
+      safeQuery.set(name, value);
+    } else if (
+      governanceRoute &&
+      parsed.pathname === "/governance" &&
+      ["occurred_after", "occurred_before"].includes(name) &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+    ) {
+      safeQuery.set(name, value);
+    } else {
+      return governanceRoute ? "/governance" : "/tasks";
     }
   }
   const query = safeQuery.toString();
@@ -188,7 +245,7 @@ function requireReauthentication(operation = currentAuthOperation()) {
   setSessionState(SESSION.REAUTH_REQUIRED);
   replaceViewMessage(
     "需要重新认证",
-    "当前会话不能继续访问任务，请重新登录。",
+    "当前会话不能继续访问受保护内容，请重新登录。",
     true,
   );
 }
@@ -222,7 +279,7 @@ async function loadRoute(route, operation = currentAuthOperation()) {
     if (response.status === 403) {
       closeSse();
       setSessionState(SESSION.ACTIVE);
-      replaceViewMessage("访问被拒绝", "当前会话无权访问该任务。", false);
+      replaceViewMessage("访问被拒绝", "当前会话无权访问该资源。", false);
       return false;
     }
     if (!response.ok) {
@@ -239,7 +296,7 @@ async function loadRoute(route, operation = currentAuthOperation()) {
     }
     view.innerHTML = fragment;
     view.setAttribute("aria-busy", "false");
-    if (shellMode === "live" && route.startsWith("/tasks/")) {
+    if (shellMode === "live") {
       setSessionState(SESSION.ACTIVE);
     }
     return true;
@@ -303,7 +360,7 @@ async function refreshSession({ reconnect = false, silent = false } = {}) {
       setSessionState(SESSION.REFRESH_FAILED);
       replaceViewMessage(
         "会话刷新失败",
-        "身份状态未确认，已停止任务与事件访问。",
+      "身份状态未确认，已停止受保护内容与事件访问。",
         true,
       );
       return false;
@@ -332,7 +389,7 @@ async function refreshSession({ reconnect = false, silent = false } = {}) {
     setSessionState(SESSION.REFRESH_FAILED);
     replaceViewMessage(
       "会话刷新失败",
-      "无法确认身份状态，已停止任务与事件访问。",
+      "无法确认身份状态，已停止受保护内容与事件访问。",
       true,
     );
     return false;
@@ -344,7 +401,7 @@ async function logout() {
   closeSse();
   seenEventIds.clear();
   setSessionState(SESSION.SIGNING_OUT);
-  clearProtectedView("正在清理本地任务视图…");
+  clearProtectedView("正在清理本地受保护视图…");
   try {
     const response = await fetch("/api/v1/auth/logout", {
       method: "POST",
@@ -369,7 +426,7 @@ async function logout() {
       return;
     }
     setSessionState(SESSION.ANONYMOUS);
-    clearProtectedView("已退出登录。任务内容和事件状态已清除。");
+    clearProtectedView("已退出登录。受保护内容和事件状态已清除。");
   } catch (error) {
     if (!isCurrentAuthOperation(operation) || error.name === "AbortError") {
       return;
@@ -414,7 +471,7 @@ async function refreshIfVisible(event, operation) {
   ticker.textContent =
     "最近事件：" + envelope.event_type + " · " + envelope.task_id;
   const route = currentRoute();
-  if (route.startsWith("/tasks/")) {
+  if (route.startsWith("/tasks/") || route.startsWith("/governance")) {
     await loadRoute(route, operation);
   }
 }
@@ -507,6 +564,28 @@ async function submitForm(form) {
 
 document.addEventListener("submit", function (event) {
   const form = event.target;
+  if (form.id === "governance-filter") {
+    event.preventDefault();
+    const data = new FormData(form);
+    const query = new URLSearchParams();
+    const tab = String(data.get("tab") || "versions");
+    query.set("tab", tab);
+    query.set("limit", "20");
+    for (const name of ["task_id", "correlation_id"]) {
+      const value = String(data.get(name) || "").trim();
+      if (value) {
+        query.set(name, value);
+      }
+    }
+    for (const name of ["occurred_after", "occurred_before"]) {
+      const value = String(data.get(name) || "").trim();
+      if (value) {
+        query.set(name, value + ":00Z");
+      }
+    }
+    location.hash = "/governance?" + query.toString();
+    return;
+  }
   if (form.id === "completion-form" || form.classList.contains("retry-form")) {
     event.preventDefault();
     submitForm(form);

@@ -14,10 +14,23 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from typing import Any
 
+from .governance import (
+    AuditEventView,
+    GovernanceCorrelationView,
+    PolicyDecisionView,
+    PolicyVersionView,
+    SecurityEventView,
+    parse_audit_event_page,
+    parse_correlation,
+    parse_policy_decision_page,
+    parse_policy_version_page,
+    parse_security_event_page,
+)
 from .models import (
     ShellAuthenticationError,
     ShellAuthorizationError,
@@ -127,6 +140,124 @@ class ApiClient:
             return _require_json_object(payload, "command acceptance response")
         raise _map_error(status, payload)
 
+    def get_policy_versions(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+        cookie_header: str | None,
+    ) -> tuple[tuple[PolicyVersionView, ...], str | None]:
+        payload = self._get_governance(
+            "/v1/governance/policy-versions",
+            {"limit": limit, "cursor": cursor},
+            cookie_header=cookie_header,
+        )
+        return parse_policy_version_page(payload)
+
+    def get_policy_decisions(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+        task_id: str | None,
+        cookie_header: str | None,
+    ) -> tuple[tuple[PolicyDecisionView, ...], str | None]:
+        payload = self._get_governance(
+            "/v1/governance/policy-decisions",
+            {"limit": limit, "cursor": cursor, "task_id": task_id},
+            cookie_header=cookie_header,
+        )
+        return parse_policy_decision_page(payload)
+
+    def get_audit_events(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+        task_id: str | None,
+        correlation_id: str | None,
+        occurred_after: str | None,
+        occurred_before: str | None,
+        cookie_header: str | None,
+    ) -> tuple[tuple[AuditEventView, ...], str | None]:
+        payload = self._get_governance(
+            "/v1/governance/audit-events",
+            {
+                "limit": limit,
+                "cursor": cursor,
+                "task_id": task_id,
+                "correlation_id": correlation_id,
+                "occurred_after": occurred_after,
+                "occurred_before": occurred_before,
+            },
+            cookie_header=cookie_header,
+        )
+        return parse_audit_event_page(payload)
+
+    def get_security_events(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+        task_id: str | None,
+        correlation_id: str | None,
+        occurred_after: str | None,
+        occurred_before: str | None,
+        cookie_header: str | None,
+    ) -> tuple[tuple[SecurityEventView, ...], str | None]:
+        payload = self._get_governance(
+            "/v1/governance/security-events",
+            {
+                "limit": limit,
+                "cursor": cursor,
+                "task_id": task_id,
+                "correlation_id": correlation_id,
+                "occurred_after": occurred_after,
+                "occurred_before": occurred_before,
+            },
+            cookie_header=cookie_header,
+        )
+        return parse_security_event_page(payload)
+
+    def get_governance_correlation(
+        self,
+        correlation_id: str,
+        *,
+        cookie_header: str | None,
+    ) -> GovernanceCorrelationView:
+        quoted = urllib.parse.quote(correlation_id, safe="")
+        payload = self._get_governance(
+            f"/v1/governance/correlations/{quoted}",
+            {},
+            cookie_header=cookie_header,
+        )
+        result = parse_correlation(payload)
+        if result.correlation_id != correlation_id:
+            raise ShellContractError(
+                "governance correlation response differs from the requested id"
+            )
+        return result
+
+    def _get_governance(
+        self,
+        path: str,
+        query: dict[str, str | int | None],
+        *,
+        cookie_header: str | None,
+    ) -> dict[str, Any]:
+        encoded = urllib.parse.urlencode(
+            {name: value for name, value in query.items() if value is not None}
+        )
+        target = path + (f"?{encoded}" if encoded else "")
+        status, response_headers, body = self._transport(
+            "GET", target, _browser_session_headers(cookie_header), None
+        )
+        payload = _parse_json_body(status, body)
+        if status == 200:
+            _require_private_json_headers(response_headers)
+            return _require_json_object(payload, "governance projection")
+        raise _map_error(status, payload)
+
 
 def _parse_json_body(status: int, body: bytes) -> object:
     if not body:
@@ -166,6 +297,26 @@ def _browser_session_headers(cookie_header: str | None) -> dict[str, str]:
         raise ShellContractError("browser session cookie header is ambiguous")
     headers["Cookie"] = cookie_header
     return headers
+
+
+def _require_private_json_headers(headers: dict[str, str]) -> None:
+    normalized = {name.lower(): value for name, value in headers.items()}
+    if not normalized.get("content-type", "").lower().startswith("application/json"):
+        raise ShellContractError("governance response content type is invalid")
+    cache_directives = {
+        item.strip().lower()
+        for item in normalized.get("cache-control", "").split(",")
+        if item.strip()
+    }
+    if "no-store" not in cache_directives:
+        raise ShellContractError("governance response must be non-cacheable")
+    vary = {
+        item.strip().lower()
+        for item in normalized.get("vary", "").split(",")
+        if item.strip()
+    }
+    if "cookie" not in vary:
+        raise ShellContractError("governance response must vary by browser session")
 
 
 def _map_error(status: int, payload: object) -> ShellError:

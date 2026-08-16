@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import sys
@@ -47,12 +48,19 @@ from flowpilot_shell import (  # noqa: E402
     ShellAuthenticationError,
     ShellAuthorizationError,
     ShellContractError,
+    ShellNotFoundError,
     ShellUnavailableError,
     TaskView,
 )
 from flowpilot_shell.commands import (  # noqa: E402
     build_retry_command,
     build_submit_message_command,
+)
+from flowpilot_shell.governance import (  # noqa: E402
+    GovernanceCorrelationView,
+    GovernanceQuery,
+    GovernanceSnapshot,
+    parse_correlation_id,
 )
 from flowpilot_shell.models import (  # noqa: E402
     ApprovalView,
@@ -61,6 +69,9 @@ from flowpilot_shell.models import (  # noqa: E402
 )
 from flowpilot_shell.render import (  # noqa: E402
     render_error_panel,
+    render_governance_correlation,
+    render_governance_dashboard,
+    render_governance_demo_notice,
     render_task_detail,
     render_task_list,
 )
@@ -393,6 +404,65 @@ class LiveBackend:
     def store_for(self, cookie_header: str | None) -> ShellStore:
         key = self._session_key(cookie_header)
         return self._stores.setdefault(key, ShellStore())
+
+    def governance_snapshot(
+        self,
+        query: GovernanceQuery,
+        *,
+        cookie_header: str | None,
+    ) -> GovernanceSnapshot:
+        self._session_key(cookie_header)
+        policy_versions, policy_versions_cursor = self._api.get_policy_versions(
+            limit=query.limit,
+            cursor=query.cursor_for("versions"),
+            cookie_header=cookie_header,
+        )
+        policy_decisions, policy_decisions_cursor = self._api.get_policy_decisions(
+            limit=query.limit,
+            cursor=query.cursor_for("decisions"),
+            task_id=query.task_id,
+            cookie_header=cookie_header,
+        )
+        audit_events, audit_events_cursor = self._api.get_audit_events(
+            limit=query.limit,
+            cursor=query.cursor_for("audit"),
+            task_id=query.task_id,
+            correlation_id=query.correlation_id,
+            occurred_after=query.occurred_after,
+            occurred_before=query.occurred_before,
+            cookie_header=cookie_header,
+        )
+        security_events, security_events_cursor = self._api.get_security_events(
+            limit=query.limit,
+            cursor=query.cursor_for("security"),
+            task_id=query.task_id,
+            correlation_id=query.correlation_id,
+            occurred_after=query.occurred_after,
+            occurred_before=query.occurred_before,
+            cookie_header=cookie_header,
+        )
+        return GovernanceSnapshot(
+            policy_versions=policy_versions,
+            policy_versions_cursor=policy_versions_cursor,
+            policy_decisions=policy_decisions,
+            policy_decisions_cursor=policy_decisions_cursor,
+            audit_events=audit_events,
+            audit_events_cursor=audit_events_cursor,
+            security_events=security_events,
+            security_events_cursor=security_events_cursor,
+        )
+
+    def governance_correlation(
+        self,
+        correlation_id: str,
+        *,
+        cookie_header: str | None,
+    ) -> GovernanceCorrelationView:
+        self._session_key(cookie_header)
+        return self._api.get_governance_correlation(
+            correlation_id,
+            cookie_header=cookie_header,
+        )
 
     def accept_command(
         self,
@@ -751,6 +821,16 @@ def _safe_auth_error_body(status: int, code: str) -> bytes:
     ).encode("utf-8")
 
 
+def _safe_governance_error(title: str, message: str) -> str:
+    return (
+        '<section class="error-panel" role="alert">'
+        f"<h2>{html.escape(title, quote=True)}</h2>"
+        f"<p>{html.escape(message, quote=True)}</p>"
+        '<a class="btn" href="#/governance">返回治理控制台</a>'
+        "</section>"
+    )
+
+
 def _safe_refresh_body(body: bytes) -> bytes:
     try:
         payload: object = json.loads(body.decode("utf-8"))
@@ -859,7 +939,7 @@ class ShellHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path
-        query = urllib.parse.parse_qs(parsed.query)
+        query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
         backend = self.server.backend
         try:
             if path in {"/", "/index.html", "/studio"}:
@@ -903,6 +983,12 @@ class ShellHandler(BaseHTTPRequestHandler):
                 )
             elif path.startswith("/views/tasks/"):
                 self._handle_view_task(path.removeprefix("/views/tasks/"), query)
+            elif path == "/views/governance":
+                self._handle_view_governance(query)
+            elif path.startswith("/views/governance/correlations/"):
+                self._handle_view_governance_correlation(
+                    path.removeprefix("/views/governance/correlations/")
+                )
             elif path == "/api/v1/tasks/events":
                 self._handle_sse(query)
             elif path.startswith("/api/v1/tasks/"):
@@ -1054,6 +1140,144 @@ class ShellHandler(BaseHTTPRequestHandler):
             )
 
     # -- view handlers -------------------------------------------------
+
+    def _handle_view_governance(self, query: dict[str, list[str]]) -> None:
+        backend = self.server.backend
+        if isinstance(backend, DemoBackend):
+            self._send_text(
+                render_governance_demo_notice(),
+                "text/html; charset=utf-8",
+                no_store=True,
+            )
+            return
+        try:
+            validated = GovernanceQuery.from_http_query(query)
+        except ShellContractError:
+            self._send_text(
+                _safe_governance_error(
+                    "筛选条件无效",
+                    "筛选字段不受支持或格式无效，请清除筛选后重试。",
+                ),
+                "text/html; charset=utf-8",
+                status=422,
+                no_store=True,
+            )
+            return
+        try:
+            snapshot = backend.governance_snapshot(
+                validated,
+                cookie_header=self._browser_cookie(),
+            )
+        except (ShellAuthenticationError, ShellAuthorizationError):
+            raise
+        except ShellNotFoundError:
+            self._send_text(
+                _safe_governance_error(
+                    "治理记录不存在",
+                    "当前会话无法读取该治理记录。",
+                ),
+                "text/html; charset=utf-8",
+                status=404,
+                no_store=True,
+            )
+            return
+        except ShellUnavailableError:
+            self._send_text(
+                _safe_governance_error(
+                    "治理服务暂时不可用",
+                    "未展示任何缓存或替代数据，请稍后重试。",
+                ),
+                "text/html; charset=utf-8",
+                status=503,
+                no_store=True,
+            )
+            return
+        except ShellContractError:
+            self._send_text(
+                _safe_governance_error(
+                    "治理投影不可用",
+                    "服务返回的数据未通过安全投影校验。",
+                ),
+                "text/html; charset=utf-8",
+                status=502,
+                no_store=True,
+            )
+            return
+        self._send_text(
+            render_governance_dashboard(snapshot, validated),
+            "text/html; charset=utf-8",
+            no_store=True,
+        )
+
+    def _handle_view_governance_correlation(self, raw_id: str) -> None:
+        backend = self.server.backend
+        if isinstance(backend, DemoBackend):
+            self._send_text(
+                render_governance_demo_notice(),
+                "text/html; charset=utf-8",
+                no_store=True,
+            )
+            return
+        try:
+            correlation_id = parse_correlation_id(
+                urllib.parse.unquote(raw_id, errors="strict")
+            )
+        except (ShellContractError, UnicodeError):
+            self._send_text(
+                _safe_governance_error(
+                    "关联 ID 无效",
+                    "该关联链标识不受支持。",
+                ),
+                "text/html; charset=utf-8",
+                status=422,
+                no_store=True,
+            )
+            return
+        try:
+            chain = backend.governance_correlation(
+                correlation_id,
+                cookie_header=self._browser_cookie(),
+            )
+        except (ShellAuthenticationError, ShellAuthorizationError):
+            raise
+        except ShellNotFoundError:
+            self._send_text(
+                _safe_governance_error(
+                    "关联链不存在",
+                    "当前会话无法读取该关联链。",
+                ),
+                "text/html; charset=utf-8",
+                status=404,
+                no_store=True,
+            )
+            return
+        except ShellUnavailableError:
+            self._send_text(
+                _safe_governance_error(
+                    "治理服务暂时不可用",
+                    "未展示任何缓存或替代数据，请稍后重试。",
+                ),
+                "text/html; charset=utf-8",
+                status=503,
+                no_store=True,
+            )
+            return
+        except ShellContractError:
+            self._send_text(
+                _safe_governance_error(
+                    "关联链投影不可用",
+                    "服务返回的数据未通过安全投影校验。",
+                ),
+                "text/html; charset=utf-8",
+                status=502,
+                no_store=True,
+            )
+            return
+        self._send_text(
+            render_governance_correlation(chain),
+            "text/html; charset=utf-8",
+            no_store=True,
+        )
 
     def _handle_view_task(self, task_id: str, query: dict[str, list[str]]) -> None:
         backend = self.server.backend

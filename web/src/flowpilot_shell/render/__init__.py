@@ -11,6 +11,11 @@ from .approval import render_approval_card
 from .citations import render_result_artifact
 from .error import render_error_panel, render_task_error_panel
 from .form import render_completion_form
+from .governance import (
+    render_governance_correlation,
+    render_governance_dashboard,
+    render_governance_demo_notice,
+)
 from .progress import render_studio_progress
 from .task_detail import render_task_detail
 from .task_list import render_task_list
@@ -20,6 +25,9 @@ __all__ = [
     "render_approval_card",
     "render_completion_form",
     "render_error_panel",
+    "render_governance_correlation",
+    "render_governance_dashboard",
+    "render_governance_demo_notice",
     "render_result_artifact",
     "render_studio_progress",
     "render_task_detail",

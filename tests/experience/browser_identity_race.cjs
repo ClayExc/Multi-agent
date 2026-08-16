@@ -60,7 +60,7 @@ function makeElement(id = "") {
   };
 }
 
-function makeHarness(fetchImpl) {
+function makeHarness(fetchImpl, initialHash = "#/tasks") {
   const ids = [
     "view",
     "sse-status",
@@ -105,7 +105,7 @@ function makeHarness(fetchImpl) {
       getElementById: (id) => elements[id],
     },
     fetch: fetchImpl,
-    location: { hash: "#/tasks", origin: "http://shell.test" },
+    location: { hash: initialHash, origin: "http://shell.test" },
     setTimeout,
     window: {
       addEventListener: (name, callback) => {
@@ -202,9 +202,45 @@ async function staleRefreshCannotRestoreSessionAfterLogout() {
   assert.equal(harness.eventSources.length, 1);
 }
 
+async function staleGovernanceViewCannotReturnAfterLogout() {
+  const route = deferred();
+  let routeStarted = false;
+  const harness = makeHarness(async (url) => {
+    if (url === "/health") {
+      return response(200, { jsonValue: { mode: "live" } });
+    }
+    if (url === "/api/v1/auth/refresh") {
+      return response(200, {
+        jsonValue: { status: "active", expires_at: "2026-08-11T16:00:00Z" },
+      });
+    }
+    if (url === "/views/governance") {
+      routeStarted = true;
+      return route.promise;
+    }
+    if (url === "/api/v1/auth/logout") {
+      return response(204);
+    }
+    throw new Error("unexpected URL " + url);
+  }, "#/governance");
+  await eventually(() => routeStarted, "initial governance view request");
+  await harness.elements["logout-action"].listeners.click();
+  route.resolve(
+    response(200, {
+      textValue: '<section id="stale-governance-secret">stale governance</section>',
+      type: "text/html; charset=utf-8",
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(harness.elements.view.innerHTML, "");
+  assert.equal(harness.elements["session-status"].textContent, "尚未登录");
+}
+
 Promise.resolve()
   .then(staleViewCannotReturnAfterLogout)
   .then(staleRefreshCannotRestoreSessionAfterLogout)
+  .then(staleGovernanceViewCannotReturnAfterLogout)
   .then(() => process.stdout.write("browser identity race gate: PASS\n"))
   .catch((error) => {
     process.stderr.write(String(error.stack || error) + "\n");

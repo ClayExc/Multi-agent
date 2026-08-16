@@ -1,34 +1,62 @@
 {
   "schema": "flowpilot.wp119-acceptance-proof.v1",
   "work_package": "WP-119",
-  "attempt_id": "WP-119-a1",
+  "attempt_id": "WP-119-a1-final",
   "chain_id": "CHAIN-M10-KNOWLEDGE-01",
-  "step_id": "M10-09-S4-KNOWLEDGE-ACCEPTANCE",
+  "step_id": "M10-09C-S4-WP119-FINAL",
+  "base_commit": "df2283049d717e62cf16ff6361de5d04ac2e4203",
   "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "upstream_handoffs": [
+    {
+      "path": "tests/experience/evidence/WP-119-a1-UNIT-ORDER-HANDOFF.md",
+      "sha256": "sha256:f91bbbe32dcc449dbc9833b205c34145fe709797901175ce5a701365443a8b45"
+    },
+    {
+      "path": "tests/integration/evidence/WP-119-a1-WP109-ORACLE-HANDOFF.md",
+      "sha256": "sha256:78149cc49bb127fad668bc16912c5d3c0bca60e472928211d00d1d01ef2c56ef"
+    }
+  ],
   "fixed_denominator": {
     "declared_cases": 156,
     "completed": 40,
     "explicit_failed": 116,
     "skipped": 0,
     "quarantined": 0,
+    "denominator_policy": "all_declared_cases",
     "manifest_gate": "fail"
   },
   "executor_registry": {
     "match_policy": "unique_exact_case_digest",
     "executor_count": 4,
     "supported_case_count": 40,
-    "m10": {
-      "executor_id": "flowpilot.m10.knowledge-security",
-      "executor_version": "1.0.0",
-      "match_policy": "exact_case_digest",
-      "supported_case_count": 1,
-      "supported_cases": [
-        {
-          "case_id": "m6a.safe.pi.003",
-          "case_input_digest": "sha256:5147290294443ca3f9f445ab1f312c0cc97a87801dfe4daae22a48ad2d570934"
-        }
-      ]
-    }
+    "executors": [
+      {
+        "executor_id": "flowpilot.m7.enterprise-knowledge",
+        "executor_version": "1.0.0",
+        "supported_case_count": 24
+      },
+      {
+        "executor_id": "flowpilot.m8.identity-tenancy",
+        "executor_version": "1.0.0",
+        "supported_case_count": 6
+      },
+      {
+        "executor_id": "flowpilot.m9.governance-security",
+        "executor_version": "1.0.0",
+        "supported_case_count": 9
+      },
+      {
+        "executor_id": "flowpilot.m10.knowledge-security",
+        "executor_version": "1.0.0",
+        "supported_case_count": 1,
+        "supported_cases": [
+          {
+            "case_id": "m6a.safe.pi.003",
+            "case_input_digest": "sha256:5147290294443ca3f9f445ab1f312c0cc97a87801dfe4daae22a48ad2d570934"
+          }
+        ]
+      }
+    ]
   },
   "m10_observation": {
     "product_boundary": "HybridRetrievalEngine->KnowledgeMCP->McpGateway->Audit",
@@ -46,34 +74,33 @@
     "judge_scores_used": 0
   },
   "official_runner": {
-    "output": "artifacts/acceptance/wp-119-a1",
-    "manifest_sha256": "sha256:fa624e24e10c5870a5be8dc1c15670864a1788a9f33f824c1b3b7a8e79cea4d4",
-    "aggregate_sha256": "sha256:aa4f7ae96523f01ecf6ec2980f4da5799203d514774d0f1c7ab83aff552f176e",
+    "command": "python scripts/acceptance/run_acceptance.py --output artifacts/acceptance/wp-119-a1-final --run-id WP-119-a1-final",
+    "output": "artifacts/acceptance/wp-119-a1-final",
+    "bundle_dirty_worktree": false,
+    "manifest_sha256": "sha256:ba1f6a72118303d8feea4e2f15867b9ff158c35868cfed3b1d9a183e9521a229",
+    "aggregate_sha256": "sha256:4f09be94e77736e4faef3db284242e26e96602ef603b9c57cb4d0dab11f272ef",
     "executor_registry_sha256": "sha256:240b8a85f39743300cdde78b59c0254f1ef49da03de0981fe8eb9caca1ade249",
     "verdicts_sha256": "sha256:87491d2af85d8044b4c2fd6cf2268860cfecf2fa68199e5f35a2f8e6ac26506c",
     "m10_case_evidence_sha256": "sha256:ea2a11b8d9f332bf98858ce60566d6078c1336a9dce9e9eea7e82e80c47a7af1",
-    "test_results_summary_sha256": "sha256:6387f02e01474375f10419ddcfa7d69eafc1a88b844f1f2d67d722bbf3046385",
+    "test_results_summary_sha256": "sha256:0bb7966cc8ea6d667db17e39f197fe2b5adf20faaae217e327e8c0231f148bfe",
+    "artifact_hash_count": 55,
     "suite_gates": {
-      "unit": "fail",
+      "unit": "pass",
       "contract": "pass",
-      "integration": "fail",
+      "integration": "pass",
       "e2e": "pass",
       "recovery": "pass",
       "security": "pass"
     }
   },
-  "blockers": [
-    {
-      "id": "S4-WP119-A1-001",
-      "owner": "S4-QUALITY",
-      "summary": "official unit ordering returns 503 instead of the expected sanitized 409 in one identity shell test"
-    },
-    {
-      "id": "S7-WP119-A1-001",
-      "owner": "S7-INTEGRATION",
-      "summary": "WP-109 composition test still pins the pre-M10 three-executor registry"
-    }
-  ],
+  "reused_evidence": {
+    "m10_targeted": "91 passed",
+    "ruff": "pass",
+    "mypy": "pass",
+    "secret_scan": "pass",
+    "contract_conformance": "pass"
+  },
+  "blockers": [],
   "release_claimed": false,
   "frozen_claimed": false
 }

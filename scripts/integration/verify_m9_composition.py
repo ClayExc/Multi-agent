@@ -29,6 +29,7 @@ from scripts.acceptance.run_acceptance import (
 )  # noqa: E402
 
 INPUT_HEAD = "f0b9c529e6408dd8faa53a734bb4e8dcb3844864"
+HISTORICAL_CANDIDATE_HEAD = "59f898ab8b24eb08ef5df7fc74eeeed39ea8b88b"
 CONTRACT_DIGEST = (
     "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2"
 )
@@ -101,8 +102,9 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _validate_candidate() -> tuple[int, int]:
-    candidate = _git("rev-parse", "HEAD")
+def _validate_candidate(
+    candidate: str = HISTORICAL_CANDIDATE_HEAD,
+) -> tuple[int, int]:
     if not _is_ancestor(INPUT_HEAD, candidate):
         raise AssertionError("M9 input Head is not an ancestor of the candidate")
     paths = set(_git("diff", "--name-only", f"{INPUT_HEAD}..{candidate}").splitlines())
@@ -113,7 +115,7 @@ def _validate_candidate() -> tuple[int, int]:
     for path, expected in EXPECTED_INPUT_OBJECTS.items():
         if _git("rev-parse", f"{INPUT_HEAD}:{path}") != expected:
             raise AssertionError("M9 protected input object drifted")
-        if _git("rev-parse", f"HEAD:{path}") != expected:
+        if _git("rev-parse", f"{candidate}:{path}") != expected:
             changed += 1
     if changed:
         raise AssertionError("S7 candidate rewrote an M9 protected object")

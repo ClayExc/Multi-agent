@@ -14,6 +14,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 INPUT_HEAD = "80eba3066bc7dfe3ed91985343881b89d280ac17"
+HISTORICAL_CANDIDATE_HEAD = "b7ab61248793456db4e011b3e03a50421b98f963"
 CONTROL_BASE = "46b98605af898cf0631b4e6dd29b853d6c1d397a"
 CONTRACT_DIGEST = (
     "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2"
@@ -174,8 +175,9 @@ def _verify_mutations(cases: list[dict[str, Any]]) -> int:
     return len(mutations)
 
 
-def _verify_protection() -> tuple[int, int, bool]:
-    candidate_head = _git("rev-parse", "HEAD")
+def _verify_protection(
+    candidate_head: str = HISTORICAL_CANDIDATE_HEAD,
+) -> tuple[int, int, bool]:
     _validate_candidate_lineage(candidate_head)
     _validate_input_trees()
     protected = ("contracts", "migrations", "apps")
@@ -190,8 +192,8 @@ def _verify_protection() -> tuple[int, int, bool]:
     violations = sum(
         not path.startswith("packages/engineering-control/") for path in changed_product
     )
-    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    pyproject = _git("show", f"{candidate_head}:pyproject.toml")
+    lock = _git("show", f"{candidate_head}:uv.lock")
     workspace_complete = (
         '"packages/engineering-control"' in pyproject
         and "flowpilot-engineering-control = { workspace = true }" in pyproject

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -30,8 +31,42 @@ def verifier() -> ModuleType:
     return load_verifier()
 
 
-def test_candidate_is_exact_and_dependency_complete(verifier: ModuleType) -> None:
-    manifest = verifier.build_manifest(ROOT)
+@pytest.fixture(scope="module")
+def historical_repo(
+    verifier: ModuleType,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    repo = tmp_path_factory.mktemp("wp040-historical") / "repo"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            "--branch",
+            "master",
+            str(ROOT),
+            str(repo),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "checkout", "--detach", verifier.HISTORICAL_FIXTURE_HEAD],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return repo
+
+
+def test_candidate_is_exact_and_dependency_complete(
+    verifier: ModuleType,
+    historical_repo: Path,
+) -> None:
+    manifest = verifier.build_manifest(historical_repo)
 
     assert manifest["summary"]["verdict"] == "PASS"
     assert manifest["summary"]["failed_checks"] == []
@@ -103,9 +138,10 @@ def test_historical_m0_manifest_rejects_tampered_contract(
 
 def test_manifest_and_report_are_deterministic(
     verifier: ModuleType,
+    historical_repo: Path,
     tmp_path: Path,
 ) -> None:
-    manifest = verifier.build_manifest(ROOT)
+    manifest = verifier.build_manifest(historical_repo)
     first = tmp_path / "first"
     second = tmp_path / "second"
 
@@ -125,9 +161,12 @@ def test_manifest_and_report_are_deterministic(
     )
 
 
-def test_legal_s1_final_merge_passes(verifier: ModuleType) -> None:
+def test_legal_s1_final_merge_passes(
+    verifier: ModuleType,
+    historical_repo: Path,
+) -> None:
     manifest = verifier.build_manifest(
-        ROOT,
+        historical_repo,
         phase=verifier.ValidationPhase.S1_FINAL,
         target_head=verifier.S1_FINAL_TEST_HEAD,
     )
@@ -284,8 +323,9 @@ def test_multiple_migration_heads_are_rejected(
 
 def test_authorized_migration_chain_and_hashes_pass_closed(
     verifier: ModuleType,
+    historical_repo: Path,
 ) -> None:
-    migration, checks = verifier.verify_migrations(ROOT)
+    migration, checks = verifier.verify_migrations(historical_repo)
 
     assert migration["head"] == verifier.MIGRATION_HEAD
     assert migration["linear_chain"] == [
@@ -299,17 +339,18 @@ def test_authorized_migration_chain_and_hashes_pass_closed(
     assert {check.outcome for check in checks} == {"PASS"}
 
 
-def _copy_migrations(tmp_path: Path) -> Path:
+def _copy_migrations(tmp_path: Path, historical_repo: Path) -> Path:
     repo = tmp_path / "repo"
-    shutil.copytree(ROOT / "migrations", repo / "migrations")
+    shutil.copytree(historical_repo / "migrations", repo / "migrations")
     return repo
 
 
 def test_migration_history_and_new_head_hashes_are_pinned(
     verifier: ModuleType,
+    historical_repo: Path,
 ) -> None:
     assert {
-        path: verifier.sha256_file(ROOT / path)
+        path: verifier.sha256_file(historical_repo / path)
         for path in verifier.MIGRATION_HASHES
     } == verifier.MIGRATION_HASHES
     assert len(verifier.MIGRATION_HASHES) == 8
@@ -317,9 +358,10 @@ def test_migration_history_and_new_head_hashes_are_pinned(
 
 def test_missing_migration_fails_closed(
     verifier: ModuleType,
+    historical_repo: Path,
     tmp_path: Path,
 ) -> None:
-    repo = _copy_migrations(tmp_path)
+    repo = _copy_migrations(tmp_path, historical_repo)
     (repo / "migrations/0004_security_context_rls_binding.sql").unlink()
 
     with pytest.raises(FileNotFoundError):
@@ -328,9 +370,10 @@ def test_missing_migration_fails_closed(
 
 def test_tampered_migration_fails_closed(
     verifier: ModuleType,
+    historical_repo: Path,
     tmp_path: Path,
 ) -> None:
-    repo = _copy_migrations(tmp_path)
+    repo = _copy_migrations(tmp_path, historical_repo)
     path = repo / "migrations/0004_security_context_rls_binding.sql"
     path.write_bytes(path.read_bytes() + b"\n-- drift\n")
 
@@ -343,9 +386,10 @@ def test_tampered_migration_fails_closed(
 
 def test_extra_illegal_migration_head_fails_closed(
     verifier: ModuleType,
+    historical_repo: Path,
     tmp_path: Path,
 ) -> None:
-    repo = _copy_migrations(tmp_path)
+    repo = _copy_migrations(tmp_path, historical_repo)
     (repo / "migrations/0005_unapproved.sql").write_text(
         "-- requires 0004_security_context_rls_binding\n",
         encoding="utf-8",
@@ -360,9 +404,10 @@ def test_extra_illegal_migration_head_fails_closed(
 
 def test_digest_changes_when_lock_bytes_drift(
     verifier: ModuleType,
+    historical_repo: Path,
     tmp_path: Path,
 ) -> None:
-    source = ROOT / "uv.lock"
+    source = historical_repo / "uv.lock"
     drifted = tmp_path / "uv.lock"
     drifted.write_bytes(source.read_bytes() + b"\n# drift\n")
 

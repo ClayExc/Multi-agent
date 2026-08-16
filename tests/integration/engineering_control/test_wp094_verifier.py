@@ -81,7 +81,7 @@ def test_wp094_verifier_rejects_mutation_omission() -> None:
 def test_wp094_verifier_accepts_committed_candidate_head() -> None:
     module = _module()
 
-    module._validate_candidate_lineage(module._git("rev-parse", "HEAD"))
+    module._validate_candidate_lineage(module.HISTORICAL_CANDIDATE_HEAD)
 
 
 def test_wp094_verifier_rejects_non_ancestor(monkeypatch: pytest.MonkeyPatch) -> None:

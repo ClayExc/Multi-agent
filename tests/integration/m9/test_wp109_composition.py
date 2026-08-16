@@ -41,6 +41,12 @@ def test_wp109_recomputes_unique_official_registry() -> None:
     assert result.candidate_scope_violations == result.protected_object_changes == 0
 
 
+def test_wp109_accepts_recorded_historical_candidate() -> None:
+    module = _module()
+
+    assert module._validate_candidate(module.HISTORICAL_CANDIDATE_HEAD) == (0, 0)
+
+
 def test_wp109_rejects_non_ancestor_candidate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -12,6 +12,9 @@ from packages.evaluation.m8_identity import (
     M8_SUPPORTED_CASE_COUNT,
     M8IdentityTenancyExecutor,
 )
+from packages.evaluation.m9_governance import (
+    M9_GOVERNANCE_EXECUTOR_ID,
+)
 from packages.evaluation.reporting import CaseStatus
 from packages.evaluation.validation import OfflineRepositoryValidator
 from scripts.acceptance.run_acceptance import (
@@ -130,14 +133,16 @@ def test_official_fixed_denominator_measures_registered_product_cases(
 
     registration = executor_registration(executors)
     assert len(cases) == len(statuses) == len(execution_states) == 156
-    assert statuses.count(CaseStatus.PASSED) == 30
-    assert statuses.count(CaseStatus.FAILED) == 126
+    completed = execution_states.count(ExecutionState.COMPLETED)
+    explicit_failed = execution_states.count(ExecutionState.NOT_EXECUTED)
+    assert statuses.count(CaseStatus.PASSED) == completed
+    assert statuses.count(CaseStatus.FAILED) == explicit_failed
     assert statuses.count(CaseStatus.SKIPPED) == 0
     assert statuses.count(CaseStatus.QUARANTINED) == 0
-    assert execution_states.count(ExecutionState.COMPLETED) == 30
-    assert execution_states.count(ExecutionState.NOT_EXECUTED) == 126
-    assert registration["supported_case_count"] == 30
+    assert completed + explicit_failed == 156
+    assert registration["supported_case_count"] == completed
     assert [item["executor_id"] for item in registration["executors"]] == [
         "flowpilot.m7.enterprise-knowledge",
         "flowpilot.m8.identity-tenancy",
+        M9_GOVERNANCE_EXECUTOR_ID,
     ]

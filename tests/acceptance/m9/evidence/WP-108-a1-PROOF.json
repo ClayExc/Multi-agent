@@ -1,0 +1,97 @@
+{
+  "schema": "flowpilot.wp108-acceptance-proof.v1",
+  "work_package": "WP-108",
+  "attempt_id": "WP-108-a1",
+  "chain_id": "CHAIN-M9-GOVERNANCE-01",
+  "step_id": "M9-08-S4-SECURITY-ACCEPTANCE",
+  "contract_content_digest": "sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2",
+  "fixed_denominator": {
+    "declared_cases": 156,
+    "completed": 39,
+    "explicit_failed": 117,
+    "skipped": 0,
+    "quarantined": 0,
+    "gate": "fail"
+  },
+  "executor_registry": {
+    "match_policy": "unique_exact_case_digest",
+    "executors": [
+      {
+        "executor_id": "flowpilot.m7.enterprise-knowledge",
+        "executor_version": "1.0.0",
+        "supported_case_count": 24,
+        "regression": "pass"
+      },
+      {
+        "executor_id": "flowpilot.m8.identity-tenancy",
+        "executor_version": "1.0.0",
+        "supported_case_count": 6,
+        "regression": "pass"
+      },
+      {
+        "executor_id": "flowpilot.m9.governance-security",
+        "executor_version": "1.0.0",
+        "supported_case_count": 9,
+        "match_policy": "exact_case_digest",
+        "product_boundary": "McpGateway->Policy/Approval/Capability/DLP->Ledger/Audit",
+        "supported_cases": [
+          {
+            "case_id": "m6a.safe.art.001",
+            "case_input_digest": "sha256:60f87f256caa14999116631023e55431b6a6b08b8450c6fcd63e79b78d71949c"
+          },
+          {
+            "case_id": "m6a.safe.art.002",
+            "case_input_digest": "sha256:17b0f097ba49912e97e549fdd3f400b35de2e7fffc88444f5d726f87cbb47bf6"
+          },
+          {
+            "case_id": "m6a.safe.art.003",
+            "case_input_digest": "sha256:464b5a699bae10a1a1a741d911db98ea0628ab4faeec0674daaed6d4fb4691a9"
+          },
+          {
+            "case_id": "m6a.safe.pi.005",
+            "case_input_digest": "sha256:49360fbd0f47b97bcdd428584c5bea52774c669089e44294c5369b39119cecd0"
+          },
+          {
+            "case_id": "m6b.safe.art.004",
+            "case_input_digest": "sha256:24b47320e1d7bb5d19597530b1cd1182be766bf32b96027a1e1c4b40ca20a47e"
+          },
+          {
+            "case_id": "m6b.safe.art.005",
+            "case_input_digest": "sha256:d2267735cb92697288d9777832068b9013fe13d847dbb17154206221680dcfa3"
+          },
+          {
+            "case_id": "m6b.safe.art.006",
+            "case_input_digest": "sha256:37e19e4bfde4721529f6d15dfafb8b0fb0b2625ec608c1d02255ea2a05b40dea"
+          },
+          {
+            "case_id": "m6b.safe.dlp.002",
+            "case_input_digest": "sha256:bfb1a9780f53a87d0fcccfdba2783fce5b44083b39d687febe5d7a566ac2d2b0"
+          },
+          {
+            "case_id": "m6b.safe.dlp.003",
+            "case_input_digest": "sha256:cdfb0c41d5b7ca1ff52ce5e7928511456b240a63525cd54ede788d2b93aca6a0"
+          }
+        ]
+      }
+    ]
+  },
+  "security_observation": {
+    "cross_tenant_success_count": 0,
+    "dangerous_output_count": 0,
+    "judge_scores_used": 0,
+    "rejection_before_upstream_cases": 6,
+    "duplicate_delivery_count": 5,
+    "duplicate_logical_write_count": 1,
+    "unknown_recovery_logical_write_count": 1,
+    "audit_security_pair_checked": true,
+    "capability_replay_checked": true
+  },
+  "reused_not_run": {
+    "keycloak_postgresql_rls": "WP-087 evidence reused; not run",
+    "opa_postgresql_migration_secret_preflight": "WP-106 evidence reused; not run",
+    "compose": "not run",
+    "online_provider": "not run",
+    "full_repository": "not run"
+  },
+  "release_claimed": false
+}

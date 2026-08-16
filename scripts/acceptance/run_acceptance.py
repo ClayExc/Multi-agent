@@ -56,6 +56,10 @@ from packages.evaluation.m8_identity import (  # noqa: E402
     M8_SUPPORTED_CASE_COUNT,
     M8IdentityTenancyExecutor,
 )
+from packages.evaluation.m9_governance import (  # noqa: E402
+    M9_SUPPORTED_CASE_COUNT,
+    M9GovernanceSecurityExecutor,
+)
 from packages.evaluation.reporting import (  # noqa: E402
     AssertionOutcome,
     CaseResult,
@@ -109,6 +113,7 @@ def build_product_executors(
     registered = (
         M7EnterpriseKnowledgeExecutor(ROOT),
         M8IdentityTenancyExecutor(ROOT),
+        M9GovernanceSecurityExecutor(ROOT),
     )
     return CaseExecutorRegistry(registered), registered
 
@@ -410,10 +415,15 @@ def main() -> int:
     print("== 2/4 候选确定性判定（156 逐候选） ==")
     validator = OfflineRepositoryValidator(ROOT)
     executors, registered_executors = build_product_executors()
-    supported_case_count = M7_SUPPORTED_CASE_COUNT + M8_SUPPORTED_CASE_COUNT
+    supported_case_count = (
+        M7_SUPPORTED_CASE_COUNT
+        + M8_SUPPORTED_CASE_COUNT
+        + M9_SUPPORTED_CASE_COUNT
+    )
     print(
         f"  已注册 M7 企业知识产品执行器: {M7_SUPPORTED_CASE_COUNT} 条，"
-        f"M8 身份租户执行器: {M8_SUPPORTED_CASE_COUNT} 条；"
+        f"M8 身份租户执行器: {M8_SUPPORTED_CASE_COUNT} 条，"
+        f"M9 治理安全执行器: {M9_SUPPORTED_CASE_COUNT} 条；"
         f"其余 {len(cases) - supported_case_count} 条未实现 Case 保持显式失败"
     )
     execution_evidence_root = output / "execution"

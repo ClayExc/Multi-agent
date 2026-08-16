@@ -2,14 +2,14 @@
 
 ## 当前阶段
 
-- 里程碑：M10 本地知识平台
-- 阶段状态：`M10_COMPLETE_ACCEPTED_CANDIDATE`
+- 里程碑：M11 短期记忆
+- 阶段状态：`M11_ACTIVE`
 - 架构责任：`S1-ARCH`
 - 已接受基线：M0～M10 工程候选、P2 持久化恢复与 M9T 工程控制面
-- 当前链：无
-- 当前工作包：无；M11 等待用户门禁
-- 批准来源：用户已批准启动 M10 本地知识平台链
-- 发布状态：未发布、未 frozen；M11～M20 未激活
+- 当前链：`CHAIN-M11-SHORT-TERM-MEMORY-01`
+- 当前工作包：WP-122 / S3-PLATFORM
+- 批准来源：用户已批准启动 M11 短期记忆链
+- 发布状态：未发布、未 frozen；M12～M20 未激活
 
 ## 工作包状态
 
@@ -64,6 +64,15 @@
 | [WP-118](./WP-118-m10-knowledge-web.md) | S4-QUALITY | ACCEPTED_M10 | WP-117 | 知识管理与检索诊断 Web |
 | [WP-119](./WP-119-m10-knowledge-acceptance.md) | S4-QUALITY | ACCEPTED_M10 | WP-118 | M10 固定分母执行器与黑盒验收 |
 | [WP-120](./WP-120-m10-integration-verification.md) | S7-INTEGRATION | ACCEPTED_M10 | WP-119 | M10 本地组合、保护树与最终复算 |
+| [WP-121](./WP-121-m11-short-term-memory-gate.md) | S1-ARCH | DONE | WP-120 | M11 状态权威、架构、注册与退出门禁 |
+| [WP-122](./WP-122-m11-memory-security-surface.md) | S3-PLATFORM | ACTIVE | WP-121 | Working Memory 集中内容安全表面 |
+| [WP-123](./WP-123-m11-context-memory-core.md) | S2-RUNTIME | BLOCKED | WP-122 | Turn/Snapshot/Manifest、摘要与预算核心 |
+| [WP-124](./WP-124-m11-memory-persistence.md) | S6-DATA | BLOCKED | WP-123 | PostgreSQL、RLS、CAS、TTL 与清理 |
+| [WP-125](./WP-125-m11-memory-runtime.md) | S2-RUNTIME | BLOCKED | WP-124 | Runtime、Checkpoint、Handoff 与恢复集成 |
+| [WP-126](./WP-126-m11-memory-api-composition.md) | S5-CORE | BLOCKED | WP-125 | API、清理、组合与 Workspace 闭包 |
+| [WP-127](./WP-127-m11-memory-web.md) | S4-QUALITY | BLOCKED | WP-126 | 上下文与短期记忆 Web |
+| [WP-128](./WP-128-m11-memory-acceptance.md) | S4-QUALITY | BLOCKED | WP-127 | 50 轮、消融与固定分母验收 |
+| [WP-129](./WP-129-m11-integration-verification.md) | S7-INTEGRATION | BLOCKED | WP-128 | M11 本地组合与最终复算 |
 | [WP-040](./WP-040-integration-verification.md) | S7-INTEGRATION | ACCEPTED_P2 | WP-010-a4 | RELEASE 恢复组合复现与 S1 final 输入 Attempt `a7` |
 | [WP-P2](./WP-P2-durable-runtime.md) | 注册链 | DONE | Flow Lite `g1` 已批准 | PostgreSQL Checkpoint、Worker 重启与 Redis 丢失恢复垂直包 |
 | [WP-070](./WP-070-m7-provider-runtime-adapters.md) | S2-RUNTIME | MERGED_M7_CANDIDATE | WP-036 | LiteLLM/DeepSeek 与 OpenAI/Claude Agents SDK Adapter |
@@ -75,7 +84,7 @@
 
 rc1 已被 S2、S3、S4 一致拒绝并完成 S1 裁决；当前评审目标是 `flowpilot-m0-contracts-v1-rc2`。旧结论不得作为 rc2 的接受证据。
 
-## M7～M10 状态
+## M7～M11 状态
 
 M7 已按严格 `ORDERED` 和最小 Agent 注册集合完成：
 
@@ -89,8 +98,8 @@ WP-070 Provider/SDK Adapter
 
 WP-070～WP-073、WP-080～WP-088、WP-100～WP-109 及对应 S7/S1 final 均已完成。
 固定 156 条结果为 40 通过、116 明确失败、0 跳过、0 隔离，因此发布 Gate 继续失败。
-M9T、M9 与 M10 已完成。当前没有写租约；M11 等待用户批准后再建立新的注册表、
-工作包和精确基线。
+M9T、M9 与 M10 已完成。M11 已由用户批准，按 WP-122→WP-129 严格线性执行；
+当前只有 S3/WP-122 获得写租约。
 
 历史 M0/M1/M2 链和证据仍保留在各授权记录与 Handoff 中，不再作为当前
 启动说明。Registry、完整 Dataset、Fixture 和 Traceability 完成后才能进行

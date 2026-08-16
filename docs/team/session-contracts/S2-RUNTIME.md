@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S2-RUNTIME
-WORK_PACKAGE=WP-117
-FEATURE_IDS=FP-FLOW-003,FP-CTX-001,FP-MCP-001
+WORK_PACKAGE=WP-123,WP-125
+FEATURE_IDS=FP-FLOW-003,FP-CTX-001,FP-CTX-002,FP-CTX-003,FP-CTX-004
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：DEPENDENCY_WAIT / WP-117
-- 当前工作：等待 WP-116 精确线性 Head，不提前读取或实现 M10 Runtime。
+- 契约状态：DEPENDENCY_WAIT / WP-123
+- 当前工作：等待 WP-122 精确线性 Head；WP-125 在 WP-124 后再次激活。
 
 ## 使命
 

@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S4-QUALITY
-WORK_PACKAGE=WP-114,WP-118,WP-119
-FEATURE_IDS=FP-UI-001,FP-SEC-003,FP-EVAL-001,FP-EVAL-002
+WORK_PACKAGE=WP-127,WP-128
+FEATURE_IDS=FP-CTX-004,FP-CTX-005,FP-UI-001,FP-SEC-003,FP-EVAL-001,FP-EVAL-002
 WRITE_SCOPE=web/**,packages/retrieval/**,packages/observability/**,packages/evaluation/**,evals/**,tests/acceptance/**,tests/experience/**,artifacts/acceptance/**,WP-030授权共享文件
 ```
 
-- 契约状态：DEPENDENCY_WAIT / WP-114
-- 当前工作：等待 WP-113 精确线性 Head；后续 WP-118/119 使用同一角色热继续。
+- 契约状态：DEPENDENCY_WAIT / WP-127
+- 当前工作：等待 WP-126 精确线性 Head；随后 WP-128 热继续。
 
 ## 使命
 

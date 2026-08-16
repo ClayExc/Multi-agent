@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S3-PLATFORM
-WORK_PACKAGE=WP-115
-FEATURE_IDS=FP-MCP-001,FP-MCP-002,FP-SEC-003,FP-SEC-005,FP-SEC-006
+WORK_PACKAGE=WP-122
+FEATURE_IDS=FP-CTX-002,FP-CTX-003,FP-SEC-003,FP-SEC-005
 WRITE_SCOPE=apps/mcp-gateway/**,packages/tool-contracts/**,packages/policy/**,packages/security/**,mcp-servers/**,tests/platform/**,WP-020授权共享文件
 ```
 
-- 契约状态：DEPENDENCY_WAIT / WP-115
-- 当前工作：等待 WP-114 精确线性 Head，不提前迁移 Knowledge MCP。
+- 契约状态：ACTIVE / WP-122
+- 当前工作：实现 Working Memory 集中内容安全表面，不提前实现 Context 或持久化。
 
 ## 使命
 

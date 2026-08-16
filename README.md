@@ -17,7 +17,7 @@ M20 再加入截图、日志和附件的安全多模态处理。项目不做采�
 
 ## 当前状态
 
-`master` 已包含 M0～M10 工程候选和 M9T 工程控制面，M11 尚未启动，
+`master` 已包含 M0～M10 工程候选和 M9T 工程控制面，M11 短期记忆已进入开发链，
 但还不是可以部署给真实用户的完整产品。目前可以直接体验：
 
 - 在 LangGraph Studio 查看图结构、并行分支、两次 Interrupt、恢复、Handoff 和重试。
@@ -40,6 +40,10 @@ M10 已把合成知识读取升级为 PostgreSQL/pgvector 本地知识平台：�
 生命周期、混合检索、稳定引用、无证据回答、Knowledge MCP、Runtime、管理 API 和
 Web 诊断入口已完成本地组合验证。固定 156 条 Case 当前为 40 条完成、116 条因没有
 对应产品执行器而明确失败；项目仍不是发布版本。
+
+M11 正在实现任务内短期记忆：最近轮次、claimed/verified/inferred 分层摘要、未决字段、
+硬 Token 预算、Handoff 重建、Checkpoint 恢复、TTL/用户清理和安全可观察投影。短期记忆
+是可重建派生状态，不保存权限、审批、凭据或跨任务偏好，也不提前实现 M12 长期记忆。
 
 ## M0～M10 做了什么
 
@@ -116,6 +120,7 @@ flowchart LR
 | [架构总览](./docs/architecture/ARCHITECTURE.md) | 容器边界、状态所有权、事务、恢复、安全与可观测设计 |
 | [企业级 Agent 学习与演进手册](./docs/architecture/ENGINEERING_PLAYBOOK.md) | 记录检索、恢复、循环、Context、副作用、安全与评测难题及其结构化解法 |
 | [Agent Runtime Port](./docs/architecture/AGENT_RUNTIME.md) | OpenAI/Claude Adapter 的统一请求、结果、错误和 Conformance 边界 |
+| [短期记忆架构](./docs/architecture/SHORT_TERM_MEMORY.md) | M11 任务内 Turn、Snapshot、Manifest、预算、恢复、清理和状态权威 |
 | [LangGraph Studio 非黑箱设计](./docs/architecture/LANGGRAPH_STUDIO.md) | 图拓扑、Interrupt、Handoff、Checkpoint 和安全状态投影的本地可视化边界 |
 | [Context Engineering](./docs/architecture/CONTEXT_ENGINEERING.md) | 分层上下文、记忆、裁剪、Handoff 过滤与 Token 评测 |
 | [版本化契约](./contracts/README.md) | Task/Command/Event、动作、审批、策略、工具、Context、审计和评测 JSON Schema |
@@ -132,7 +137,7 @@ flowchart LR
 | [集成门禁分级](./docs/team/INTEGRATION_GATES.md) | FAST/STANDARD/RELEASE 的触发条件、证据复用和耗时预算 |
 | [七会话执行契约](./docs/team/session-contracts/README.md) | 每个会话的决策权、输入输出、门禁、当前任务与激活条件 |
 | [任务控制面](./WORKFLOW.md) | 工作项状态、派发、并发、恢复、证据和安全边界 |
-| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7～M10 状态、依赖和集成顺序 |
+| [工作包索引](./docs/team/work-packages/README.md) | 基础工作包、M7～M11 状态、依赖和集成顺序 |
 | [AGENTS.md](./AGENTS.md) | 所有 Codex 会话必须遵守的仓库级工程规则 |
 | [功能验收标准](./docs/acceptance/ACCEPTANCE.md) | 可运行的功能、安全、恢复与评测完成定义 |
 | [机器追踪清单](./docs/acceptance/traceability.v1.json) | 功能 ID 到测试、证据的唯一机器事实源 |
@@ -140,13 +145,15 @@ flowchart LR
 | [M6 Hash 冻结记录](./evals/runners/m6-hash-freeze.v1.json) | 三个数据集 120+36 Case 的内容哈希；不代表产品执行通过 |
 | [评测 Fixture 清单](./contracts/registries/evaluation-fixture-manifest.v1.json) | 合成租户/主体 Fixture 的版本与哈希 |
 | [需求追踪矩阵](./docs/acceptance/TRACEABILITY.md) | 机器追踪清单的人类可读投影视图 |
-| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；当前里程碑为 M10（已启动） |
+| [实施路线](./docs/roadmap/IMPLEMENTATION_PLAN.md) | M0～M20 状态、范围、依赖、拆包方式和退出条件；当前里程碑为 M11（已启动） |
 | [架构评审报告](./docs/review/ARCHITECTURE_REVIEW.md) | 对原始总稿的保留项、问题与改造决策 |
 | [WP-000 rc1 裁决](./docs/review/WP-000-RC1-DISPOSITION.md) | 三方 REJECT、逐项处理和 rc2 冻结门禁 |
 | [ADR-0001](./docs/decisions/ADR-0001-orchestration-boundary.md) | LangGraph、Agents SDK 与 LiteLLM 的边界 |
 | [ADR-0002](./docs/decisions/ADR-0002-safe-side-effects.md) | 审批、幂等、Outbox 与回读验证 |
 | [ADR-0003](./docs/decisions/ADR-0003-task-command-event-protocol.md) | Task 投影、Command 并发与 Event 至少一次协议 |
 | [ADR-0004](./docs/decisions/ADR-0004-reproducible-acceptance-and-freeze.md) | 稳定内容摘要、评测分母、Feature 证据与 Audit 哈希链 |
+| [ADR-0005](./docs/decisions/ADR-0005-local-identity-and-tenant-boundary.md) | 本地身份、双主体、SecurityContext 与租户信任边界 |
+| [ADR-0006](./docs/decisions/ADR-0006-short-term-memory-authority.md) | 短期记忆作为任务内可重建派生状态的权威边界 |
 | [原始方案总稿](./企业智能工单与流程协同平台项目方案（企业级优化版）.md) | 历史设计输入，不再作为实施唯一事实源 |
 
 ## 怎么判断功能真的完成
@@ -205,7 +212,7 @@ DeepSeek V4 Flash 是首个在线目标，但尚未完成真实供应端调用�
 | M9T（已合入） | Codex 工程控制面：仓库地图、增量 Context、测试选择、证据缓存与可量化效率报告 |
 | M9（候选已验收） | 本地 OPA 策略、Capability、DLP、Audit 与 Security Event；固定分母累计 39 条完成 |
 | M10（候选已验收） | PostgreSQL/pgvector 本地知识平台、权限过滤、混合检索、稳定引用、管理与诊断页面；固定分母累计 40 条完成 |
-| M11 | 面向当前任务的短期记忆、摘要、Token 预算与 Handoff 过滤 |
+| M11（开发中） | 面向当前任务的短期记忆、摘要、Token 预算、Checkpoint 恢复、Handoff 过滤与安全可观察投影 |
 | M12 | 用户可管理、可纠正、可删除的长期记忆 |
 | M13 | 带来源和新鲜度的用户画像；只做预填和个性化，不参与授权 |
 | M14 | 企业知识库问答：权限过滤、稳定引用、知识反馈与工单衔接 |

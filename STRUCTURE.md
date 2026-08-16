@@ -142,7 +142,7 @@ flowpilot/
 │   ├── acceptance/
 │   └── integration/                  # S7 组合验证生成物，默认不提交
 └── docs/
-    ├── architecture/                  # 总体、Context、Runtime Port 与 Studio 非黑箱设计
+    ├── architecture/                  # 总体、Context/短期记忆、Runtime Port 与 Studio 非黑箱设计
     ├── acceptance/                    # 定义、机器 Traceability 与人类视图
     ├── decisions/
     ├── roadmap/                       # 当前实施路线与项目交接总览

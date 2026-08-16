@@ -4,13 +4,13 @@
 
 ```text
 SESSION_ROLE=S5-CORE
-WORK_PACKAGE=UNASSIGNED
-FEATURE_IDS=FP-FLOW-003,FP-DATA-001,FP-SEC-003,FP-UI-001
+WORK_PACKAGE=WP-126
+FEATURE_IDS=FP-CTX-001,FP-CTX-002,FP-CTX-004,FP-DATA-001,FP-UI-001
 WRITE_SCOPE=apps/api/**,packages/domain/**,packages/application/**,tests/core/**,pyproject.toml,uv.lock,Makefile
 ```
 
-- 契约状态：STANDBY / M10 ACCEPTED
-- 当前工作：无激活写工作包；等待新的 Agent Registry 派发。
+- 契约状态：DEPENDENCY_WAIT / WP-126
+- 当前工作：等待 WP-125 精确线性 Head，不提前修改 API、组合或 Workspace。
 
 ## 使命
 

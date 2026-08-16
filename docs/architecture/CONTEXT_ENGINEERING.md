@@ -117,6 +117,9 @@ Schema 信任值固定映射为：L0/L7=`controlled_instruction`、L1=`authentic
 
 ## 5. 分层记忆
 
+M11 的任务内短期记忆状态权威、持久化、恢复、清理和产品投影进一步固定在
+[`SHORT_TERM_MEMORY.md`](./SHORT_TERM_MEMORY.md) 与 ADR-0006；本节保留通用分层规则。
+
 | 记忆类型 | 范围 | 存储 | 内容 | 写入条件 |
 |---|---|---|---|---|
 | Graph State | 单任务/线程 | PostgreSQL Checkpointer | 当前流程与引用 | 每个安全节点边界 |

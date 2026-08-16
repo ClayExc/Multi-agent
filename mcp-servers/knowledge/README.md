@@ -1,15 +1,19 @@
-# FlowPilot Knowledge MCP 测试实现
+# FlowPilot Knowledge MCP
 
-`knowledge.search.v1` 是一个确定性、只读的 MCP 测试实现，用于验证 Gateway
-边界。其 P1 Schema Pin 由 `KNOWLEDGE_SCHEMA_PIN` 固定；旧版 M0 Pin 会以关闭
-方式失败（fail closed）。
+`knowledge.search.v1` 是确定性的只读 MCP 边界。公共输入/输出 Schema 与
+`KNOWLEDGE_SCHEMA_PIN` 保持不变；旧 Pin 和运行时 Schema 漂移均失败关闭。
 
-在检查任何摘要是否匹配之前，适配器会根据以下条件过滤可信元数据：
+M10 生产装配使用 `RetrievalKnowledgeMcpAdapter`。它只能由 Gateway 的
+`TrustedContextToolAdapter` 路径调用，先精确绑定 SecurityContext、Capability、tenant、
+purpose、ACL、action classification ceiling、audience、scope 和有效期，再调用
+`HybridRetrievalEngine`。Action ceiling 作为强制字段在候选形成前传入，不能从模型参数
+构造，也不能通过伪造降级 SecurityContext 传递。
 
-- 用户主体的 ACL 成员关系和已认证的工作负载主体；
-- 租户、Purpose 以及 `knowledge.search` capability Scope；
-- 数据分类上限，以及文档的生效和过期时间。
+Retrieval 只在候选、精确版本、Hash、classification 和授权复验后读取 bounded
+`content_excerpt`。Knowledge MCP 随后执行集中 Secret/DLP/Prompt-Injection 检查，并只
+映射公共 Schema 允许的 `source_ref`、精确版本、Section、`redacted_summary`、内容 Hash
+和分类；内部 `content_ref`、ACL、分数和诊断不外泄。
 
-封闭输出仅包含 `source_ref`、文档版本、章节、脱敏摘要、内容哈希和分类。
-内部 ACL 绝不会进入结果。该测试实现没有写 API、生产凭据、网络依赖或
-持久事实存储。
+旧 `KnowledgeMcpAdapter`/`KnowledgeRecord` 仅为 M7～M9 已冻结的离线 Fixture 保留，
+不得用于 M10 生产组合。排序、阈值、去重和引用验证只由 `flowpilot-retrieval` 提供，
+本包不复制第二套排序逻辑，也不直连数据库或正文存储。

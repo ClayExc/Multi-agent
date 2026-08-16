@@ -17,6 +17,7 @@ SOURCE_ROOTS = (
     ROOT / "packages" / "domain" / "src",
     ROOT / "packages" / "persistence" / "src",
     ROOT / "packages" / "policy" / "src",
+    ROOT / "packages" / "retrieval" / "src",
     ROOT / "packages" / "security" / "src",
     ROOT / "packages" / "tool-contracts" / "src",
 )

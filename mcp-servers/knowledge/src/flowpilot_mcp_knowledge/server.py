@@ -18,7 +18,7 @@ from flowpilot_security import CapabilityHandle
 from flowpilot_tool_contracts import ToolContract
 
 TOOL_NAME = "knowledge.search.v1"
-KNOWLEDGE_MCP_VERSION = "flowpilot.knowledge-mcp.p1.v1"
+KNOWLEDGE_MCP_VERSION = "flowpilot.knowledge-mcp.m10.v1"
 KNOWLEDGE_SEARCH_SCOPE = "knowledge.search"
 LEGACY_KNOWLEDGE_SCHEMA_PIN = (
     "sha256:fa39a6eb55d2d2bf68174a47dcb00d63a58e771e7ba5e3781cde4d716a319c04"

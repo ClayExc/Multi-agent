@@ -79,6 +79,7 @@ from .ports import (
     ReconciliationResult,
     SecretAwareToolAdapter,
     ToolInvocationResult,
+    TrustedContextToolAdapter,
 )
 from .registry import ToolDefinition, ToolRegistry
 from .signals import (
@@ -567,13 +568,20 @@ class McpGateway:
                     definition=authorization.definition,
                     arguments=invocation.request.planned_action.arguments,
                     capability=capability,
+                    security_context=authorization.context,
                     idempotency_key=invocation.request.idempotency_key,
                 )
             except GatewayAdapterError as exc:
                 if exc.safe_code == "KNOWLEDGE_ACCESS_DENIED":
                     code = GatewayReason.KNOWLEDGE_ACCESS_DENIED
+                elif exc.safe_code == "KNOWLEDGE_CONTENT_REJECTED":
+                    code = GatewayReason.KNOWLEDGE_CONTENT_REJECTED
                 elif exc.safe_code == "KNOWLEDGE_QUERY_REJECTED":
                     code = GatewayReason.KNOWLEDGE_QUERY_REJECTED
+                elif exc.safe_code == "KNOWLEDGE_REFERENCE_REJECTED":
+                    code = GatewayReason.KNOWLEDGE_REFERENCE_REJECTED
+                elif exc.safe_code == "KNOWLEDGE_RETRIEVAL_UNAVAILABLE":
+                    code = GatewayReason.KNOWLEDGE_RETRIEVAL_UNAVAILABLE
                 elif exc.disposition is GatewayAdapterDisposition.REJECTED:
                     code = GatewayReason.UPSTREAM_REJECTED
                 elif exc.disposition is GatewayAdapterDisposition.NOT_SENT:
@@ -836,6 +844,7 @@ class McpGateway:
                 definition=authorization.definition,
                 arguments=invocation.request.planned_action.arguments,
                 capability=capability,
+                security_context=authorization.context,
                 idempotency_key=invocation.request.idempotency_key,
             )
             assert_content_safe(
@@ -1455,9 +1464,17 @@ class McpGateway:
         definition: ToolDefinition,
         arguments: Mapping[str, Any],
         capability: CapabilityHandle,
+        security_context: SecurityContextRef,
         idempotency_key: str,
     ) -> ToolInvocationResult:
         if definition.secret_ref is None:
+            if isinstance(definition.adapter, TrustedContextToolAdapter):
+                return await definition.adapter.invoke_with_trusted_context(
+                    arguments=arguments,
+                    capability=capability,
+                    security_context=security_context,
+                    idempotency_key=idempotency_key,
+                )
             return await definition.adapter.invoke(
                 arguments=arguments,
                 capability=capability,

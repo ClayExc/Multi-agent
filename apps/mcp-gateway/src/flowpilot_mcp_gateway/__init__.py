@@ -33,6 +33,7 @@ from .ports import (
     SecretAwareToolAdapter,
     ToolAdapter,
     ToolInvocationResult,
+    TrustedContextToolAdapter,
 )
 from .registry import ToolDefinition, ToolRegistry
 from .signals import (
@@ -76,6 +77,7 @@ __all__ = [
     "ToolDefinition",
     "ToolInvocationResult",
     "ToolRegistry",
+    "TrustedContextToolAdapter",
     "build_audit_draft",
     "build_blocked_pair",
     "stable_signal_id",

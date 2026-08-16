@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
+from flowpilot_domain import SecurityContextRef
 from flowpilot_security import CapabilityHandle, SecretLease
 
 
@@ -88,6 +89,20 @@ class ToolAdapter(Protocol):
         capability: CapabilityHandle,
         idempotency_key: str,
     ) -> ReconciliationResult: ...
+
+
+@runtime_checkable
+class TrustedContextToolAdapter(Protocol):
+    """Adapter invoked only after the Gateway verifies the public context ref."""
+
+    async def invoke_with_trusted_context(
+        self,
+        *,
+        arguments: Mapping[str, Any],
+        capability: CapabilityHandle,
+        security_context: SecurityContextRef,
+        idempotency_key: str,
+    ) -> ToolInvocationResult: ...
 
 
 @runtime_checkable

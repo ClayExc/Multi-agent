@@ -1,10 +1,15 @@
 from .content_safety import (
     PROMPT_INJECTION_RULES,
+    WORKING_MEMORY_FORBIDDEN_FIELDS,
+    WORKING_MEMORY_MAX_DEPTH,
+    WORKING_MEMORY_RULES,
     ContentFinding,
     ContentSafetyRule,
     ContentSurface,
     assert_content_safe,
+    assert_working_memory_safe,
     scan_prompt_injection,
+    scan_working_memory_content,
 )
 from .context_integrity import (
     trusted_context_snapshot_hash,
@@ -58,7 +63,7 @@ from .verifier import SecurityVerifier
 
 SECURITY_ADAPTER_PORT_VERSION = "flowpilot.security-adapter.m0.v1"
 CAPABILITY_PORT_VERSION = "flowpilot.capability.m9.v1"
-CONTENT_SAFETY_REGISTRY_VERSION = "flowpilot.content-safety.m9.v1"
+CONTENT_SAFETY_REGISTRY_VERSION = "flowpilot.content-safety.m11.v1"
 SECRET_PROVIDER_PORT_VERSION = "flowpilot.secret-provider.m9.v1"
 
 __all__ = [
@@ -103,11 +108,16 @@ __all__ = [
     "WorkloadClaimPolicy",
     "WorkloadRegistration",
     "WorkloadTokenVerifierPort",
+    "WORKING_MEMORY_FORBIDDEN_FIELDS",
+    "WORKING_MEMORY_MAX_DEPTH",
+    "WORKING_MEMORY_RULES",
     "assert_no_secret_material",
     "assert_content_safe",
     "assert_safe_projection",
+    "assert_working_memory_safe",
     "scan_secret_material",
     "scan_prompt_injection",
+    "scan_working_memory_content",
     "PROMPT_INJECTION_RULES",
     "require_sha256_digest",
     "trusted_context_snapshot_hash",

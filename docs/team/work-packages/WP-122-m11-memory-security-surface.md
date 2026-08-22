@@ -1,6 +1,6 @@
 # WP-122：短期记忆内容安全表面
 
-- 状态：ACTIVE
+- 状态：DONE
 - Attempt：WP-122-a1
 - Owner：S3-PLATFORM
 - 风险：R2

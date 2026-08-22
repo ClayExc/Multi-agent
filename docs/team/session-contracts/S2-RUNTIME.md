@@ -9,8 +9,8 @@ FEATURE_IDS=FP-FLOW-003,FP-CTX-001,FP-CTX-002,FP-CTX-003,FP-CTX-004
 WRITE_SCOPE=apps/worker/**,packages/graph/**,packages/context/**,packages/agent-runtime/**,packages/model-gateway/**,tests/runtime/**
 ```
 
-- 契约状态：DEPENDENCY_WAIT / WP-123
-- 当前工作：等待 WP-122 精确线性 Head；WP-125 在 WP-124 后再次激活。
+- 契约状态：ACTIVE / WP-123
+- 当前工作：实现 Turn/Snapshot/Manifest、摘要和 Token 预算核心；WP-125 在 WP-124 后再次激活。
 
 ## 使命
 

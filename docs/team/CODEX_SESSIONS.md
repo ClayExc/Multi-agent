@@ -51,8 +51,8 @@ flowchart LR
 | 会话 | 中文显示名 | 定位 | 独占产物 | 当前状态 |
 |---|---|---|---|---|
 | S1-ARCH | 架构验收师 | 架构、契约、验收与集成 | README、Structure、Schema、ADR、追踪、工作包、发布裁决 | ACTIVE / M11 CHAIN OWNER |
-| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | DEPENDENCY_WAIT / WP-123 |
-| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | ACTIVE / WP-122 |
+| S2-RUNTIME | 智能体编排师 | Agent 流程与运行时 | Worker、LangGraph、Agent Runtime、Model Gateway、Context | ACTIVE / WP-123 |
+| S3-PLATFORM | 工具安全师 | MCP、安全与策略执行 | MCP Gateway、Tool Contracts、Policy、Security、MCP Servers | COMPLETED / WP-122 |
 | S4-QUALITY | 质量体验师 | 产品体验与质量证明 | Web、Retrieval、Observability、Evaluation、Evals、Acceptance | DEPENDENCY_WAIT / WP-127 |
 | S5-CORE | 领域核心师 | 领域、应用与 API 核心 | API、Domain、Application、Domain Pack、Python Workspace | DEPENDENCY_WAIT / WP-126 |
 | S6-DATA | 数据可靠性师 | 数据可靠性与基础设施 | Persistence、Migration、RLS、Inbox/Outbox、Infra | DEPENDENCY_WAIT / WP-124 |

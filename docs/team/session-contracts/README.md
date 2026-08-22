@@ -7,8 +7,8 @@
 | 会话 | 契约 | 当前工作包 | 当前激活状态 |
 |---|---|---|---|
 | S1-ARCH | [SC-S1-ARCH-v1](./S1-ARCH.md) | WP-121 | ACTIVE / CHAIN OWNER |
-| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | WP-123/125 | DEPENDENCY_WAIT |
-| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | WP-122 | ACTIVE |
+| S2-RUNTIME | [SC-S2-RUNTIME-v2](./S2-RUNTIME.md) | WP-123/125 | ACTIVE_WP123 |
+| S3-PLATFORM | [SC-S3-PLATFORM-v2](./S3-PLATFORM.md) | WP-122 | COMPLETED |
 | S4-QUALITY | [SC-S4-QUALITY-v1](./S4-QUALITY.md) | WP-127/128 | DEPENDENCY_WAIT |
 | S5-CORE | [SC-S5-CORE-v1](./S5-CORE.md) | WP-126 | DEPENDENCY_WAIT |
 | S6-DATA | [SC-S6-DATA-v1](./S6-DATA.md) | WP-124 | DEPENDENCY_WAIT |
@@ -36,7 +36,7 @@ S1～S7 均是各自领域的主 Agent。取得有效工作包后，可按
 - `HANDOFF`：实现结束，等待跨角色审查或集成。
 
 M9T、M9 与 M10 已完成。M11 使用 `CHAIN-M11-SHORT-TERM-MEMORY-01` 和 WP-121～129；
-当前只有 S3/WP-122 获得写租约，其余角色等待精确线性 Head。
+WP-122 已完成，当前只有 S2/WP-123 获得写租约，其余角色等待精确线性 Head。
 ContractSet 候选摘要为
 `sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2`；
 M0～M7 与 P2 已进入主分支。任何角色必须按 Agent Registry

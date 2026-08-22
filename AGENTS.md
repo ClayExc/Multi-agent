@@ -36,7 +36,8 @@ Contract 和当前 Work Package 引用。长期任务的新 Attempt 默认按
   安全执行器，M10 新增 1 条知识安全执行器；固定 156 条 Case 当前为 40 条通过、
   116 条明确失败，因此
   `RELEASED=false`、`FROZEN=false`。
-- M11 控制面已激活，当前只运行 WP-122（S3）；其余 M11 角色按精确线性 Head 等待。现状以
+- M11 控制面已激活，WP-122 已完成，当前只运行 WP-123（S2）；其余 M11 角色按精确
+  线性 Head 等待。现状以
   [`PROJECT_HANDOFF.md`](docs/roadmap/PROJECT_HANDOFF.md) 和机器追踪清单为准。
 - `DESIGNED / IMPLEMENTED / VERIFIED / RELEASED` 只按
   [`ACCEPTANCE.md`](docs/acceptance/ACCEPTANCE.md) 提升。

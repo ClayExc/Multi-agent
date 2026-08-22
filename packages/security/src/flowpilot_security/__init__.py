@@ -1,5 +1,6 @@
 from .content_safety import (
     PROMPT_INJECTION_RULES,
+    WORKING_MEMORY_FORBIDDEN_FIELD_FAMILIES,
     WORKING_MEMORY_FORBIDDEN_FIELDS,
     WORKING_MEMORY_MAX_DEPTH,
     WORKING_MEMORY_RULES,
@@ -108,6 +109,7 @@ __all__ = [
     "WorkloadClaimPolicy",
     "WorkloadRegistration",
     "WorkloadTokenVerifierPort",
+    "WORKING_MEMORY_FORBIDDEN_FIELD_FAMILIES",
     "WORKING_MEMORY_FORBIDDEN_FIELDS",
     "WORKING_MEMORY_MAX_DEPTH",
     "WORKING_MEMORY_RULES",

@@ -24,3 +24,10 @@ Turn 构造、Snapshot/Manifest 写入前、重放、Context 输出以及错误/
 凭据 family、禁止字段、隐藏推理、原始异常回显、循环和最大嵌套深度检查。Finding 和
 异常只包含稳定 rule/family ID 与安全路径；调用方不得把被拒绝的 key/value 或原异常拼入
 日志。该表面只验证内容安全，不拥有 Context、Memory、Persistence 或业务状态。
+
+WORKING_MEMORY 输入先经一次安全读取复制为内建 `dict/tuple/scalar` 快照；凭据和内容规则
+只扫描该快照，不会再次访问调用方 Mapping/Sequence。循环只按当前祖先路径判定，因此真实
+回边失败关闭，而同一合法子对象被多个字段引用不会被误判。隐藏推理与权威状态字段使用受限
+family 分词策略，拒绝 `analysis/thinking/role/approval/security_context/scope/capability`
+等字段及其前后缀变体，但不把任意未知字段当作本包的 Schema allowlist；具体 Turn、Snapshot
+与 Manifest 未知字段及 classification ceiling 仍由 Context 模型边界验证。

@@ -9,6 +9,7 @@ import pytest
 from flowpilot_security import (
     CONTENT_SAFETY_REGISTRY_VERSION,
     CREDENTIAL_FAMILIES,
+    WORKING_MEMORY_FORBIDDEN_FIELD_FAMILIES,
     WORKING_MEMORY_FORBIDDEN_FIELDS,
     WORKING_MEMORY_MAX_DEPTH,
     WORKING_MEMORY_RULES,
@@ -113,6 +114,10 @@ def test_working_memory_registry_is_versioned_and_immutable() -> None:
     assert CONTENT_SAFETY_REGISTRY_VERSION == "flowpilot.content-safety.m11.v1"
     assert isinstance(WORKING_MEMORY_RULES, tuple)
     assert isinstance(WORKING_MEMORY_FORBIDDEN_FIELDS, frozenset)
+    assert isinstance(WORKING_MEMORY_FORBIDDEN_FIELD_FAMILIES, frozenset)
+    assert {"analysis", "thinking", "role", "approval"}.issubset(
+        WORKING_MEMORY_FORBIDDEN_FIELD_FAMILIES
+    )
     assert {rule.rule_id for rule in WORKING_MEMORY_RULES} == {
         "working_memory_hidden_reasoning",
         "working_memory_raw_exception",
@@ -157,8 +162,12 @@ def test_credential_families_fail_closed_on_every_memory_boundary(
 @pytest.mark.parametrize(
     "unsafe",
     (
+        {"analysis": "private chain"},
+        {"thinking": "private chain"},
         {"chain_of_thought": "private steps"},
+        {"role_name": "administrator"},
         {"user_roles": ["administrator"]},
+        {"approval_status": "approved"},
         {"security-context-ref": "security-context://tenant-alpha/12345678"},
         {"provider_session_id": "provider-session-123"},
         {"capability_handle": "opaque-handle"},
@@ -218,6 +227,56 @@ def test_cycle_is_rejected_instead_of_becoming_an_implicit_bypass() -> None:
     assert "working_memory_cycle" in str(captured.value)
 
 
+def test_shared_mapping_alias_is_not_misclassified_as_a_cycle() -> None:
+    shared = {
+        "visible_text": "合法中文内容",
+        "source_refs": ["message://tenant-alpha/msg_42"],
+    }
+
+    assert_working_memory_safe({"claimed": shared, "verified": shared})
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    (
+        "analysis",
+        "analysis_text",
+        "thinking-notes",
+        "user.role.name",
+        "ROLE-NAME",
+        "approval_status",
+        "task-approval-result",
+        "security_context_hash",
+        "requested_scope_name",
+        "capability-summary",
+    ),
+)
+def test_forbidden_field_families_use_normalized_token_boundaries(
+    field_name: str,
+) -> None:
+    with pytest.raises(SecurityError) as captured:
+        assert_working_memory_safe({field_name: "opaque-value"})
+
+    assert captured.value.code is SecurityErrorCode.WORKING_MEMORY_BLOCKED
+    assert field_name not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    (
+        "roleplay_scenario",
+        "rethinking_note",
+        "paralysis_note",
+        "disapproval_reason",
+        "password_policy_status",
+    ),
+)
+def test_adjacent_business_fields_are_not_forbidden_by_substring(
+    field_name: str,
+) -> None:
+    assert_working_memory_safe({field_name: "合法业务字段"})
+
+
 def test_non_string_mapping_key_is_rejected_with_an_ordinal_path() -> None:
     with pytest.raises(SecurityError) as captured:
         assert_working_memory_safe({42: "合法内容"})
@@ -250,6 +309,71 @@ class _UnsafeRepr:
 
     def __repr__(self) -> str:
         return self._material
+
+
+class _StatefulMapping(Mapping[str, object]):
+    def __init__(self, value: object, material: str) -> None:
+        self._value = value
+        self._material = material
+        self.items_calls = 0
+
+    def __getitem__(self, key: str) -> object:
+        if key != "visible_text":
+            raise KeyError(key)
+        return self._value
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(("visible_text",))
+
+    def __len__(self) -> int:
+        return 1
+
+    def items(self) -> ItemsView[str, object]:
+        self.items_calls += 1
+        if self.items_calls > 1:
+            raise RuntimeError(self._material)
+        return {"visible_text": self._value}.items()
+
+
+def test_shared_stateful_mapping_alias_is_read_once_and_remains_valid() -> None:
+    shared = _StatefulMapping("合法中文内容", "second-read-must-not-occur")
+
+    assert_working_memory_safe({"claimed": shared, "verified": shared})
+
+    assert shared.items_calls == 1
+
+
+def test_stateful_mapping_is_read_once_before_all_content_scans() -> None:
+    material = "second-read-must-not-occur"
+    value = _StatefulMapping("合法中文内容", material)
+
+    assert_working_memory_safe(value)
+
+    assert value.items_calls == 1
+
+
+def test_public_memory_scanner_also_reads_stateful_mapping_once() -> None:
+    value = _StatefulMapping("合法中文内容", "second-read-must-not-occur")
+
+    assert scan_working_memory_content(value) == ()
+
+    assert value.items_calls == 1
+
+
+def test_stateful_mapping_snapshot_still_applies_credential_registry() -> None:
+    material = "sk" + "-admin-" + "Q" * 36
+    value = _StatefulMapping(material, "second-read-must-not-occur")
+
+    with pytest.raises(SecurityError) as captured:
+        assert_working_memory_safe(value)
+
+    assert captured.value.code is SecurityErrorCode.DLP_BLOCKED
+    assert value.items_calls == 1
+    assert material not in str(captured.value)
+    assert material not in repr(captured.value)
+    assert material not in "".join(traceback.format_exception(captured.value))
+    assert "second-read-must-not-occur" not in str(captured.value)
+    assert captured.value.__cause__ is None
 
 
 @pytest.mark.parametrize("kind", ("mapping_exception", "unsupported_object"))

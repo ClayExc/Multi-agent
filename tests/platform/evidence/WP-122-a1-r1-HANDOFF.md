@@ -85,6 +85,7 @@
 | `uv run --all-packages --all-groups --locked ruff check packages/security tests/platform` | PASS | `All checks passed` |
 | `uv run --all-packages --all-groups --locked mypy --strict packages/security/src/flowpilot_security` | PASS | 11 source files |
 | `uv run --all-packages --all-groups --locked python -B -m pytest tests/experience/test_secret_scan.py -q` | PASS | `2 passed` |
+| `flowpilot-eng tests select`（clean implementation Head `65d1540dbf4ccb961d1913112a8231045fc6103d`） | PASS | `tier=RELEASE`；reasons=`package_change,public_signature_change,security_change`；plan `sha256:22d85606c891eb8082e2d472f291325d002981173692e9df4b716396e81ef6de` |
 | 原 Attempt 全仓稳定门禁 | REUSED PASS | `2085 passed, 1 explicit online skip`；S1 明确要求本修复不重复 |
 | 原 Attempt Acceptance | REUSED BASELINE | 六个产品测试套件 PASS；固定 156 Case 为 `40 PASS / 116 explicit FAIL / 0 skipped`；S1 明确要求不重复 |
 | `git diff --check`、授权路径与保护树检查 | PASS | 仅 `packages/security/**`、`tests/platform/**`；Contract/共享文件零差异 |
@@ -92,6 +93,8 @@
 工程控制说明：本次属于 `security_change` 与 additive 进程内签名变化；实际门禁执行了 S1
 指定的增量、Platform、Shared Security、Contract、Ruff、Mypy、Secret 集合。全仓与
 Acceptance 使用同一父 Head 的已验证证据，按 S1 修复指令显式复用，不伪装为本次重跑。
+选择器要求的 `test-full/test-contract/test-security/acceptance` 中，Contract 与 Security 已在
+本次重新通过；Full 与 Acceptance 依 S1 的精确 remediation disposition 复用原证据。
 
 ## 安全与失败路径
 
@@ -161,6 +164,7 @@ NEW_HEAD=<this-handoff-commit>
 BASE_COMMIT=85909b5971da1f9c42607805d8a2681840fa47c0
 CONTRACT_CONTENT_DIGEST=sha256:1cad07bdc78c9cd0dfd8591c03fdb29c5e3039c15f88f7b624211abf2b5b42a2
 GATE=PASS_REMEDIATION
+TEST_PLAN_SHA256=sha256:22d85606c891eb8082e2d472f291325d002981173692e9df4b716396e81ef6de
 HANDOFF=tests/platform/evidence/WP-122-a1-r1-HANDOFF.md
 NEXT_ROLE=S1-ARCH
 NEXT_ATTEMPT_ID=WP-122-a1-r1-review
